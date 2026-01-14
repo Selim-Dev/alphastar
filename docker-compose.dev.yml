@@ -1,0 +1,28 @@
+version: '3.8'
+
+# Development docker-compose - runs only MongoDB
+# Use this when developing locally with hot-reload
+
+services:
+  mongodb:
+    image: mongo:7
+    container_name: alphastar-mongodb-dev
+    restart: unless-stopped
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: admin
+      MONGO_INITDB_ROOT_PASSWORD: password123
+      MONGO_INITDB_DATABASE: alphastar-kpi
+    volumes:
+      - mongodb_dev_data:/data/db
+      - ./docker/mongo-init.js:/docker-entrypoint-initdb.d/mongo-init.js:ro
+    ports:
+      - "27017:27017"
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  mongodb_dev_data:
+    driver: local

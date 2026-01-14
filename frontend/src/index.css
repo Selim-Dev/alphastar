@@ -1,0 +1,337 @@
+@import 'tailwindcss';
+
+/* ============================================
+   Aviation-Inspired Design System
+   Premium UI Theme Tokens
+   ============================================ */
+
+:root {
+  /* Base colors - Light Mode (Navy/Charcoal base with crisp neutrals) */
+  --background: 210 20% 98%;
+  --foreground: 222 47% 11%;
+  
+  /* Surface colors */
+  --card: 0 0% 100%;
+  --card-foreground: 222 47% 11%;
+  --popover: 0 0% 100%;
+  --popover-foreground: 222 47% 11%;
+  
+  /* Brand colors */
+  --primary: 222 47% 11%;
+  --primary-foreground: 210 40% 98%;
+  
+  /* Semantic colors */
+  --secondary: 210 40% 96%;
+  --secondary-foreground: 222 47% 11%;
+  --muted: 210 40% 96%;
+  --muted-foreground: 215 16% 47%;
+  --accent: 210 40% 96%;
+  --accent-foreground: 222 47% 11%;
+  --destructive: 0 84% 60%;
+  --destructive-foreground: 210 40% 98%;
+  
+  /* Aviation accent colors (Teal/Sky-blue) */
+  --aviation: 187 71% 42%;
+  --aviation-foreground: 0 0% 100%;
+  --aviation-muted: 187 50% 90%;
+  
+  /* Borders and inputs */
+  --border: 214 32% 91%;
+  --input: 214 32% 91%;
+  --ring: 187 71% 42%;
+  
+  /* Sidebar specific tokens - Light Mode (Light sidebar matching content) */
+  --sidebar-background: 210 20% 96%;
+  --sidebar-foreground: 222 47% 11%;
+  --sidebar-border: 214 32% 88%;
+  --sidebar-accent: 187 71% 42%;
+  --sidebar-accent-foreground: 0 0% 100%;
+  --sidebar-muted: 210 40% 92%;
+  --sidebar-muted-foreground: 215 16% 47%;
+  --sidebar-active-glow: 187 71% 42% / 0.12;
+  --sidebar-hover: 210 40% 94%;
+  
+  /* Radius */
+  --radius: 0.5rem;
+}
+
+/* Dark Mode - Properly tuned dark surfaces with accessible contrast */
+.dark {
+  /* Base colors */
+  --background: 222 47% 6%;
+  --foreground: 210 40% 98%;
+  
+  /* Surface colors */
+  --card: 222 47% 9%;
+  --card-foreground: 210 40% 98%;
+  --popover: 222 47% 9%;
+  --popover-foreground: 210 40% 98%;
+  
+  /* Brand colors */
+  --primary: 210 40% 98%;
+  --primary-foreground: 222 47% 11%;
+  
+  /* Semantic colors */
+  --secondary: 217 33% 17%;
+  --secondary-foreground: 210 40% 98%;
+  --muted: 217 33% 12%;
+  --muted-foreground: 215 20% 65%;
+  --accent: 217 33% 17%;
+  --accent-foreground: 210 40% 98%;
+  --destructive: 0 63% 31%;
+  --destructive-foreground: 210 40% 98%;
+  
+  /* Aviation accent colors (Brighter teal for dark mode) */
+  --aviation: 187 71% 50%;
+  --aviation-foreground: 222 47% 11%;
+  --aviation-muted: 187 30% 20%;
+  
+  /* Borders and inputs */
+  --border: 217 33% 17%;
+  --input: 217 33% 17%;
+  --ring: 187 71% 50%;
+  
+  /* Sidebar specific tokens - Dark Mode (Dark sidebar matching content) */
+  --sidebar-background: 222 47% 8%;
+  --sidebar-foreground: 210 40% 98%;
+  --sidebar-border: 217 33% 14%;
+  --sidebar-accent: 187 71% 50%;
+  --sidebar-accent-foreground: 222 47% 11%;
+  --sidebar-muted: 217 33% 14%;
+  --sidebar-muted-foreground: 215 20% 70%;
+  --sidebar-active-glow: 187 71% 50% / 0.2;
+  --sidebar-hover: 217 33% 12%;
+}
+
+/* ============================================
+   Typography Scale
+   ============================================ */
+
+.text-display {
+  font-size: 2.25rem; /* 36px */
+  font-weight: 700;
+  line-height: 1.1;
+}
+
+.text-h1 {
+  font-size: 1.875rem; /* 30px */
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+.text-h2 {
+  font-size: 1.5rem; /* 24px */
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+.text-h3 {
+  font-size: 1.25rem; /* 20px */
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.text-body {
+  font-size: 0.875rem; /* 14px */
+  font-weight: 400;
+  line-height: 1.5;
+}
+
+.text-small {
+  font-size: 0.75rem; /* 12px */
+  font-weight: 400;
+  line-height: 1.4;
+}
+
+.text-tiny {
+  font-size: 0.6875rem; /* 11px */
+  font-weight: 500;
+  line-height: 1.3;
+}
+
+/* ============================================
+   Spacing Scale Utilities
+   ============================================ */
+
+:root {
+  --space-1: 0.25rem;  /* 4px */
+  --space-2: 0.5rem;   /* 8px */
+  --space-3: 0.75rem;  /* 12px */
+  --space-4: 1rem;     /* 16px */
+  --space-5: 1.25rem;  /* 20px */
+  --space-6: 1.5rem;   /* 24px */
+  --space-8: 2rem;     /* 32px */
+  --space-10: 2.5rem;  /* 40px */
+}
+
+/* ============================================
+   Shadow Scale (Theme-aware)
+   ============================================ */
+
+:root {
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
+  --shadow: 0 1px 3px rgba(0, 0, 0, 0.1), 0 1px 2px rgba(0, 0, 0, 0.06);
+  --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.1);
+  --shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.1);
+  --shadow-glow: 0 0 20px hsl(187 71% 42% / 0.15);
+}
+
+.dark {
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+  --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.4);
+  --shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.5);
+  --shadow-glow: 0 0 20px hsl(187 71% 50% / 0.25);
+}
+
+/* Shadow utility classes */
+.shadow-theme-sm {
+  box-shadow: var(--shadow-sm);
+}
+
+.shadow-theme {
+  box-shadow: var(--shadow);
+}
+
+.shadow-theme-md {
+  box-shadow: var(--shadow-md);
+}
+
+.shadow-theme-lg {
+  box-shadow: var(--shadow-lg);
+}
+
+.shadow-theme-glow {
+  box-shadow: var(--shadow-glow);
+}
+
+/* ============================================
+   Base Styles
+   ============================================ */
+
+* {
+  border-color: hsl(var(--border));
+}
+
+body {
+  background-color: hsl(var(--background));
+  color: hsl(var(--foreground));
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+/* ============================================
+   Clickable Elements - Cursor Pointer
+   ============================================ */
+
+button:not(:disabled),
+[role="button"]:not([aria-disabled="true"]),
+a[href],
+input[type="checkbox"],
+input[type="radio"],
+input[type="submit"],
+input[type="button"],
+input[type="reset"],
+label[for],
+summary,
+[tabindex]:not([tabindex="-1"]):not(:disabled) {
+  cursor: pointer;
+}
+
+/* ============================================
+   Theme Transition Smoothing
+   ============================================ */
+
+/* Base transition for html element */
+html {
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+/* 
+ * When transitioning class is applied (during theme switch),
+ * enable smooth transitions on all elements to prevent jarring flashes.
+ * This is applied temporarily via ThemeContext.
+ */
+html.transitioning,
+html.transitioning *,
+html.transitioning *::before,
+html.transitioning *::after {
+  transition: background-color 0.3s ease, 
+              color 0.3s ease, 
+              border-color 0.3s ease,
+              box-shadow 0.3s ease,
+              fill 0.3s ease,
+              stroke 0.3s ease !important;
+  /* Prevent layout shifts during transition */
+  transition-property: background-color, color, border-color, box-shadow, fill, stroke !important;
+}
+
+/* Disable transitions on elements that shouldn't animate during theme change */
+html.transitioning .no-theme-transition,
+html.transitioning [data-no-theme-transition] {
+  transition: none !important;
+}
+
+/* Ensure smooth transition for specific UI elements */
+.theme-transition {
+  transition: background-color 0.3s ease, 
+              color 0.3s ease, 
+              border-color 0.3s ease,
+              box-shadow 0.3s ease;
+}
+
+/* ============================================
+   Aviation Accent Utilities
+   ============================================ */
+
+.bg-aviation {
+  background-color: hsl(var(--aviation));
+}
+
+.bg-aviation-muted {
+  background-color: hsl(var(--aviation-muted));
+}
+
+.text-aviation {
+  color: hsl(var(--aviation));
+}
+
+.text-aviation-foreground {
+  color: hsl(var(--aviation-foreground));
+}
+
+.border-aviation {
+  border-color: hsl(var(--aviation));
+}
+
+.ring-aviation {
+  --tw-ring-color: hsl(var(--aviation));
+}
+
+/* Sidebar utilities */
+.bg-sidebar {
+  background-color: hsl(var(--sidebar-background));
+}
+
+.text-sidebar {
+  color: hsl(var(--sidebar-foreground));
+}
+
+.text-sidebar-muted {
+  color: hsl(var(--sidebar-muted-foreground));
+}
+
+.border-sidebar {
+  border-color: hsl(var(--sidebar-border));
+}
+
+.bg-sidebar-accent {
+  background-color: hsl(var(--sidebar-accent));
+}
+
+.bg-sidebar-muted {
+  background-color: hsl(var(--sidebar-muted));
+}
+
+.bg-sidebar-hover {
+  background-color: hsl(var(--sidebar-hover));
+}

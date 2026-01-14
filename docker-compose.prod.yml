@@ -1,0 +1,27 @@
+version: '3.8'
+
+services:
+  # NestJS Backend (using MongoDB Atlas)
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: alphastar-backend
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      PORT: 3003
+      MONGODB_URI: ${MONGODB_URI}
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-7d}
+      AWS_REGION: ${AWS_REGION:-me-south-1}
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-}
+      AWS_S3_BUCKET: ${AWS_S3_BUCKET:-alphastar-kpi-uploads}
+    ports:
+      - "3003:3003"
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3003/api"]
+      interval: 30s
+      timeout: 10s
+      retries: 3

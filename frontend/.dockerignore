@@ -1,0 +1,14 @@
+node_modules
+dist
+coverage
+.env
+.env.local
+*.log
+.git
+.gitignore
+*.md
+*.test.ts
+*.test.tsx
+*.spec.ts
+*.spec.tsx
+src/test

@@ -1445,7 +1445,8 @@ export class AOGEventsService {
     }
 
     // Build the aggregation pipeline
-    const pipeline: Array<Record<string, unknown>> = [];
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const pipeline: any[] = [];
 
     // Add initial match stage if there are filters
     if (Object.keys(matchStage).length > 0) {

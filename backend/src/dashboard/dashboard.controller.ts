@@ -11,12 +11,9 @@ import {
   FleetHealthScore,
   AlertsResponse,
   PeriodComparison,
-  CostEfficiency,
   FleetComparisonResponse,
-  OperationalEfficiency,
   MaintenanceForecastResponse,
   RecentActivityResponse,
-  InsightsResponse,
   YoYComparisonResponse,
   DefectPatternsResponse,
   DataQualityResponse,
@@ -144,22 +141,6 @@ export class DashboardController {
   }
 
   /**
-   * Get Cost Efficiency Metrics
-   * Requirements: CEO Dashboard 7.1-7.5
-   */
-  @Get('cost-efficiency')
-  @ApiOperation({
-    summary: 'Get Cost Efficiency Metrics',
-    description: 'Returns cost per flight hour and cost per cycle',
-  })
-  @ApiResponse({ status: 200, description: 'Cost efficiency metrics retrieved successfully' })
-  async getCostEfficiency(@Query() query: DashboardQueryDto): Promise<CostEfficiency> {
-    const startDate = query.startDate ? new Date(query.startDate) : undefined;
-    const endDate = query.endDate ? new Date(query.endDate) : undefined;
-    return this.dashboardService.getCostEfficiency(startDate, endDate);
-  }
-
-  /**
    * Get Fleet Comparison
    * Requirements: CEO Dashboard 8.1-8.5
    */
@@ -173,22 +154,6 @@ export class DashboardController {
     const startDate = query.startDate ? new Date(query.startDate) : undefined;
     const endDate = query.endDate ? new Date(query.endDate) : undefined;
     return this.dashboardService.getFleetComparison(startDate, endDate);
-  }
-
-  /**
-   * Get Operational Efficiency Metrics
-   * Requirements: CEO Dashboard 11.1-11.5
-   */
-  @Get('operational-efficiency')
-  @ApiOperation({
-    summary: 'Get Operational Efficiency Metrics',
-    description: 'Returns MTBF, MTTR, and dispatch reliability metrics',
-  })
-  @ApiResponse({ status: 200, description: 'Operational efficiency metrics retrieved successfully' })
-  async getOperationalEfficiency(@Query() query: DashboardQueryDto): Promise<OperationalEfficiency> {
-    const startDate = query.startDate ? new Date(query.startDate) : undefined;
-    const endDate = query.endDate ? new Date(query.endDate) : undefined;
-    return this.dashboardService.getOperationalEfficiency(startDate, endDate);
   }
 
   /**
@@ -217,20 +182,6 @@ export class DashboardController {
   @ApiResponse({ status: 200, description: 'Recent activity retrieved successfully' })
   async getRecentActivity(): Promise<RecentActivityResponse> {
     return this.dashboardService.getRecentActivity();
-  }
-
-  /**
-   * Get Automated Insights
-   * Requirements: CEO Dashboard 14.1-14.5
-   */
-  @Get('insights')
-  @ApiOperation({
-    summary: 'Get Automated Insights',
-    description: 'Returns automatically generated insights based on data analysis',
-  })
-  @ApiResponse({ status: 200, description: 'Insights retrieved successfully' })
-  async getInsights(): Promise<InsightsResponse> {
-    return this.dashboardService.getInsights();
   }
 
   /**

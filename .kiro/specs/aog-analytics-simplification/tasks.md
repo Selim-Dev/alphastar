@@ -171,19 +171,19 @@ This implementation plan transforms the AOG workflow from an 18-state system to 
     - Indicate optional milestones that were skipped
     - _Requirements: 3.4_
 
-  - [-] 10.2 Update AOGDetailPage to use simplified model
+  - [x] 10.2 Update AOGDetailPage to use simplified model
     - Replace StatusTimeline with MilestoneTimeline
     - Update cost display to show Internal/External
     - Remove complex workflow status UI
     - _Requirements: 3.4, 4.4_
 
-  - [ ] 10.3 Create milestone edit form
+  - [x] 10.3 Create milestone edit form
     - Allow editing individual milestone timestamps
     - Validate timestamp ordering on save
     - Record who made changes
     - _Requirements: 3.1, 3.2, 3.5_
 
-- [ ] 11. Checkpoint - Frontend Implementation Complete
+- [-] 11. Checkpoint - Frontend Implementation Complete
   - Ensure all frontend components render correctly
   - Verify dashboard layout is balanced
   - Ask the user if questions arise

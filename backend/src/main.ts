@@ -10,7 +10,14 @@ async function bootstrap() {
   app.setGlobalPrefix('api');
 
   // Enable CORS
-  app.enableCors();
+  app.enableCors({
+    origin: [
+      'http://localhost:5173',
+      'http://localhost:3000',
+      'https://ejc-kpi.vercel.app',
+    ],
+    credentials: true,
+  });
 
   // Global validation pipe
   app.useGlobalPipes(

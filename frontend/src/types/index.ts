@@ -198,6 +198,22 @@ export interface AOGEvent {
   // Legacy indicator
   isLegacy?: boolean;
   isDemo?: boolean;
+  // Milestone timestamps (simplified workflow)
+  reportedAt?: string;
+  procurementRequestedAt?: string;
+  availableAtStoreAt?: string;
+  issuedBackAt?: string;
+  installationCompleteAt?: string;
+  testStartAt?: string;
+  upAndRunningAt?: string;
+  // Computed downtime metrics
+  technicalTimeHours?: number;
+  procurementTimeHours?: number;
+  opsTimeHours?: number;
+  totalDowntimeHours?: number;
+  // Simplified cost fields
+  internalCost?: number;
+  externalCost?: number;
   createdAt: string;
   updatedAt?: string;
 }

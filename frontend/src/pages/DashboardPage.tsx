@@ -33,6 +33,7 @@ import { DefectPatterns } from '@/components/ui/DefectPatterns';
 import { DataQualityIndicator } from '@/components/ui/DataQualityIndicator';
 import { ExecutivePDFExport } from '@/components/ui/ExecutivePDFExport';
 import { CollapsibleSection } from '@/components/ui/CollapsibleSection';
+import { ComingSoonSection } from '@/components/ui/ComingSoonSection';
 
 // Icon wrapper components
 const PlaneIcon = () => <Plane className="w-6 h-6" />;
@@ -400,6 +401,9 @@ export function DashboardPage() {
           <MaintenanceForecast data={maintenanceForecast} isLoading={maintenanceForecastLoading} />
         </div>
       </CollapsibleSection>
+
+      {/* Coming Soon Section */}
+      <ComingSoonSection />
 
       {/* Year-over-Year Comparison */}
       <CollapsibleSection title="Year-over-Year Comparison" storageKey="yoy-comparison" defaultExpanded={true}>

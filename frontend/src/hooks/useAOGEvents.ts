@@ -11,6 +11,8 @@ import type {
   AOGBottlenecksAnalyticsResponse,
   AOGWorkflowStatus,
   BlockingReason,
+  ThreeBucketAnalytics,
+  ThreeBucketAnalyticsFilter,
 } from '@/types';
 
 interface AOGFilters extends DateRangeFilter {
@@ -54,6 +56,29 @@ export function useAOGAnalytics(query: AnalyticsFilters) {
     queryKey: ['aog-events', 'analytics', query],
     queryFn: async () => {
       const { data } = await api.get('/aog-events/analytics/downtime-by-responsibility', { params: query });
+      return data;
+    },
+  });
+}
+
+/**
+ * Hook for fetching three-bucket downtime analytics
+ * 
+ * Fetches aggregated downtime metrics broken down into:
+ * - Technical Time: Troubleshooting + Installation
+ * - Procurement Time: Waiting for parts
+ * - Ops Time: Operational testing
+ * 
+ * Requirements: 5.1, 5.2, 5.3, 5.4
+ */
+export function useThreeBucketAnalytics(filter: ThreeBucketAnalyticsFilter) {
+  return useQuery({
+    queryKey: ['aog-events', 'analytics', 'buckets', filter],
+    queryFn: async () => {
+      const { data } = await api.get<ThreeBucketAnalytics>(
+        '/aog-events/analytics/buckets',
+        { params: filter }
+      );
       return data;
     },
   });

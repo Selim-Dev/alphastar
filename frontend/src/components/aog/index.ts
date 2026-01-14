@@ -1,4 +1,5 @@
 export { StatusTimeline } from './StatusTimeline';
+export { MilestoneTimeline } from './MilestoneTimeline';
 export { NextStepActionPanel } from './NextStepActionPanel';
 export { PartsTab } from './PartsTab';
 export { CostsTab } from './CostsTab';

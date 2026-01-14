@@ -84,14 +84,14 @@ This implementation plan transforms the AOG workflow from an 18-state system to 
     - Test legacy event detection and metric computation
     - **Validates: Requirements 10.1, 10.2, 10.3**
 
-- [-] 5. Implement Three-Bucket Analytics Endpoint
-  - [-] 5.1 Create getThreeBucketAnalytics method in AOGEventsService
+- [x] 5. Implement Three-Bucket Analytics Endpoint
+  - [x] 5.1 Create getThreeBucketAnalytics method in AOGEventsService
     - Aggregate technicalTimeHours, procurementTimeHours, opsTimeHours across filtered events
     - Calculate sum, average, and percentage for each bucket
     - Group by aircraft for detailed breakdown
     - _Requirements: 5.2, 5.3, 5.4_
 
-  - [ ] 5.2 Add GET /aog-events/analytics/buckets endpoint to controller
+  - [x] 5.2 Add GET /aog-events/analytics/buckets endpoint to controller
     - Accept filter parameters: aircraftId, fleetGroup, startDate, endDate
     - Return ThreeBucketAnalytics response
     - _Requirements: 5.1, 5.2, 5.3_
@@ -101,77 +101,77 @@ This implementation plan transforms the AOG workflow from an 18-state system to 
     - Verify sum of individual metrics equals aggregated totals
     - **Validates: Requirements 5.2, 5.3, 5.4, 6.2, 6.3**
 
-- [ ] 6. Checkpoint - Backend Implementation Complete
+- [x] 6. Checkpoint - Backend Implementation Complete
   - Ensure all backend tests pass
   - Verify API endpoints work correctly
   - Ask the user if questions arise
 
-- [ ] 7. Remove Dashboard Components
-  - [ ] 7.1 Remove OperationalEfficiencyPanel from DashboardPage
+- [x] 7. Remove Dashboard Components
+  - [x] 7.1 Remove OperationalEfficiencyPanel from DashboardPage
     - Remove import statement
     - Remove component usage from JSX
     - Remove associated hook usage (useOperationalEfficiency)
     - _Requirements: 7a.1_
 
-  - [ ] 7.2 Remove InsightsPanel from DashboardPage
+  - [x] 7.2 Remove InsightsPanel from DashboardPage
     - Remove import statement
     - Remove component usage from JSX
     - Remove associated hook usage (useInsights)
     - _Requirements: 7a.2_
 
-  - [ ] 7.3 Remove CostEfficiencyCard from DashboardPage
+  - [x] 7.3 Remove CostEfficiencyCard from DashboardPage
     - Remove import statement
     - Remove component usage from JSX
     - Remove associated hook usage (useCostEfficiency)
     - _Requirements: 7a.3_
 
-  - [ ] 7.4 Remove backend endpoints for removed components
+  - [x] 7.4 Remove backend endpoints for removed components
     - Remove /dashboard/operational-efficiency endpoint
     - Remove /dashboard/insights endpoint
     - Remove /dashboard/cost-efficiency endpoint
     - Remove associated service methods
     - _Requirements: 7a.4, 7a.5, 7a.6_
 
-- [ ] 8. Create Coming Soon Dashboard Section
-  - [ ] 8.1 Create ComingSoonSection component
+- [x] 8. Create Coming Soon Dashboard Section
+  - [x] 8.1 Create ComingSoonSection component
     - Create frontend/src/components/ui/ComingSoonSection.tsx
     - Display two placeholder tiles: "Aircraft at MRO" and "Vacation Plan"
     - Use consistent card styling with existing dashboard components
     - No backend API calls required
     - _Requirements: 7.1, 7.2, 7.3, 7.4, 7.5_
 
-  - [ ] 8.2 Add ComingSoonSection to DashboardPage
+  - [x] 8.2 Add ComingSoonSection to DashboardPage
     - Import and add component to dashboard layout
     - Position appropriately in the dashboard grid
     - Ensure layout remains balanced
     - _Requirements: 7.1, 7a.7_
 
-- [ ] 9. Update AOG Analytics Page
-  - [ ] 9.1 Create ThreeBucketChart component
+- [x] 9. Update AOG Analytics Page
+  - [x] 9.1 Create ThreeBucketChart component
     - Display bar chart with Technical, Procurement, Ops hours
     - Display pie chart showing percentage distribution
     - Use consistent styling with existing charts
     - _Requirements: 5.3, 6.2_
 
-  - [ ] 9.2 Update AOGAnalyticsPage to use three-bucket data
+  - [x] 9.2 Update AOGAnalyticsPage to use three-bucket data
     - Replace existing analytics with three-bucket breakdown
     - Update summary cards to show bucket totals
     - Add fleet filter option
     - _Requirements: 5.1, 5.2, 5.3, 5.4, 5.5_
 
-  - [ ] 9.3 Update useAOGEvents hook for new analytics endpoint
+  - [x] 9.3 Update useAOGEvents hook for new analytics endpoint
     - Add useThreeBucketAnalytics hook
     - Handle filter parameters
     - _Requirements: 5.1_
 
-- [ ] 10. Update AOG Detail Page
-  - [ ] 10.1 Create MilestoneTimeline component
+- [-] 10. Update AOG Detail Page
+  - [x] 10.1 Create MilestoneTimeline component
     - Display milestone timestamps in vertical timeline
     - Show computed time between milestones
     - Indicate optional milestones that were skipped
     - _Requirements: 3.4_
 
-  - [ ] 10.2 Update AOGDetailPage to use simplified model
+  - [-] 10.2 Update AOGDetailPage to use simplified model
     - Replace StatusTimeline with MilestoneTimeline
     - Update cost display to show Internal/External
     - Remove complex workflow status UI

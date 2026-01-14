@@ -789,6 +789,70 @@ export interface AOGBottlenecksAnalyticsResponse {
   overallAverageResolutionHours: number;
 }
 
+// Three-Bucket Analytics Types (AOG Analytics Simplification)
+// Requirements: 5.2, 5.3, 5.4
+
+/**
+ * Summary statistics for three-bucket analytics
+ */
+export interface ThreeBucketSummary {
+  totalEvents: number;
+  activeEvents: number;
+  totalDowntimeHours: number;
+  averageDowntimeHours: number;
+}
+
+/**
+ * Individual bucket metrics
+ */
+export interface BucketMetrics {
+  totalHours: number;
+  averageHours: number;
+  percentage: number;
+}
+
+/**
+ * Three-bucket breakdown (Technical, Procurement, Ops)
+ */
+export interface ThreeBucketBreakdown {
+  technical: BucketMetrics;
+  procurement: BucketMetrics;
+  ops: BucketMetrics;
+}
+
+/**
+ * Per-aircraft breakdown for three-bucket analytics
+ */
+export interface AircraftBucketBreakdown {
+  aircraftId: string;
+  registration: string;
+  technicalHours: number;
+  procurementHours: number;
+  opsHours: number;
+  totalHours: number;
+}
+
+/**
+ * Complete three-bucket analytics response
+ * Requirements: 5.2, 5.3, 5.4
+ */
+export interface ThreeBucketAnalytics {
+  summary: ThreeBucketSummary;
+  buckets: ThreeBucketBreakdown;
+  byAircraft: AircraftBucketBreakdown[];
+}
+
+/**
+ * Filter parameters for three-bucket analytics
+ * Requirements: 5.1
+ */
+export interface ThreeBucketAnalyticsFilter {
+  aircraftId?: string;
+  fleetGroup?: string;
+  startDate?: string;
+  endDate?: string;
+}
+
 // AOG Workflow Constants
 export const AOG_WORKFLOW_STATUS_LABELS: Record<AOGWorkflowStatus, string> = {
   REPORTED: 'Reported',

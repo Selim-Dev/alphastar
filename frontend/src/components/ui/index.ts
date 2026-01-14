@@ -22,3 +22,5 @@ export * from './ExecutivePDFExport';
 export * from './CollapsibleSection';
 export * from './SearchInput';
 export * from './GlossaryTooltip';
+export * from './ComingSoonSection';
+export * from './ThreeBucketChart';

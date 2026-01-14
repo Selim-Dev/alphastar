@@ -11,12 +11,9 @@ import {
   useFleetHealthScore,
   useExecutiveAlerts,
   usePeriodComparison,
-  useCostEfficiency,
   useFleetComparison,
-  useOperationalEfficiency,
   useMaintenanceForecast,
   useRecentActivity,
-  useInsights,
   useYoYComparison,
   useDefectPatterns,
   useDataQuality,
@@ -29,11 +26,8 @@ import { AlertsPanel } from '@/components/ui/AlertsPanel';
 import { StatusSummaryBar } from '@/components/ui/StatusSummaryBar';
 import { KPICardEnhanced } from '@/components/ui/KPICardEnhanced';
 import { FleetComparison } from '@/components/ui/FleetComparison';
-import { CostEfficiencyCard } from '@/components/ui/CostEfficiencyCard';
-import { OperationalEfficiencyPanel } from '@/components/ui/OperationalEfficiencyPanel';
 import { MaintenanceForecast } from '@/components/ui/MaintenanceForecast';
 import { RecentActivityFeed } from '@/components/ui/RecentActivityFeed';
-import { InsightsPanel } from '@/components/ui/InsightsPanel';
 import { YoYComparison } from '@/components/ui/YoYComparison';
 import { DefectPatterns } from '@/components/ui/DefectPatterns';
 import { DataQualityIndicator } from '@/components/ui/DataQualityIndicator';
@@ -119,12 +113,9 @@ export function DashboardPage() {
   const { data: healthScore, isLoading: healthScoreLoading } = useFleetHealthScore(dateRange);
   const { data: alerts, isLoading: alertsLoading } = useExecutiveAlerts();
   const { data: periodComparison, isLoading: periodComparisonLoading } = usePeriodComparison(dateRange);
-  const { data: costEfficiency, isLoading: costEfficiencyLoading } = useCostEfficiency(dateRange);
   const { data: fleetComparison, isLoading: fleetComparisonLoading } = useFleetComparison(dateRange);
-  const { data: operationalEfficiency, isLoading: operationalEfficiencyLoading } = useOperationalEfficiency(dateRange);
   const { data: maintenanceForecast, isLoading: maintenanceForecastLoading } = useMaintenanceForecast();
   const { data: recentActivity, isLoading: recentActivityLoading } = useRecentActivity();
-  const { data: insights, isLoading: insightsLoading } = useInsights();
   const { data: yoyComparison, isLoading: yoyComparisonLoading } = useYoYComparison(dateRange);
   const { data: defectPatterns, isLoading: defectPatternsLoading } = useDefectPatterns(dateRange);
   const { data: dataQuality, isLoading: dataQualityLoading } = useDataQuality();
@@ -324,11 +315,6 @@ export function DashboardPage() {
         />
       </div>
 
-      {/* Cost Efficiency Section */}
-      <CollapsibleSection title="Cost Efficiency" storageKey="cost-efficiency" defaultExpanded={true}>
-        <CostEfficiencyCard data={costEfficiency} isLoading={costEfficiencyLoading} />
-      </CollapsibleSection>
-
       {/* Trends Section */}
       <CollapsibleSection title="Performance Trends" storageKey="trends" defaultExpanded={true}>
         <FilterBar className="w-fit mb-4">
@@ -404,15 +390,7 @@ export function DashboardPage() {
 
       {/* Operational Insights Section */}
       <CollapsibleSection title="Operational Insights" storageKey="operational-insights" defaultExpanded={true}>
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <OperationalEfficiencyPanel data={operationalEfficiency} isLoading={operationalEfficiencyLoading} />
-          <DefectPatterns data={defectPatterns} isLoading={defectPatternsLoading} />
-        </div>
-      </CollapsibleSection>
-
-      {/* Insights Panel */}
-      <CollapsibleSection title="Automated Insights" storageKey="insights" defaultExpanded={true}>
-        <InsightsPanel data={insights} isLoading={insightsLoading} />
+        <DefectPatterns data={defectPatterns} isLoading={defectPatternsLoading} />
       </CollapsibleSection>
 
       {/* Activity & Forecast Section */}

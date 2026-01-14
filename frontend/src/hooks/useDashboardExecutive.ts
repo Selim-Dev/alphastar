@@ -4,12 +4,9 @@ import type {
   FleetHealthScore,
   AlertsResponse,
   PeriodComparison,
-  CostEfficiency,
   FleetComparisonResponse,
-  OperationalEfficiency,
   MaintenanceForecastResponse,
   RecentActivityResponse,
-  InsightsResponse,
   YoYComparisonResponse,
   DefectPatternsResponse,
   DataQualityResponse,
@@ -66,22 +63,6 @@ export function usePeriodComparison(params?: DateRangeParams) {
   });
 }
 
-// Cost Efficiency
-export function useCostEfficiency(params?: DateRangeParams) {
-  return useQuery({
-    queryKey: ['dashboard', 'cost-efficiency', params],
-    queryFn: async () => {
-      const searchParams = new URLSearchParams();
-      if (params?.startDate) searchParams.append('startDate', params.startDate);
-      if (params?.endDate) searchParams.append('endDate', params.endDate);
-      const query = searchParams.toString();
-      const response = await api.get<CostEfficiency>(`/dashboard/cost-efficiency${query ? `?${query}` : ''}`);
-      return response.data;
-    },
-    staleTime: 60 * 1000,
-  });
-}
-
 // Fleet Comparison
 export function useFleetComparison(params?: DateRangeParams) {
   return useQuery({
@@ -98,22 +79,6 @@ export function useFleetComparison(params?: DateRangeParams) {
   });
 }
 
-
-// Operational Efficiency
-export function useOperationalEfficiency(params?: DateRangeParams) {
-  return useQuery({
-    queryKey: ['dashboard', 'operational-efficiency', params],
-    queryFn: async () => {
-      const searchParams = new URLSearchParams();
-      if (params?.startDate) searchParams.append('startDate', params.startDate);
-      if (params?.endDate) searchParams.append('endDate', params.endDate);
-      const query = searchParams.toString();
-      const response = await api.get<OperationalEfficiency>(`/dashboard/operational-efficiency${query ? `?${query}` : ''}`);
-      return response.data;
-    },
-    staleTime: 60 * 1000,
-  });
-}
 
 // Maintenance Forecast
 export function useMaintenanceForecast() {
@@ -137,18 +102,6 @@ export function useRecentActivity() {
     },
     staleTime: 30 * 1000,
     refetchInterval: 60 * 1000,
-  });
-}
-
-// Insights
-export function useInsights() {
-  return useQuery({
-    queryKey: ['dashboard', 'insights'],
-    queryFn: async () => {
-      const response = await api.get<InsightsResponse>('/dashboard/insights');
-      return response.data;
-    },
-    staleTime: 60 * 1000,
   });
 }
 

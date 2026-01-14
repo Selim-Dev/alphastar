@@ -229,7 +229,7 @@ This implementation plan transforms the AOG workflow from an 18-state system to 
     - _Requirements: 8.2, 8.3, 8.4_
 
 - [-] 14. Update Documentation
-  - [ ] 14.1 Create new steering document for simplified AOG model
+  - [x] 14.1 Create new steering document for simplified AOG model
     - Document three-bucket downtime model
     - Document milestone timestamps and meanings
     - Document special cases (no part needed, part in store, no ops test)
@@ -237,12 +237,12 @@ This implementation plan transforms the AOG workflow from an 18-state system to 
     - Create .kiro/steering/aog-analytics-simplified.md
     - _Requirements: 11.1, 11.2, 11.3, 12.1, 12.4_
 
-  - [ ] 14.2 Remove outdated steering documents
+  - [x] 14.2 Remove outdated steering documents
     - Remove .kiro/steering/aog-wo-vacation-revamp.md
     - Remove .kiro/steering/aog-wo-vacation-walkthrough.md
     - _Requirements: 12.2, 12.3_
 
-  - [ ] 14.3 Update system-architecture.md
+  - [-] 14.3 Update system-architecture.md
     - Update AOG Events section with simplified model
     - Update API endpoint reference
     - Remove references to 18-state workflow

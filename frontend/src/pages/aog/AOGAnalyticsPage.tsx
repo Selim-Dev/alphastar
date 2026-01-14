@@ -483,11 +483,7 @@ export function AOGAnalyticsPage() {
       />
 
       {/* Three-Bucket Summary Cards */}
-      <BucketSummaryCards
-        data={buckets}
-        totalDowntime={summary.totalDowntimeHours}
-        eventCount={summary.totalEvents}
-      />
+      <BucketSummaryCards data={buckets} />
 
       {/* Three-Bucket Charts */}
       <ThreeBucketChart data={buckets} isLoading={isLoadingBuckets} />

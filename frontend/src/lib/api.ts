@@ -2,8 +2,11 @@ import axios from 'axios';
 
 const TOKEN_KEY = 'alphastar_token';
 
-// Use environment variable for API URL, fallback to hardcoded production URL
-const API_BASE_URL = 'http://178.18.246.104:3003/api';
+// Use environment variable for API URL with smart defaults
+const API_BASE_URL = import.meta.env.VITE_API_URL || 
+  (window.location.hostname === 'localhost' 
+    ? 'http://localhost:3003/api' 
+    : 'http://178.18.246.104:3003/api');
 
 export const api = axios.create({
   baseURL: API_BASE_URL,

@@ -676,15 +676,25 @@ class Seeder {
   }
 
   /**
-   * Seed AOG events with varied responsible parties
+   * Seed AOG events with varied responsible parties and milestone timestamps
    * Requirements: 2.4 - All 5 responsible parties represented
+   * Requirements: 8.1, 8.3, 8.5 - Diverse AOG events for three-bucket analytics demo
    */
   async seedAOGEvents(aircraft: AircraftDocument[]): Promise<void> {
-    console.log('🚨 Seeding AOG events...');
+    console.log('🚨 Seeding AOG events with milestone timestamps...');
     let totalCreated = 0;
     const responsibleParties = Object.values(ResponsibleParty);
     const partyUsage: Record<string, number> = {};
     responsibleParties.forEach(p => partyUsage[p] = 0);
+
+    // Track scenario distribution for demo purposes
+    const scenarioCounts = {
+      longProcurement: 0,
+      immediatePart: 0,
+      noPart: 0,
+      withOpsTest: 0,
+      withoutOpsTest: 0,
+    };
 
     for (const ac of aircraft) {
       const eventCount = randomInt(SEED_CONFIG.aogEventsPerAircraft.min, SEED_CONFIG.aogEventsPerAircraft.max);
@@ -693,10 +703,6 @@ class Seeder {
         // Distribute events across the 90-day period
         const daysAgo = randomInt(1, SEED_CONFIG.daysOfData - 1);
         const detectedAt = getDateDaysAgo(daysAgo);
-        
-        // Duration: 4-72 hours
-        const durationHours = randomInt(4, 72);
-        const clearedAt = new Date(detectedAt.getTime() + durationHours * 60 * 60 * 1000);
         
         // Select responsible party - ensure coverage
         let responsibleParty: ResponsibleParty;
@@ -716,6 +722,121 @@ class Seeder {
 
         const categories = Object.values(AOGCategory);
         
+        // Determine scenario type for this event
+        const scenarioRand = Math.random();
+        let scenario: 'longProcurement' | 'immediatePart' | 'noPart' | 'standard';
+        
+        if (scenarioRand < 0.25) {
+          scenario = 'longProcurement'; // Long procurement delay
+          scenarioCounts.longProcurement++;
+        } else if (scenarioRand < 0.45) {
+          scenario = 'immediatePart'; // Part already in store
+          scenarioCounts.immediatePart++;
+        } else if (scenarioRand < 0.60) {
+          scenario = 'noPart'; // No part needed
+          scenarioCounts.noPart++;
+        } else {
+          scenario = 'standard'; // Standard flow
+        }
+
+        // Determine if ops testing is required (60% yes, 40% no)
+        const requiresOpsTest = Math.random() < 0.6;
+        if (requiresOpsTest) {
+          scenarioCounts.withOpsTest++;
+        } else {
+          scenarioCounts.withoutOpsTest++;
+        }
+
+        // Build milestone timestamps based on scenario
+        const reportedAt = new Date(detectedAt);
+        let procurementRequestedAt: Date | undefined;
+        let availableAtStoreAt: Date | undefined;
+        let issuedBackAt: Date | undefined;
+        let installationCompleteAt: Date | undefined;
+        let testStartAt: Date | undefined;
+        let upAndRunningAt: Date | undefined;
+
+        let currentTime = reportedAt.getTime();
+
+        // Technical Time Phase 1: Troubleshooting (1-8 hours)
+        const troubleshootingHours = randomFloat(1, 8, 1);
+        currentTime += troubleshootingHours * 60 * 60 * 1000;
+
+        if (scenario === 'noPart') {
+          // No part needed - skip procurement entirely
+          // Technical Time continues: Installation/repair (2-12 hours)
+          const repairHours = randomFloat(2, 12, 1);
+          currentTime += repairHours * 60 * 60 * 1000;
+          installationCompleteAt = new Date(currentTime);
+        } else {
+          // Part required
+          procurementRequestedAt = new Date(currentTime);
+
+          if (scenario === 'immediatePart') {
+            // Part in store - minimal procurement time (0.5-2 hours)
+            const storeRetrievalHours = randomFloat(0.5, 2, 1);
+            currentTime += storeRetrievalHours * 60 * 60 * 1000;
+            availableAtStoreAt = new Date(currentTime);
+          } else if (scenario === 'longProcurement') {
+            // Long procurement delay (48-168 hours = 2-7 days)
+            const procurementHours = randomFloat(48, 168, 1);
+            currentTime += procurementHours * 60 * 60 * 1000;
+            availableAtStoreAt = new Date(currentTime);
+          } else {
+            // Standard procurement (12-48 hours)
+            const procurementHours = randomFloat(12, 48, 1);
+            currentTime += procurementHours * 60 * 60 * 1000;
+            availableAtStoreAt = new Date(currentTime);
+          }
+
+          // Issue part to maintenance (0.5-2 hours)
+          const issueHours = randomFloat(0.5, 2, 1);
+          currentTime += issueHours * 60 * 60 * 1000;
+          issuedBackAt = new Date(currentTime);
+
+          // Technical Time Phase 2: Installation (2-16 hours)
+          const installationHours = randomFloat(2, 16, 1);
+          currentTime += installationHours * 60 * 60 * 1000;
+          installationCompleteAt = new Date(currentTime);
+        }
+
+        // Ops Testing Phase (if required)
+        if (requiresOpsTest) {
+          testStartAt = new Date(currentTime);
+          // Ops Time: Testing (1-8 hours)
+          const testingHours = randomFloat(1, 8, 1);
+          currentTime += testingHours * 60 * 60 * 1000;
+        }
+
+        upAndRunningAt = new Date(currentTime);
+        const clearedAt = upAndRunningAt;
+
+        // Calculate computed metrics
+        const totalDowntimeHours = (upAndRunningAt.getTime() - reportedAt.getTime()) / (1000 * 60 * 60);
+        
+        let technicalTimeHours = troubleshootingHours;
+        if (scenario === 'noPart') {
+          // No procurement - all time after troubleshooting is technical
+          const repairTime = (installationCompleteAt!.getTime() - (reportedAt.getTime() + troubleshootingHours * 60 * 60 * 1000)) / (1000 * 60 * 60);
+          technicalTimeHours += repairTime;
+        } else {
+          // With procurement - technical time is installation phase
+          const installTime = (installationCompleteAt!.getTime() - (issuedBackAt?.getTime() || availableAtStoreAt!.getTime())) / (1000 * 60 * 60);
+          technicalTimeHours += installTime;
+        }
+
+        const procurementTimeHours = procurementRequestedAt && availableAtStoreAt
+          ? (availableAtStoreAt.getTime() - procurementRequestedAt.getTime()) / (1000 * 60 * 60)
+          : 0;
+
+        const opsTimeHours = testStartAt && upAndRunningAt
+          ? (upAndRunningAt.getTime() - testStartAt.getTime()) / (1000 * 60 * 60)
+          : 0;
+
+        // Generate costs
+        const internalCost = randomInt(5000, 50000);
+        const externalCost = scenario === 'noPart' ? 0 : randomInt(10000, 200000);
+
         await this.aogEventModel.create({
           aircraftId: ac._id,
           detectedAt,
@@ -725,10 +846,26 @@ class Seeder {
           responsibleParty,
           actionTaken: `Resolved ${randomElement(AOG_REASON_CODES).toLowerCase()} issue`,
           manpowerCount: randomInt(2, 8),
-          manHours: randomInt(8, 120),
-          costLabor: randomInt(5000, 50000),
-          costParts: randomInt(10000, 200000),
+          manHours: Math.round(totalDowntimeHours * randomFloat(0.3, 0.7, 2)),
+          costLabor: internalCost,
+          costParts: externalCost,
           costExternal: Math.random() < 0.3 ? randomInt(5000, 100000) : undefined,
+          // NEW: Milestone timestamps
+          reportedAt,
+          procurementRequestedAt,
+          availableAtStoreAt,
+          issuedBackAt,
+          installationCompleteAt,
+          testStartAt,
+          upAndRunningAt: Math.random() < 0.9 ? upAndRunningAt : undefined,
+          // NEW: Computed metrics
+          technicalTimeHours: parseFloat(technicalTimeHours.toFixed(2)),
+          procurementTimeHours: parseFloat(procurementTimeHours.toFixed(2)),
+          opsTimeHours: parseFloat(opsTimeHours.toFixed(2)),
+          totalDowntimeHours: parseFloat(totalDowntimeHours.toFixed(2)),
+          // NEW: Simplified costs
+          internalCost,
+          externalCost,
           updatedBy: this.adminUserId,
         });
         totalCreated++;
@@ -736,6 +873,12 @@ class Seeder {
     }
     console.log(`  ✅ Created ${totalCreated} AOG events`);
     console.log(`  📊 Party distribution: ${JSON.stringify(partyUsage)}`);
+    console.log(`  📊 Scenario distribution:`);
+    console.log(`     - Long procurement delays: ${scenarioCounts.longProcurement}`);
+    console.log(`     - Immediate part availability: ${scenarioCounts.immediatePart}`);
+    console.log(`     - No parts needed: ${scenarioCounts.noPart}`);
+    console.log(`     - With ops testing: ${scenarioCounts.withOpsTest}`);
+    console.log(`     - Without ops testing: ${scenarioCounts.withoutOpsTest}`);
   }
 
   /**

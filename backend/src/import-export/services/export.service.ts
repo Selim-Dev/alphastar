@@ -386,8 +386,11 @@ export class ExportService {
         ? Math.round(((e.clearedAt.getTime() - e.detectedAt.getTime()) / (1000 * 60 * 60)) * 100) / 100
         : null;
 
-      // Calculate total cost summary
+      // Calculate total cost summary (legacy fields)
       const totalCost = (e.costLabor || 0) + (e.costParts || 0) + (e.costExternal || 0);
+
+      // Calculate total cost from simplified fields
+      const simplifiedTotalCost = (e.internalCost || 0) + (e.externalCost || 0);
 
       return {
         'Aircraft Registration': aircraftMap.get(e.aircraftId?.toString()) || e.aircraftId?.toString(),
@@ -400,10 +403,28 @@ export class ExportService {
         'Action Taken': e.actionTaken,
         'Manpower Count': e.manpowerCount,
         'Man Hours': e.manHours,
+        // Legacy cost fields
         'Cost Labor': e.costLabor,
         'Cost Parts': e.costParts,
         'Cost External': e.costExternal,
-        'Total Cost': totalCost > 0 ? totalCost : null,
+        'Total Cost (Legacy)': totalCost > 0 ? totalCost : null,
+        // NEW: Simplified cost fields (Requirement 9.3)
+        'Internal Cost': e.internalCost || 0,
+        'External Cost': e.externalCost || 0,
+        'Total Cost': simplifiedTotalCost > 0 ? simplifiedTotalCost : null,
+        // NEW: Milestone timestamps (Requirement 9.3)
+        'Reported At': e.reportedAt?.toISOString() || e.detectedAt?.toISOString(),
+        'Procurement Requested At': e.procurementRequestedAt?.toISOString() || '',
+        'Available At Store At': e.availableAtStoreAt?.toISOString() || '',
+        'Issued Back At': e.issuedBackAt?.toISOString() || '',
+        'Installation Complete At': e.installationCompleteAt?.toISOString() || '',
+        'Test Start At': e.testStartAt?.toISOString() || '',
+        'Up And Running At': e.upAndRunningAt?.toISOString() || e.clearedAt?.toISOString() || '',
+        // NEW: Computed downtime metrics (Requirement 9.3)
+        'Technical Time Hours': e.technicalTimeHours || 0,
+        'Procurement Time Hours': e.procurementTimeHours || 0,
+        'Ops Time Hours': e.opsTimeHours || 0,
+        'Total Downtime Hours': e.totalDowntimeHours || 0,
         'Current Status': e.currentStatus || 'REPORTED',
         'Blocking Reason': e.blockingReason || '',
       };

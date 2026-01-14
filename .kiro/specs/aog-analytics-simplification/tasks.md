@@ -164,7 +164,7 @@ This implementation plan transforms the AOG workflow from an 18-state system to 
     - Handle filter parameters
     - _Requirements: 5.1_
 
-- [-] 10. Update AOG Detail Page
+- [x] 10. Update AOG Detail Page
   - [x] 10.1 Create MilestoneTimeline component
     - Display milestone timestamps in vertical timeline
     - Show computed time between milestones
@@ -183,26 +183,26 @@ This implementation plan transforms the AOG workflow from an 18-state system to 
     - Record who made changes
     - _Requirements: 3.1, 3.2, 3.5_
 
-- [-] 11. Checkpoint - Frontend Implementation Complete
+- [x] 11. Checkpoint - Frontend Implementation Complete
   - Ensure all frontend components render correctly
   - Verify dashboard layout is balanced
   - Ask the user if questions arise
 
-- [ ] 12. Update Import/Export
-  - [ ] 12.1 Update Excel template for AOG events
+- [-] 12. Update Import/Export
+  - [x] 12.1 Update Excel template for AOG events
     - Add milestone timestamp columns
     - Add internalCost and externalCost columns
     - Update column headers and validation
     - _Requirements: 9.1_
 
-  - [ ] 12.2 Update import service to handle milestone timestamps
+  - [x] 12.2 Update import service to handle milestone timestamps
     - Parse milestone timestamp columns
     - Validate timestamp ordering on import
     - Compute downtime metrics after import
     - Validate aircraft registration exists
     - _Requirements: 9.1, 9.2, 9.4, 9.5_
 
-  - [ ] 12.3 Update export service to include computed metrics
+  - [x] 12.3 Update export service to include computed metrics
     - Include computed downtime metrics in export
     - Include milestone timestamps
     - _Requirements: 9.3_
@@ -213,8 +213,8 @@ This implementation plan transforms the AOG workflow from an 18-state system to 
     - Test aircraft registration validation
     - **Validates: Requirements 9.2, 9.4, 9.5**
 
-- [ ] 13. Create Seed Data for Demo
-  - [ ] 13.1 Update seed script with diverse AOG events
+- [x] 13. Create Seed Data for Demo
+  - [x] 13.1 Update seed script with diverse AOG events
     - Create events with long procurement delays
     - Create events with immediate part availability
     - Create events with no parts needed
@@ -222,13 +222,13 @@ This implementation plan transforms the AOG workflow from an 18-state system to 
     - Create events without ops testing
     - _Requirements: 8.1, 8.3, 8.5_
 
-  - [ ] 13.2 Verify seed data produces correct analytics
+  - [x] 13.2 Verify seed data produces correct analytics
     - Run seed script
     - Verify three-bucket analytics show meaningful distribution
     - Verify filtering works correctly
     - _Requirements: 8.2, 8.3, 8.4_
 
-- [ ] 14. Update Documentation
+- [-] 14. Update Documentation
   - [ ] 14.1 Create new steering document for simplified AOG model
     - Document three-bucket downtime model
     - Document milestone timestamps and meanings

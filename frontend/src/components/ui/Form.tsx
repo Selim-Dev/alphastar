@@ -2,7 +2,7 @@ import { ReactNode } from 'react';
 import { FieldError } from 'react-hook-form';
 
 interface FormFieldProps {
-  label: string;
+  label: ReactNode;
   error?: FieldError;
   children: ReactNode;
   required?: boolean;

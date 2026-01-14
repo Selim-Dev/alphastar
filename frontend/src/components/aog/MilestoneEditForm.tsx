@@ -12,7 +12,7 @@ import {
   CheckCircle2,
   Clock
 } from 'lucide-react';
-import { Button, Input, FormField } from '@/components/ui/Form';
+import { Button, Input } from '@/components/ui/Form';
 import { useUpdateAOGEvent } from '@/hooks/useAOGEvents';
 import type { AOGEvent } from '@/types';
 
@@ -203,28 +203,27 @@ export function MilestoneEditForm({ aogEvent, onUpdate, onCancel }: MilestoneEdi
       <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
         {MILESTONE_FIELDS.map((field) => (
           <div key={field.key} className="bg-muted/30 rounded-lg p-4">
-            <FormField
-              label={
-                <div className="flex items-center gap-2">
-                  <span>{field.label}</span>
-                  {field.isOptional && (
-                    <span className="px-1.5 py-0.5 text-[10px] rounded bg-muted text-muted-foreground">
-                      Optional
-                    </span>
-                  )}
-                </div>
-              }
-              error={form.formState.errors[field.key as keyof MilestoneFormData]}
-            >
-              <div className="space-y-1">
-                <Input
-                  type="datetime-local"
-                  {...form.register(field.key as keyof MilestoneFormData)}
-                  className="w-full"
-                />
-                <p className="text-xs text-muted-foreground">{field.description}</p>
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-medium text-foreground">{field.label}</span>
+                {field.isOptional && (
+                  <span className="px-1.5 py-0.5 text-[10px] rounded bg-muted text-muted-foreground">
+                    Optional
+                  </span>
+                )}
               </div>
-            </FormField>
+              <Input
+                type="datetime-local"
+                {...form.register(field.key as keyof MilestoneFormData)}
+                className="w-full"
+              />
+              <p className="text-xs text-muted-foreground">{field.description}</p>
+              {form.formState.errors[field.key as keyof MilestoneFormData] && (
+                <p className="text-sm text-destructive">
+                  {form.formState.errors[field.key as keyof MilestoneFormData]?.message}
+                </p>
+              )}
+            </div>
           </div>
         ))}
 

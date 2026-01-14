@@ -186,11 +186,9 @@ export function ThreeBucketChart({ data, isLoading }: ThreeBucketChartProps) {
  */
 interface BucketSummaryCardsProps {
   data: ThreeBucketBreakdown;
-  totalDowntime: number;
-  eventCount: number;
 }
 
-export function BucketSummaryCards({ data, totalDowntime, eventCount }: BucketSummaryCardsProps) {
+export function BucketSummaryCards({ data }: BucketSummaryCardsProps) {
   const buckets = [
     {
       name: 'Technical Time',

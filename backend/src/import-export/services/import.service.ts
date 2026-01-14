@@ -10,6 +10,7 @@ import { DailyCounterRepository } from '../../utilization/repositories/daily-cou
 import { MaintenanceTaskRepository } from '../../maintenance-tasks/repositories/maintenance-task.repository';
 import { Shift } from '../../maintenance-tasks/schemas/maintenance-task.schema';
 import { AOGEventRepository } from '../../aog-events/repositories/aog-event.repository';
+import { AOGEventsService, MilestoneTimestamps } from '../../aog-events/services/aog-events.service';
 import { AOGCategory, ResponsibleParty, AOGWorkflowStatus, BlockingReason } from '../../aog-events/schemas/aog-event.schema';
 import { BudgetPlanRepository } from '../../budget/repositories/budget-plan.repository';
 import { DailyStatusRepository } from '../../daily-status/repositories/daily-status.repository';
@@ -47,6 +48,7 @@ export class ImportService {
     private readonly dailyCounterRepository: DailyCounterRepository,
     private readonly maintenanceTaskRepository: MaintenanceTaskRepository,
     private readonly aogEventRepository: AOGEventRepository,
+    private readonly aogEventsService: AOGEventsService,
     private readonly budgetPlanRepository: BudgetPlanRepository,
     private readonly dailyStatusRepository: DailyStatusRepository,
     private readonly workOrderSummaryRepository: WorkOrderSummaryRepository,
@@ -324,6 +326,51 @@ export class ImportService {
       ? blockingReasonMap[String(data.blockingReason)]
       : undefined;
 
+    // NEW: Parse milestone timestamps (Requirement 9.1)
+    const reportedAt = data.reportedAt ? (data.reportedAt as Date) : detectedAt;
+    const procurementRequestedAt = data.procurementRequestedAt as Date | undefined;
+    const availableAtStoreAt = data.availableAtStoreAt as Date | undefined;
+    const issuedBackAt = data.issuedBackAt as Date | undefined;
+    const installationCompleteAt = data.installationCompleteAt as Date | undefined;
+    const testStartAt = data.testStartAt as Date | undefined;
+    const upAndRunningAt = data.upAndRunningAt ? (data.upAndRunningAt as Date) : clearedAt;
+
+    // NEW: Validate milestone timestamp ordering (Requirement 9.4)
+    const milestoneTimestamps: MilestoneTimestamps = {
+      reportedAt,
+      procurementRequestedAt,
+      availableAtStoreAt,
+      issuedBackAt,
+      installationCompleteAt,
+      testStartAt,
+      upAndRunningAt,
+    };
+    this.aogEventsService.validateMilestoneOrder(milestoneTimestamps);
+
+    // NEW: Parse simplified cost fields (Requirement 9.1)
+    const internalCost = data.internalCost !== undefined && data.internalCost !== ''
+      ? Number(data.internalCost)
+      : 0;
+    const externalCost = data.externalCost !== undefined && data.externalCost !== ''
+      ? Number(data.externalCost)
+      : 0;
+
+    // Build event data for metric computation
+    const eventData = {
+      detectedAt,
+      clearedAt,
+      reportedAt,
+      procurementRequestedAt,
+      availableAtStoreAt,
+      issuedBackAt,
+      installationCompleteAt,
+      testStartAt,
+      upAndRunningAt,
+    };
+
+    // NEW: Compute downtime metrics (Requirement 9.2)
+    const computedMetrics = this.aogEventsService.computeDowntimeMetrics(eventData as any);
+
     await this.aogEventRepository.create({
       aircraftId: aircraft._id as Types.ObjectId,
       detectedAt,
@@ -334,9 +381,26 @@ export class ImportService {
       actionTaken: String(data.actionTaken),
       manpowerCount: Number(data.manpowerCount),
       manHours: Number(data.manHours),
+      // Legacy cost fields (preserved for backward compatibility)
       costLabor: data.costLabor ? Number(data.costLabor) : undefined,
       costParts: data.costParts ? Number(data.costParts) : undefined,
       costExternal: data.costExternal ? Number(data.costExternal) : undefined,
+      // NEW: Simplified cost fields
+      internalCost,
+      externalCost,
+      // NEW: Milestone timestamps
+      reportedAt,
+      procurementRequestedAt,
+      availableAtStoreAt,
+      issuedBackAt,
+      installationCompleteAt,
+      testStartAt,
+      upAndRunningAt,
+      // NEW: Computed downtime metrics
+      technicalTimeHours: computedMetrics.technicalTimeHours,
+      procurementTimeHours: computedMetrics.procurementTimeHours,
+      opsTimeHours: computedMetrics.opsTimeHours,
+      totalDowntimeHours: computedMetrics.totalDowntimeHours,
       currentStatus,
       blockingReason,
       attachments: [],

@@ -33,11 +33,23 @@ scp -r . root@your-contabo-ip:/opt/alphastar-kpi-dashboard/
 ### 2. Configure environment
 
 ```bash
-# Copy and edit production env file
-cp .env.production .env
+# Copy the example env file
+cp .env.example .env
 
-# Edit with your values (especially JWT_SECRET)
+# Edit with your actual values
 nano .env
+```
+
+**Fill in these values in .env:**
+```bash
+# Your MongoDB Atlas connection string
+MONGODB_URI=mongodb+srv://alislimaly_db_user:YOUR_PASSWORD@cluster0.0jvpnjs.mongodb.net/alphastar-kpi?retryWrites=true&w=majority&appName=Cluster0
+
+# Generate a strong JWT secret (run this command and paste the output)
+# openssl rand -base64 64
+JWT_SECRET=paste-your-generated-secret-here
+
+JWT_EXPIRES_IN=7d
 ```
 
 **Important:** Generate a strong JWT secret:

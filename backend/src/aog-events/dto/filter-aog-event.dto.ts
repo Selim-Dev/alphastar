@@ -55,3 +55,29 @@ export class AnalyticsQueryDto {
   @IsOptional()
   endDate?: string;
 }
+
+/**
+ * DTO for three-bucket analytics filter
+ * Requirements: 5.1, 5.2, 5.3
+ */
+export class ThreeBucketAnalyticsQueryDto {
+  @ApiPropertyOptional({ description: 'Filter by aircraft ID' })
+  @IsMongoId()
+  @IsOptional()
+  aircraftId?: string;
+
+  @ApiPropertyOptional({ description: 'Filter by fleet group (e.g., A340, A330, G650ER)' })
+  @IsString()
+  @IsOptional()
+  fleetGroup?: string;
+
+  @ApiPropertyOptional({ description: 'Filter by start date' })
+  @IsDateString()
+  @IsOptional()
+  startDate?: string;
+
+  @ApiPropertyOptional({ description: 'Filter by end date' })
+  @IsDateString()
+  @IsOptional()
+  endDate?: string;
+}

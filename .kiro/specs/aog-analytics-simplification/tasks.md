@@ -46,8 +46,8 @@ This implementation plan transforms the AOG workflow from an 18-state system to 
     - Verify appropriate bucket values are 0
     - **Validates: Requirements 2.4, 2.5, 2.6**
 
-- [-] 3. Implement Timestamp Validation
-  - [-] 3.1 Create validateMilestoneOrder function
+- [x] 3. Implement Timestamp Validation
+  - [x] 3.1 Create validateMilestoneOrder function
     - Validate chronological order: reportedAt ≤ procurementRequestedAt ≤ availableAtStoreAt ≤ issuedBackAt ≤ installationCompleteAt ≤ testStartAt ≤ upAndRunningAt
     - Allow null values for optional milestones
     - Throw BadRequestException with descriptive error for violations
@@ -59,21 +59,21 @@ This implementation plan transforms the AOG workflow from an 18-state system to 
     - Verify validation correctly accepts/rejects
     - **Validates: Requirements 3.2, 9.4**
 
-- [ ] 4. Update AOGEventsService CRUD Operations
-  - [ ] 4.1 Update create method to compute and store metrics
+- [x] 4. Update AOGEventsService CRUD Operations
+  - [x] 4.1 Update create method to compute and store metrics
     - Set reportedAt from detectedAt if not provided
     - Call computeDowntimeMetrics and store results
     - Compute totalCost from internalCost + externalCost
     - Record milestone history entries
     - _Requirements: 1.2, 2.8, 3.5, 4.3_
 
-  - [ ] 4.2 Update update method to recompute metrics on milestone changes
+  - [x] 4.2 Update update method to recompute metrics on milestone changes
     - Detect milestone timestamp changes
     - Recompute downtime metrics when milestones change
     - Update milestone history with new entries
     - _Requirements: 2.8, 3.5_
 
-  - [ ] 4.3 Update findById and findAll to handle legacy events
+  - [x] 4.3 Update findById and findAll to handle legacy events
     - Detect events without new milestone fields
     - Set isLegacy flag for legacy events
     - Compute metrics using detectedAt/clearedAt for legacy events
@@ -84,8 +84,8 @@ This implementation plan transforms the AOG workflow from an 18-state system to 
     - Test legacy event detection and metric computation
     - **Validates: Requirements 10.1, 10.2, 10.3**
 
-- [ ] 5. Implement Three-Bucket Analytics Endpoint
-  - [ ] 5.1 Create getThreeBucketAnalytics method in AOGEventsService
+- [-] 5. Implement Three-Bucket Analytics Endpoint
+  - [-] 5.1 Create getThreeBucketAnalytics method in AOGEventsService
     - Aggregate technicalTimeHours, procurementTimeHours, opsTimeHours across filtered events
     - Calculate sum, average, and percentage for each bucket
     - Group by aircraft for detailed breakdown

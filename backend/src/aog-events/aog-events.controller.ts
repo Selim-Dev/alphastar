@@ -21,7 +21,7 @@ import {
 import { AOGEventsService } from './services/aog-events.service';
 import { CreateAOGEventDto } from './dto/create-aog-event.dto';
 import { UpdateAOGEventDto } from './dto/update-aog-event.dto';
-import { FilterAOGEventDto, AnalyticsQueryDto } from './dto/filter-aog-event.dto';
+import { FilterAOGEventDto, AnalyticsQueryDto, ThreeBucketAnalyticsQueryDto } from './dto/filter-aog-event.dto';
 import { CreateTransitionDto } from './dto/create-transition.dto';
 import { CreatePartRequestDto, UpdatePartRequestDto } from './dto/create-part-request.dto';
 import { JwtAuthGuard, RolesGuard, Roles, CurrentUser } from '../auth';
@@ -101,6 +101,25 @@ export class AOGEventsController {
       query.endDate ? new Date(query.endDate) : undefined,
       query.aircraftId,
     );
+  }
+
+  @Get('analytics/buckets')
+  @ApiOperation({ summary: 'Get three-bucket downtime analytics (Technical, Procurement, Ops)' })
+  @ApiResponse({ status: 200, description: 'Returns three-bucket analytics with summary and per-aircraft breakdown' })
+  async getThreeBucketAnalytics(@Query() query: ThreeBucketAnalyticsQueryDto) {
+    // Adjust endDate to end of day (23:59:59.999) to include all events on that day
+    let endDate: Date | undefined;
+    if (query.endDate) {
+      endDate = new Date(query.endDate);
+      endDate.setHours(23, 59, 59, 999);
+    }
+
+    return this.aogEventsService.getThreeBucketAnalytics({
+      aircraftId: query.aircraftId,
+      fleetGroup: query.fleetGroup,
+      startDate: query.startDate ? new Date(query.startDate) : undefined,
+      endDate,
+    });
   }
 
   @Get('active')

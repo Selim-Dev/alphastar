@@ -23,6 +23,7 @@ import {
   StatusHistoryEntry,
   PartRequest,
   CostAuditEntry,
+  MilestoneHistoryEntry,
 } from '../schemas/aog-event.schema';
 import { CreateAOGEventDto } from '../dto/create-aog-event.dto';
 import { UpdateAOGEventDto } from '../dto/update-aog-event.dto';
@@ -40,6 +41,55 @@ export interface AOGComputedMetrics {
   procurementTimeHours: number;  // (Procurement Requested → Available at Store)
   opsTimeHours: number;          // (Test Start → Up & Running)
   totalDowntimeHours: number;    // (Reported → Up & Running)
+}
+
+/**
+ * Interface for three-bucket analytics filter
+ * Requirements: 5.1, 5.2, 5.3
+ */
+export interface ThreeBucketAnalyticsFilter {
+  aircraftId?: string;
+  fleetGroup?: string;
+  startDate?: Date;
+  endDate?: Date;
+}
+
+/**
+ * Interface for three-bucket analytics response
+ * Requirements: 5.2, 5.3, 5.4
+ */
+export interface ThreeBucketAnalytics {
+  summary: {
+    totalEvents: number;
+    activeEvents: number;
+    totalDowntimeHours: number;
+    averageDowntimeHours: number;
+  };
+  buckets: {
+    technical: {
+      totalHours: number;
+      averageHours: number;
+      percentage: number;
+    };
+    procurement: {
+      totalHours: number;
+      averageHours: number;
+      percentage: number;
+    };
+    ops: {
+      totalHours: number;
+      averageHours: number;
+      percentage: number;
+    };
+  };
+  byAircraft: Array<{
+    aircraftId: string;
+    registration: string;
+    technicalHours: number;
+    procurementHours: number;
+    opsHours: number;
+    totalHours: number;
+  }>;
 }
 
 /**
@@ -335,8 +385,16 @@ export class AOGEventsService {
 
 
   /**
-   * Creates a new AOG event with timestamp validation
-   * Requirements: 4.1, 4.6
+   * Creates a new AOG event with timestamp validation, milestone tracking, and computed metrics
+   * 
+   * This method:
+   * 1. Sets reportedAt from detectedAt if not provided
+   * 2. Validates milestone timestamp ordering
+   * 3. Computes downtime metrics using the three-bucket model
+   * 4. Computes totalCost from internalCost + externalCost
+   * 5. Records milestone history entries for any provided milestones
+   * 
+   * Requirements: 1.2, 2.8, 3.5, 4.1, 4.3, 4.6
    */
   async create(dto: CreateAOGEventDto, userId: string): Promise<AOGEventDocument> {
     // Validate timestamps: clearedAt must be after detectedAt
@@ -344,6 +402,29 @@ export class AOGEventsService {
       this.validateTimestamps(new Date(dto.detectedAt), new Date(dto.clearedAt));
     }
 
+    // Set reportedAt from detectedAt if not provided (Requirement 1.2)
+    const reportedAt = dto.reportedAt ? new Date(dto.reportedAt) : new Date(dto.detectedAt);
+    
+    // Set upAndRunningAt from clearedAt if not provided
+    const upAndRunningAt = dto.upAndRunningAt 
+      ? new Date(dto.upAndRunningAt) 
+      : (dto.clearedAt ? new Date(dto.clearedAt) : undefined);
+
+    // Parse milestone timestamps
+    const milestoneTimestamps: MilestoneTimestamps = {
+      reportedAt,
+      procurementRequestedAt: dto.procurementRequestedAt ? new Date(dto.procurementRequestedAt) : undefined,
+      availableAtStoreAt: dto.availableAtStoreAt ? new Date(dto.availableAtStoreAt) : undefined,
+      issuedBackAt: dto.issuedBackAt ? new Date(dto.issuedBackAt) : undefined,
+      installationCompleteAt: dto.installationCompleteAt ? new Date(dto.installationCompleteAt) : undefined,
+      testStartAt: dto.testStartAt ? new Date(dto.testStartAt) : undefined,
+      upAndRunningAt,
+    };
+
+    // Validate milestone timestamp ordering (Requirement 3.2, 3.3)
+    this.validateMilestoneOrder(milestoneTimestamps);
+
+    // Build event data with milestone timestamps
     const eventData: Partial<AOGEvent> = {
       aircraftId: new Types.ObjectId(dto.aircraftId),
       detectedAt: new Date(dto.detectedAt),
@@ -361,9 +442,64 @@ export class AOGEventsService {
       updatedBy: new Types.ObjectId(userId),
       // New events start with REPORTED status
       currentStatus: AOGWorkflowStatus.REPORTED,
+      // Milestone timestamps
+      reportedAt,
+      procurementRequestedAt: milestoneTimestamps.procurementRequestedAt || undefined,
+      availableAtStoreAt: milestoneTimestamps.availableAtStoreAt || undefined,
+      issuedBackAt: milestoneTimestamps.issuedBackAt || undefined,
+      installationCompleteAt: milestoneTimestamps.installationCompleteAt || undefined,
+      testStartAt: milestoneTimestamps.testStartAt || undefined,
+      upAndRunningAt: milestoneTimestamps.upAndRunningAt || undefined,
+      // Simplified cost fields (Requirement 4.1, 4.2)
+      internalCost: dto.internalCost || 0,
+      externalCost: dto.externalCost || 0,
     };
 
+    // Compute downtime metrics using the three-bucket model (Requirement 2.8)
+    const computedMetrics = this.computeDowntimeMetrics(eventData as AOGEvent);
+    eventData.technicalTimeHours = computedMetrics.technicalTimeHours;
+    eventData.procurementTimeHours = computedMetrics.procurementTimeHours;
+    eventData.opsTimeHours = computedMetrics.opsTimeHours;
+    eventData.totalDowntimeHours = computedMetrics.totalDowntimeHours;
+
+    // Record milestone history entries for any provided milestones (Requirement 3.5)
+    const milestoneHistory = this.createMilestoneHistoryEntries(milestoneTimestamps, userId);
+    eventData.milestoneHistory = milestoneHistory;
+
     return this.aogEventRepository.create(eventData);
+  }
+
+  /**
+   * Creates milestone history entries for provided milestone timestamps
+   * Records who set each milestone and when
+   * 
+   * Requirements: 3.5
+   * 
+   * @param milestones - Object containing milestone timestamps
+   * @param userId - ID of the user creating the entries
+   * @returns Array of MilestoneHistoryEntry objects
+   */
+  private createMilestoneHistoryEntries(
+    milestones: MilestoneTimestamps,
+    userId: string,
+  ): MilestoneHistoryEntry[] {
+    const entries: MilestoneHistoryEntry[] = [];
+    const now = new Date();
+    const userObjectId = new Types.ObjectId(userId);
+
+    for (const milestoneName of MILESTONE_ORDER) {
+      const value = milestones[milestoneName];
+      if (value != null) {
+        entries.push({
+          milestone: milestoneName,
+          timestamp: value instanceof Date ? value : new Date(value),
+          recordedAt: now,
+          recordedBy: userObjectId,
+        });
+      }
+    }
+
+    return entries;
   }
 
   /**
@@ -459,15 +595,135 @@ export class AOGEventsService {
     };
   }
 
+  /**
+   * Finds an AOG event by ID with legacy event handling and computed metrics
+   * 
+   * For legacy events (without new milestone fields):
+   * - Sets isLegacy flag to true
+   * - Computes metrics using detectedAt/clearedAt
+   * 
+   * Requirements: 10.1, 10.2, 10.3, 10.4
+   */
   async findById(id: string): Promise<AOGEventWithDuration | null> {
     const event = await this.aogEventRepository.findById(id);
     if (!event) return null;
-    return this.addDowntimeDuration(this.inferLegacyStatus(event));
+    return this.processEventForOutput(event);
   }
 
+  /**
+   * Finds all AOG events with legacy event handling and computed metrics
+   * 
+   * For legacy events (without new milestone fields):
+   * - Sets isLegacy flag to true
+   * - Computes metrics using detectedAt/clearedAt
+   * 
+   * Requirements: 10.1, 10.2, 10.3, 10.4
+   */
   async findAll(filter?: AOGEventFilter): Promise<AOGEventWithDuration[]> {
     const events = await this.aogEventRepository.findAll(filter);
-    return events.map((event) => this.addDowntimeDuration(this.inferLegacyStatus(event)));
+    return events.map((event) => this.processEventForOutput(event));
+  }
+
+  /**
+   * Processes an event for output, handling legacy events and computing metrics
+   * 
+   * This method:
+   * 1. Detects legacy events (without new milestone fields)
+   * 2. Sets isLegacy flag for legacy events
+   * 3. Computes metrics using detectedAt/clearedAt for legacy events
+   * 4. Infers status for legacy events
+   * 5. Adds downtime duration
+   * 
+   * Requirements: 10.1, 10.2, 10.3, 10.4
+   */
+  private processEventForOutput(event: AOGEventDocument): AOGEventWithDuration {
+    // Detect if this is a legacy event (without new milestone fields)
+    const isLegacyEvent = this.isLegacyEvent(event);
+    
+    // Infer status for legacy events
+    this.inferLegacyStatus(event);
+    
+    // Convert to plain object
+    const eventObj = event.toObject() as AOGEventWithDuration;
+    
+    // Handle legacy events: compute metrics using detectedAt/clearedAt
+    if (isLegacyEvent) {
+      eventObj.isLegacy = true;
+      
+      // For legacy events, set reportedAt from detectedAt and upAndRunningAt from clearedAt
+      // Then compute metrics based on these values
+      const legacyMetrics = this.computeMetricsForLegacyEvent(event);
+      eventObj.technicalTimeHours = legacyMetrics.technicalTimeHours;
+      eventObj.procurementTimeHours = legacyMetrics.procurementTimeHours;
+      eventObj.opsTimeHours = legacyMetrics.opsTimeHours;
+      eventObj.totalDowntimeHours = legacyMetrics.totalDowntimeHours;
+    }
+    
+    // Add downtime duration (for backward compatibility)
+    if (event.clearedAt) {
+      eventObj.downtimeHours = this.computeDowntimeDuration(
+        event.detectedAt,
+        event.clearedAt,
+      );
+    }
+    
+    return eventObj;
+  }
+
+  /**
+   * Detects if an event is a legacy event (without new milestone fields)
+   * 
+   * A legacy event is one that:
+   * - Has no reportedAt field set (or it's undefined)
+   * - Has no computed metrics stored (technicalTimeHours, etc. are 0 or undefined)
+   * - Was created before the simplified workflow was implemented
+   * 
+   * Requirements: 10.1
+   */
+  private isLegacyEvent(event: AOGEventDocument): boolean {
+    // Check if the event has the new milestone fields
+    // If reportedAt is not set and there are no computed metrics, it's a legacy event
+    const hasReportedAt = event.reportedAt != null;
+    const hasComputedMetrics = (
+      (event.technicalTimeHours != null && event.technicalTimeHours > 0) ||
+      (event.procurementTimeHours != null && event.procurementTimeHours > 0) ||
+      (event.opsTimeHours != null && event.opsTimeHours > 0) ||
+      (event.totalDowntimeHours != null && event.totalDowntimeHours > 0)
+    );
+    
+    // If the event has milestone history, it's not a legacy event
+    const hasMilestoneHistory = event.milestoneHistory && event.milestoneHistory.length > 0;
+    
+    // It's a legacy event if it doesn't have reportedAt, computed metrics, or milestone history
+    return !hasReportedAt && !hasComputedMetrics && !hasMilestoneHistory;
+  }
+
+  /**
+   * Computes metrics for legacy events using detectedAt/clearedAt
+   * 
+   * For legacy events, we treat:
+   * - detectedAt as reportedAt
+   * - clearedAt as upAndRunningAt
+   * - All time is attributed to technical time (since we don't know the breakdown)
+   * 
+   * Requirements: 10.2, 10.3
+   */
+  private computeMetricsForLegacyEvent(event: AOGEventDocument): AOGComputedMetrics {
+    // For legacy events, use detectedAt as reportedAt and clearedAt as upAndRunningAt
+    const reportedAt = event.detectedAt;
+    const upAndRunningAt = event.clearedAt;
+    
+    // Total downtime is the only metric we can compute for legacy events
+    const totalDowntimeHours = this.computeHoursBetween(reportedAt, upAndRunningAt);
+    
+    // For legacy events, we attribute all time to technical time
+    // since we don't have the breakdown information
+    return {
+      technicalTimeHours: totalDowntimeHours,
+      procurementTimeHours: 0,
+      opsTimeHours: 0,
+      totalDowntimeHours,
+    };
   }
 
   /**
@@ -496,6 +752,18 @@ export class AOGEventsService {
   }
 
 
+  /**
+   * Updates an AOG event with milestone tracking and metric recomputation
+   * 
+   * This method:
+   * 1. Validates timestamp ordering (detectedAt/clearedAt and milestone timestamps)
+   * 2. Detects milestone timestamp changes
+   * 3. Recomputes downtime metrics when milestones change
+   * 4. Updates milestone history with new entries
+   * 5. Tracks cost changes for audit trail
+   * 
+   * Requirements: 2.8, 3.5
+   */
   async update(
     id: string,
     dto: UpdateAOGEventDto,
@@ -517,6 +785,34 @@ export class AOGEventsService {
     if (clearedAt) {
       this.validateTimestamps(detectedAt, clearedAt);
     }
+
+    // Build milestone timestamps for validation (merge existing with updates)
+    const milestoneTimestamps: MilestoneTimestamps = {
+      reportedAt: dto.reportedAt 
+        ? new Date(dto.reportedAt) 
+        : existingEvent.reportedAt || existingEvent.detectedAt,
+      procurementRequestedAt: dto.procurementRequestedAt !== undefined
+        ? (dto.procurementRequestedAt ? new Date(dto.procurementRequestedAt) : null)
+        : existingEvent.procurementRequestedAt,
+      availableAtStoreAt: dto.availableAtStoreAt !== undefined
+        ? (dto.availableAtStoreAt ? new Date(dto.availableAtStoreAt) : null)
+        : existingEvent.availableAtStoreAt,
+      issuedBackAt: dto.issuedBackAt !== undefined
+        ? (dto.issuedBackAt ? new Date(dto.issuedBackAt) : null)
+        : existingEvent.issuedBackAt,
+      installationCompleteAt: dto.installationCompleteAt !== undefined
+        ? (dto.installationCompleteAt ? new Date(dto.installationCompleteAt) : null)
+        : existingEvent.installationCompleteAt,
+      testStartAt: dto.testStartAt !== undefined
+        ? (dto.testStartAt ? new Date(dto.testStartAt) : null)
+        : existingEvent.testStartAt,
+      upAndRunningAt: dto.upAndRunningAt !== undefined
+        ? (dto.upAndRunningAt ? new Date(dto.upAndRunningAt) : null)
+        : existingEvent.upAndRunningAt || existingEvent.clearedAt,
+    };
+
+    // Validate milestone timestamp ordering (Requirement 3.2, 3.3)
+    this.validateMilestoneOrder(milestoneTimestamps);
 
     // Track cost changes for audit trail
     const costAuditEntries = this.trackCostChanges(existingEvent, dto, userId);
@@ -573,7 +869,177 @@ export class AOGEventsService {
       updateData.attachments = dto.attachments;
     }
 
+    // Handle simplified cost fields (Requirement 4.1, 4.2)
+    if (dto.internalCost !== undefined) {
+      updateData.internalCost = dto.internalCost;
+    }
+    if (dto.externalCost !== undefined) {
+      updateData.externalCost = dto.externalCost;
+    }
+
+    // Detect and handle milestone timestamp changes (Requirement 3.5)
+    const milestoneChanges = this.detectMilestoneChanges(existingEvent, dto);
+    const hasMilestoneChanges = milestoneChanges.length > 0;
+
+    // Update milestone timestamps if provided
+    if (dto.reportedAt !== undefined) {
+      updateData.reportedAt = dto.reportedAt ? new Date(dto.reportedAt) : undefined;
+    }
+    if (dto.procurementRequestedAt !== undefined) {
+      updateData.procurementRequestedAt = dto.procurementRequestedAt 
+        ? new Date(dto.procurementRequestedAt) 
+        : undefined;
+    }
+    if (dto.availableAtStoreAt !== undefined) {
+      updateData.availableAtStoreAt = dto.availableAtStoreAt 
+        ? new Date(dto.availableAtStoreAt) 
+        : undefined;
+    }
+    if (dto.issuedBackAt !== undefined) {
+      updateData.issuedBackAt = dto.issuedBackAt 
+        ? new Date(dto.issuedBackAt) 
+        : undefined;
+    }
+    if (dto.installationCompleteAt !== undefined) {
+      updateData.installationCompleteAt = dto.installationCompleteAt 
+        ? new Date(dto.installationCompleteAt) 
+        : undefined;
+    }
+    if (dto.testStartAt !== undefined) {
+      updateData.testStartAt = dto.testStartAt 
+        ? new Date(dto.testStartAt) 
+        : undefined;
+    }
+    if (dto.upAndRunningAt !== undefined) {
+      updateData.upAndRunningAt = dto.upAndRunningAt 
+        ? new Date(dto.upAndRunningAt) 
+        : undefined;
+    }
+
+    // Recompute downtime metrics if milestones changed (Requirement 2.8)
+    if (hasMilestoneChanges || dto.detectedAt || dto.clearedAt) {
+      // Build the merged event data for metric computation
+      const mergedEventData: Partial<AOGEvent> = {
+        detectedAt: updateData.detectedAt || existingEvent.detectedAt,
+        clearedAt: updateData.clearedAt || existingEvent.clearedAt,
+        reportedAt: updateData.reportedAt !== undefined 
+          ? updateData.reportedAt 
+          : existingEvent.reportedAt || existingEvent.detectedAt,
+        procurementRequestedAt: updateData.procurementRequestedAt !== undefined
+          ? updateData.procurementRequestedAt
+          : existingEvent.procurementRequestedAt,
+        availableAtStoreAt: updateData.availableAtStoreAt !== undefined
+          ? updateData.availableAtStoreAt
+          : existingEvent.availableAtStoreAt,
+        issuedBackAt: updateData.issuedBackAt !== undefined
+          ? updateData.issuedBackAt
+          : existingEvent.issuedBackAt,
+        installationCompleteAt: updateData.installationCompleteAt !== undefined
+          ? updateData.installationCompleteAt
+          : existingEvent.installationCompleteAt,
+        testStartAt: updateData.testStartAt !== undefined
+          ? updateData.testStartAt
+          : existingEvent.testStartAt,
+        upAndRunningAt: updateData.upAndRunningAt !== undefined
+          ? updateData.upAndRunningAt
+          : existingEvent.upAndRunningAt || existingEvent.clearedAt,
+      };
+
+      const computedMetrics = this.computeDowntimeMetrics(mergedEventData as AOGEvent);
+      updateData.technicalTimeHours = computedMetrics.technicalTimeHours;
+      updateData.procurementTimeHours = computedMetrics.procurementTimeHours;
+      updateData.opsTimeHours = computedMetrics.opsTimeHours;
+      updateData.totalDowntimeHours = computedMetrics.totalDowntimeHours;
+    }
+
+    // Update milestone history with new entries (Requirement 3.5)
+    if (milestoneChanges.length > 0) {
+      const newHistoryEntries = this.createMilestoneHistoryEntriesFromChanges(
+        milestoneChanges,
+        userId,
+      );
+      updateData.milestoneHistory = [
+        ...(existingEvent.milestoneHistory || []),
+        ...newHistoryEntries,
+      ];
+    }
+
     return this.aogEventRepository.update(id, updateData);
+  }
+
+  /**
+   * Detects which milestone timestamps have changed between existing event and update DTO
+   * 
+   * Requirements: 3.5
+   * 
+   * @param existingEvent - The existing AOG event document
+   * @param dto - The update DTO with potential changes
+   * @returns Array of milestone names that have changed with their new values
+   */
+  private detectMilestoneChanges(
+    existingEvent: AOGEventDocument,
+    dto: UpdateAOGEventDto,
+  ): Array<{ milestone: MilestoneName; newValue: Date | null }> {
+    const changes: Array<{ milestone: MilestoneName; newValue: Date | null }> = [];
+
+    const milestoneFields: MilestoneName[] = [
+      'reportedAt',
+      'procurementRequestedAt',
+      'availableAtStoreAt',
+      'issuedBackAt',
+      'installationCompleteAt',
+      'testStartAt',
+      'upAndRunningAt',
+    ];
+
+    for (const field of milestoneFields) {
+      const dtoValue = dto[field];
+      if (dtoValue !== undefined) {
+        const existingValue = existingEvent[field];
+        const newDate = dtoValue ? new Date(dtoValue) : null;
+        
+        // Check if the value has actually changed
+        const existingTime = existingValue ? new Date(existingValue).getTime() : null;
+        const newTime = newDate ? newDate.getTime() : null;
+        
+        if (existingTime !== newTime) {
+          changes.push({ milestone: field, newValue: newDate });
+        }
+      }
+    }
+
+    return changes;
+  }
+
+  /**
+   * Creates milestone history entries from detected changes
+   * 
+   * Requirements: 3.5
+   * 
+   * @param changes - Array of milestone changes
+   * @param userId - ID of the user making the changes
+   * @returns Array of MilestoneHistoryEntry objects
+   */
+  private createMilestoneHistoryEntriesFromChanges(
+    changes: Array<{ milestone: MilestoneName; newValue: Date | null }>,
+    userId: string,
+  ): MilestoneHistoryEntry[] {
+    const entries: MilestoneHistoryEntry[] = [];
+    const now = new Date();
+    const userObjectId = new Types.ObjectId(userId);
+
+    for (const change of changes) {
+      if (change.newValue != null) {
+        entries.push({
+          milestone: change.milestone,
+          timestamp: change.newValue,
+          recordedAt: now,
+          recordedBy: userObjectId,
+        });
+      }
+    }
+
+    return entries;
   }
 
   /**
@@ -625,11 +1091,13 @@ export class AOGEventsService {
   }
 
   /**
-   * Gets active AOG events (not yet cleared)
+   * Gets active AOG events (not yet cleared) with legacy event handling
+   * 
+   * Requirements: 10.1, 10.2, 10.3, 10.4
    */
   async getActiveAOGEvents(aircraftId?: string): Promise<AOGEventWithDuration[]> {
     const events = await this.aogEventRepository.getActiveAOGEvents(aircraftId);
-    return events.map((event) => this.addDowntimeDuration(this.inferLegacyStatus(event)));
+    return events.map((event) => this.processEventForOutput(event));
   }
 
   /**
@@ -935,5 +1403,227 @@ export class AOGEventsService {
     aircraftId?: string,
   ): Promise<BottleneckAnalyticsResult> {
     return this.aogEventRepository.getBottleneckAnalytics(startDate, endDate, aircraftId);
+  }
+
+  /**
+   * Gets three-bucket analytics for AOG events
+   * 
+   * Aggregates technicalTimeHours, procurementTimeHours, opsTimeHours across filtered events.
+   * Calculates sum, average, and percentage for each bucket.
+   * Groups by aircraft for detailed breakdown.
+   * 
+   * Requirements: 5.2, 5.3, 5.4
+   * 
+   * @param filter - Filter parameters (aircraftId, fleetGroup, startDate, endDate)
+   * @returns ThreeBucketAnalytics with summary, bucket breakdown, and per-aircraft data
+   */
+  async getThreeBucketAnalytics(filter: ThreeBucketAnalyticsFilter): Promise<ThreeBucketAnalytics> {
+    // Build the match stage for filtering
+    const matchStage: Record<string, unknown> = {};
+
+    if (filter.aircraftId) {
+      matchStage.aircraftId = new Types.ObjectId(filter.aircraftId);
+    }
+
+    if (filter.startDate || filter.endDate) {
+      // Use reportedAt for date filtering (falls back to detectedAt for legacy events)
+      matchStage.$or = [
+        {
+          reportedAt: {
+            ...(filter.startDate && { $gte: filter.startDate }),
+            ...(filter.endDate && { $lte: filter.endDate }),
+          },
+        },
+        {
+          reportedAt: { $exists: false },
+          detectedAt: {
+            ...(filter.startDate && { $gte: filter.startDate }),
+            ...(filter.endDate && { $lte: filter.endDate }),
+          },
+        },
+      ];
+    }
+
+    // Build the aggregation pipeline
+    const pipeline: Array<Record<string, unknown>> = [];
+
+    // Add initial match stage if there are filters
+    if (Object.keys(matchStage).length > 0) {
+      pipeline.push({ $match: matchStage });
+    }
+
+    // Lookup aircraft data to get registration and fleetGroup
+    pipeline.push({
+      $lookup: {
+        from: 'aircraft',
+        localField: 'aircraftId',
+        foreignField: '_id',
+        as: 'aircraft',
+      },
+    });
+
+    // Unwind the aircraft array (should be single element)
+    pipeline.push({
+      $unwind: {
+        path: '$aircraft',
+        preserveNullAndEmptyArrays: true,
+      },
+    });
+
+    // Filter by fleetGroup if specified
+    if (filter.fleetGroup) {
+      pipeline.push({
+        $match: {
+          'aircraft.fleetGroup': filter.fleetGroup,
+        },
+      });
+    }
+
+    // Project the fields we need, handling legacy events
+    pipeline.push({
+      $project: {
+        aircraftId: 1,
+        registration: '$aircraft.registration',
+        fleetGroup: '$aircraft.fleetGroup',
+        clearedAt: 1,
+        // For legacy events, use total downtime as technical time
+        technicalTimeHours: {
+          $cond: {
+            if: { $eq: ['$isLegacy', true] },
+            then: '$totalDowntimeHours',
+            else: { $ifNull: ['$technicalTimeHours', 0] },
+          },
+        },
+        procurementTimeHours: {
+          $cond: {
+            if: { $eq: ['$isLegacy', true] },
+            then: 0,
+            else: { $ifNull: ['$procurementTimeHours', 0] },
+          },
+        },
+        opsTimeHours: {
+          $cond: {
+            if: { $eq: ['$isLegacy', true] },
+            then: 0,
+            else: { $ifNull: ['$opsTimeHours', 0] },
+          },
+        },
+        totalDowntimeHours: { $ifNull: ['$totalDowntimeHours', 0] },
+      },
+    });
+
+    // Facet to get both summary and per-aircraft breakdown
+    pipeline.push({
+      $facet: {
+        // Summary statistics
+        summary: [
+          {
+            $group: {
+              _id: null,
+              totalEvents: { $sum: 1 },
+              activeEvents: {
+                $sum: {
+                  $cond: [{ $eq: ['$clearedAt', null] }, 1, 0],
+                },
+              },
+              totalTechnicalHours: { $sum: '$technicalTimeHours' },
+              totalProcurementHours: { $sum: '$procurementTimeHours' },
+              totalOpsHours: { $sum: '$opsTimeHours' },
+              totalDowntimeHours: { $sum: '$totalDowntimeHours' },
+            },
+          },
+        ],
+        // Per-aircraft breakdown
+        byAircraft: [
+          {
+            $group: {
+              _id: '$aircraftId',
+              registration: { $first: '$registration' },
+              technicalHours: { $sum: '$technicalTimeHours' },
+              procurementHours: { $sum: '$procurementTimeHours' },
+              opsHours: { $sum: '$opsTimeHours' },
+              totalHours: { $sum: '$totalDowntimeHours' },
+            },
+          },
+          {
+            $project: {
+              _id: 0,
+              aircraftId: { $toString: '$_id' },
+              registration: { $ifNull: ['$registration', 'Unknown'] },
+              technicalHours: { $round: ['$technicalHours', 2] },
+              procurementHours: { $round: ['$procurementHours', 2] },
+              opsHours: { $round: ['$opsHours', 2] },
+              totalHours: { $round: ['$totalHours', 2] },
+            },
+          },
+          { $sort: { totalHours: -1 } },
+        ],
+      },
+    });
+
+    // Execute the aggregation
+    const results = await this.aogEventRepository['aogEventModel'].aggregate(pipeline).exec();
+    const result = results[0];
+
+    // Extract summary data
+    const summaryData = result.summary[0] || {
+      totalEvents: 0,
+      activeEvents: 0,
+      totalTechnicalHours: 0,
+      totalProcurementHours: 0,
+      totalOpsHours: 0,
+      totalDowntimeHours: 0,
+    };
+
+    // Calculate averages and percentages
+    const totalEvents = summaryData.totalEvents || 0;
+    const totalDowntimeHours = summaryData.totalDowntimeHours || 0;
+    const totalTechnicalHours = summaryData.totalTechnicalHours || 0;
+    const totalProcurementHours = summaryData.totalProcurementHours || 0;
+    const totalOpsHours = summaryData.totalOpsHours || 0;
+
+    // Calculate percentages (avoid division by zero)
+    const calculatePercentage = (value: number, total: number): number => {
+      if (total === 0) return 0;
+      return Math.round((value / total) * 10000) / 100; // Round to 2 decimal places
+    };
+
+    // Build the response
+    const response: ThreeBucketAnalytics = {
+      summary: {
+        totalEvents,
+        activeEvents: summaryData.activeEvents || 0,
+        totalDowntimeHours: Math.round(totalDowntimeHours * 100) / 100,
+        averageDowntimeHours: totalEvents > 0 
+          ? Math.round((totalDowntimeHours / totalEvents) * 100) / 100 
+          : 0,
+      },
+      buckets: {
+        technical: {
+          totalHours: Math.round(totalTechnicalHours * 100) / 100,
+          averageHours: totalEvents > 0 
+            ? Math.round((totalTechnicalHours / totalEvents) * 100) / 100 
+            : 0,
+          percentage: calculatePercentage(totalTechnicalHours, totalDowntimeHours),
+        },
+        procurement: {
+          totalHours: Math.round(totalProcurementHours * 100) / 100,
+          averageHours: totalEvents > 0 
+            ? Math.round((totalProcurementHours / totalEvents) * 100) / 100 
+            : 0,
+          percentage: calculatePercentage(totalProcurementHours, totalDowntimeHours),
+        },
+        ops: {
+          totalHours: Math.round(totalOpsHours * 100) / 100,
+          averageHours: totalEvents > 0 
+            ? Math.round((totalOpsHours / totalEvents) * 100) / 100 
+            : 0,
+          percentage: calculatePercentage(totalOpsHours, totalDowntimeHours),
+        },
+      },
+      byAircraft: result.byAircraft || [],
+    };
+
+    return response;
   }
 }

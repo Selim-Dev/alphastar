@@ -146,96 +146,101 @@ fleetAvailability = (sum(fmcHours for all aircraft) / sum(posHours for all aircr
 
 ---
 
-### 4. AOG Events (Aircraft On Ground)
+### 4. AOG Events (Aircraft On Ground) - Simplified Model
 
 **Collection:** `aogevents`
 
-**Purpose:** Track grounding events with responsibility attribution, workflow status, and procurement lifecycle.
+**Purpose:** Track grounding events with milestone-based downtime analytics using a three-bucket model (Technical, Procurement, Ops).
 
 **Schema Fields:**
 | Field | Type | Description |
 |-------|------|-------------|
 | aircraftId | ObjectId | Reference to Aircraft |
-| detectedAt | Date | When AOG was detected |
-| clearedAt | Date | When AOG was cleared (null = still active) |
+| detectedAt | Date | When AOG was detected (authoritative start) |
+| clearedAt | Date | When AOG was cleared (authoritative end, null = still active) |
 | category | enum | scheduled, unscheduled, aog |
 | reasonCode | string | Reason for grounding |
 | responsibleParty | enum | Internal, OEM, Customs, Finance, Other |
 | actionTaken | string | Description of corrective action |
 | manpowerCount | number | Number of personnel involved |
 | manHours | number | Total labor hours |
-| costLabor | number | Labor cost (optional) |
-| costParts | number | Parts cost (optional) |
-| costExternal | number | External services cost (optional) |
-| currentStatus | enum | Workflow status (default: REPORTED) |
-| blockingReason | enum | Finance, Port, Customs, Vendor, Ops, Other |
-| statusHistory | array | Append-only timeline of status transitions |
-| partRequests | array | Part requests within the AOG event |
-| estimatedCostLabor | number | Estimated labor cost |
-| estimatedCostParts | number | Estimated parts cost |
-| estimatedCostExternal | number | Estimated external cost |
-| budgetClauseId | number | Budget clause mapping |
-| budgetPeriod | string | YYYY-MM format |
-| isBudgetAffecting | boolean | Whether costs affect budget variance |
-| linkedActualSpendId | ObjectId | Reference to generated ActualSpend |
-| costAuditTrail | array | Audit trail for cost changes |
-| attachmentsMeta | array | Enhanced attachment metadata |
+| **reportedAt** | Date | **Milestone: When AOG was reported (defaults to detectedAt)** |
+| **procurementRequestedAt** | Date | **Milestone: When parts were requested (optional)** |
+| **availableAtStoreAt** | Date | **Milestone: When parts arrived (optional)** |
+| **issuedBackAt** | Date | **Milestone: When parts issued to maintenance (optional)** |
+| **installationCompleteAt** | Date | **Milestone: When repair work finished** |
+| **testStartAt** | Date | **Milestone: When ops testing started (optional)** |
+| **upAndRunningAt** | Date | **Milestone: When aircraft returned to service (defaults to clearedAt)** |
+| **technicalTimeHours** | number | **Computed: Technical bucket time** |
+| **procurementTimeHours** | number | **Computed: Procurement bucket time** |
+| **opsTimeHours** | number | **Computed: Ops bucket time** |
+| **totalDowntimeHours** | number | **Computed: Total downtime** |
+| **internalCost** | number | **Simplified cost: Labor and man-hours** |
+| **externalCost** | number | **Simplified cost: Vendor and third-party** |
+| costLabor | number | Legacy cost field (preserved for compatibility) |
+| costParts | number | Legacy cost field (preserved for compatibility) |
+| costExternal | number | Legacy cost field (preserved for compatibility) |
 | attachments | string[] | S3 keys for attached files |
-| isLegacy | boolean | True for events without workflow status |
+| isLegacy | boolean | True for events without milestone fields |
+| milestoneHistory | array | History of milestone changes |
 | updatedBy | ObjectId | User who made the update |
 
-**Workflow Status Values (AOGWorkflowStatus):**
-- REPORTED, TROUBLESHOOTING, ISSUE_IDENTIFIED, RESOLVED_NO_PARTS
-- PART_REQUIRED, PROCUREMENT_REQUESTED, FINANCE_APPROVAL_PENDING
-- ORDER_PLACED, IN_TRANSIT, AT_PORT, CUSTOMS_CLEARANCE
-- RECEIVED_IN_STORES, ISSUED_TO_MAINTENANCE, INSTALLED_AND_TESTED
-- ENGINE_RUN_REQUESTED, ENGINE_RUN_COMPLETED, BACK_IN_SERVICE, CLOSED
+**Three-Bucket Downtime Model:**
+```typescript
+// Technical Time = troubleshooting + installation
+technicalTimeHours = (reportedAt → procurementRequestedAt) 
+                   + (availableAtStoreAt → installationCompleteAt)
 
-**Blocking Reason Values:**
-- Finance, Port, Customs, Vendor, Ops, Other
+// Procurement Time = waiting for parts
+procurementTimeHours = (procurementRequestedAt → availableAtStoreAt)
 
-**Part Request Status Values:**
-- REQUESTED, APPROVED, ORDERED, SHIPPED, RECEIVED, ISSUED
+// Ops Time = operational testing
+opsTimeHours = (testStartAt → upAndRunningAt)
+
+// Total Downtime
+totalDowntimeHours = (reportedAt → upAndRunningAt)
+```
+
+**Special Cases:**
+- **No part needed**: Skip procurement milestones → procurementTimeHours = 0
+- **Part in store**: availableAtStoreAt ≈ procurementRequestedAt → procurementTimeHours ≈ 0
+- **No ops test**: Skip testStartAt → opsTimeHours = 0
 
 **Business Rules:**
 - clearedAt must be >= detectedAt (timestamp validation)
+- Milestones must be in chronological order when present
 - Active AOG = clearedAt is null
 - responsibleParty is required for accountability tracking
-- Blocking reason required for statuses: FINANCE_APPROVAL_PENDING, AT_PORT, CUSTOMS_CLEARANCE, IN_TRANSIT
-- Status transitions must follow allowed transition map
-- Terminal statuses (BACK_IN_SERVICE, CLOSED) auto-set clearedAt if not set
-- Legacy events (without currentStatus) infer status at read time
+- Computed metrics are stored on save for performance
+- Legacy events (without milestone fields) show isLegacy = true
 
 **Calculations:**
 ```typescript
-// Downtime duration
-downtimeHours = (clearedAt - detectedAt) / (1000 * 60 * 60); // milliseconds to hours
+// Downtime duration (legacy or when milestones not available)
+downtimeHours = (clearedAt - detectedAt) / (1000 * 60 * 60);
 
-// Total cost
-totalCost = (costLabor || 0) + (costParts || 0) + (costExternal || 0);
+// Total cost (simplified)
+totalCost = (internalCost || 0) + (externalCost || 0);
 
 // Active AOG count
 activeAOGCount = count where clearedAt is null;
 
 // Downtime by responsibility
-downtimeByResponsibility = group by responsibleParty, sum(downtimeHours);
+downtimeByResponsibility = group by responsibleParty, sum(totalDowntimeHours);
 
-// Total parts cost from part requests
-totalPartsCost = sum(partRequests.actualCost);
-
-// Legacy status inference
-if (!currentStatus) {
-  currentStatus = clearedAt ? 'BACK_IN_SERVICE' : 'REPORTED';
-  isLegacy = true;
-}
+// Three-bucket aggregation
+bucketAnalytics = {
+  technical: sum(technicalTimeHours),
+  procurement: sum(procurementTimeHours),
+  ops: sum(opsTimeHours)
+};
 ```
 
 **Indexes:**
 - `{ aircraftId: 1, detectedAt: -1 }`
 - `{ responsibleParty: 1, detectedAt: -1 }` - analytics
 - `{ detectedAt: -1 }`
-- `{ currentStatus: 1, detectedAt: -1 }` - workflow queries
-- `{ blockingReason: 1, currentStatus: 1 }` - blocking analytics
+- `{ reportedAt: 1 }` - milestone queries
 
 ---
 
@@ -648,10 +653,8 @@ costPerCycle = totalMaintenanceCost / totalCycles;
 | Level | Color | Trigger Conditions |
 |-------|-------|-------------------|
 | Critical | Red | Active AOG events, Aircraft availability < 70% |
-| Warning | Amber | AOG events in blocking states, Budget > 90%, Availability < 85% |
+| Warning | Amber | Budget > 90%, Availability < 85% |
 | Info | Blue | Upcoming maintenance due within 7 days |
-
-**Note:** Overdue work order alerts have been removed as the system now uses Work Order Summaries. AOG blocking state alerts have been added to track events stuck in waiting states (Finance, Port, Customs, Vendor, Ops).
 
 ---
 
@@ -684,16 +687,15 @@ costPerCycle = totalMaintenanceCost / totalCycles;
 - `GET /api/daily-status/availability` - Get availability metrics
 - `GET /api/daily-status/aggregations` - Get aggregated availability
 
-### AOG Events
-- `GET /api/aog-events` - List AOG events (filterable by status, blocking reason)
-- `POST /api/aog-events` - Create AOG event
+### AOG Events (Simplified Model)
+- `GET /api/aog-events` - List AOG events (filterable)
+- `POST /api/aog-events` - Create AOG event with optional milestone timestamps
 - `GET /api/aog-events/analytics` - Get analytics by responsibility
-- `GET /api/aog-events/analytics/stages` - Get stage breakdown by workflow status
-- `GET /api/aog-events/analytics/bottlenecks` - Get average time in each status
+- `GET /api/aog-events/analytics/buckets` - **Get three-bucket downtime breakdown**
 - `GET /api/aog-events/active` - Get active AOG events
 - `GET /api/aog-events/active/count` - Get count of active AOG events
-- `GET /api/aog-events/:id` - Get single event
-- `PUT /api/aog-events/:id` - Update event
+- `GET /api/aog-events/:id` - Get single event with computed metrics
+- `PUT /api/aog-events/:id` - Update event (recomputes metrics on milestone changes)
 - `DELETE /api/aog-events/:id` - Delete event
 - `POST /api/aog-events/:id/attachments` - Add attachment
 - `DELETE /api/aog-events/:id/attachments/:s3Key` - Remove attachment
@@ -834,13 +836,12 @@ costPerCycle = totalMaintenanceCost / totalCycles;
 | `ExecutivePDFExport` | `components/ui/ExecutivePDFExport.tsx` | PDF report generation |
 | `CollapsibleSection` | `components/ui/CollapsibleSection.tsx` | Collapsible dashboard sections |
 
-### AOG Workflow Components (NEW)
+### AOG Components (Simplified Model)
 | Component | Location | Purpose |
 |-----------|----------|---------|
-| `StatusTimeline` | `components/aog/StatusTimeline.tsx` | Vertical timeline of status history |
-| `NextStepActionPanel` | `components/aog/NextStepActionPanel.tsx` | Available transitions with role-aware controls |
-| `PartsTab` | `components/aog/PartsTab.tsx` | Part request management |
-| `CostsTab` | `components/aog/CostsTab.tsx` | Cost tracking with budget integration |
+| `MilestoneTimeline` | `components/aog/MilestoneTimeline.tsx` | Vertical timeline of milestone timestamps |
+| `MilestoneEditForm` | `components/aog/MilestoneEditForm.tsx` | Edit milestone timestamps with validation |
+| `ThreeBucketChart` | `components/ui/ThreeBucketChart.tsx` | Three-bucket downtime visualization |
 | `AttachmentsTab` | `components/aog/AttachmentsTab.tsx` | Document management |
 
 ### Vacation Plan Components (NEW)
@@ -895,8 +896,8 @@ costPerCycle = totalMaintenanceCost / totalCycles;
 | Fleet Comparison | `dashboard/services/dashboard.service.ts` | `hooks/useDashboardExecutive.ts` |
 | Defect Patterns | `dashboard/services/dashboard.service.ts` | `hooks/useDashboardExecutive.ts` |
 | AOG analytics | `aog-events/services/aog-events.service.ts` | `hooks/useAOGEvents.ts` |
-| AOG workflow transitions | `aog-events/services/aog-events.service.ts` | `hooks/useAOGEvents.ts` |
-| AOG stage/bottleneck analytics | `aog-events/services/aog-events.service.ts` | `hooks/useAOGEvents.ts` |
+| AOG three-bucket analytics | `aog-events/services/aog-events.service.ts` | `hooks/useAOGEvents.ts` |
+| AOG downtime computation | `aog-events/services/aog-events.service.ts` | `hooks/useAOGEvents.ts` |
 | Work order summaries | `work-order-summaries/services/work-order-summaries.service.ts` | `hooks/useWorkOrderSummaries.ts` |
 | Work order trends | `work-order-summaries/services/work-order-summaries.service.ts` | `hooks/useWorkOrderSummaries.ts` |
 | Vacation plan management | `vacation-plans/services/vacation-plans.service.ts` | `hooks/useVacationPlans.ts` |

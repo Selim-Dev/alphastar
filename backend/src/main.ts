@@ -13,7 +13,10 @@ async function bootstrap() {
   app.enableCors({
     origin: [
       'http://localhost:5173',
+      'http://localhost:5174',
       'http://localhost:3000',
+      'http://178.18.246.104:5173',
+      'http://178.18.246.104:5174',
       'https://ejc-kpi.vercel.app',
     ],
     credentials: true,

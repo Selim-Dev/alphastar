@@ -314,6 +314,7 @@ export function AOGAnalyticsPage() {
   const { data: eventsData } = useAOGEvents({
     ...dateRange,
     aircraftId: aircraftFilter || undefined,
+    fleetGroup: fleetFilter || undefined,
   });
   
   // Fetch three-bucket analytics

@@ -605,10 +605,16 @@ export function AOGListPage() {
 
   // Filter events based on active filter (for deep linking from alerts)
   const filteredEvents = useMemo(() => {
-    if (showActiveOnly) {
-      return events.filter((e) => !e.clearedAt);
-    }
-    return events;
+    let filtered = showActiveOnly 
+      ? events.filter((e) => !e.clearedAt)
+      : events;
+    
+    // Sort by detectedAt descending (newest first)
+    return filtered.sort((a, b) => {
+      const dateA = new Date(a.detectedAt).getTime();
+      const dateB = new Date(b.detectedAt).getTime();
+      return dateB - dateA; // Descending order
+    });
   }, [events, showActiveOnly]);
 
   // Create aircraft map for lookups

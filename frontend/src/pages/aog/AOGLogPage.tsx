@@ -73,6 +73,7 @@ export function AOGLogPage() {
     resolver: zodResolver(aogEventSchema) as never,
     defaultValues: {
       detectedAt: format(new Date(), "yyyy-MM-dd'T'HH:mm"),
+      clearedAt: format(new Date(), "yyyy-MM-dd'T'HH:mm"),
       category: 'aog',
       responsibleParty: 'Internal',
       manpowerCount: 1,

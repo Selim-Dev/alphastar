@@ -71,14 +71,17 @@ export function AircraftSelect({
     return a.registration;
   };
 
+  // Determine if a specific aircraft is selected (not "All" option)
+  const hasSelection = value && value !== '';
+
   // Base classes for the select element
   const baseClasses = [
     'h-9',
     'px-3 pr-8',
     'text-sm',
-    'bg-card text-foreground',
+    hasSelection ? 'bg-primary/10 text-primary font-medium' : 'bg-card text-foreground',
     'border',
-    error ? 'border-destructive' : 'border-border',
+    error ? 'border-destructive' : hasSelection ? 'border-primary' : 'border-border',
     'rounded-md',
     'focus:outline-none focus:ring-2',
     error ? 'focus:ring-destructive' : 'focus:ring-ring',
@@ -89,7 +92,8 @@ export function AircraftSelect({
     'transition-colors duration-150',
     'disabled:opacity-50 disabled:cursor-not-allowed',
     'min-w-[180px]',
-  ].join(' ');
+    !hasSelection && 'hover:bg-muted',
+  ].filter(Boolean).join(' ');
 
   // Custom dropdown arrow
   const selectStyle: React.CSSProperties = {

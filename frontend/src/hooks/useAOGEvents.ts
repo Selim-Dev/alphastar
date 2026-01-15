@@ -17,6 +17,7 @@ import type {
 
 interface AOGFilters extends DateRangeFilter {
   aircraftId?: string;
+  fleetGroup?: string;
   responsibleParty?: string;
   category?: string;
   currentStatus?: AOGWorkflowStatus;
@@ -120,17 +121,19 @@ export function useAOGBottlenecksAnalytics(query: AnalyticsFilters) {
 
 /**
  * Hook for fetching status history of an AOG event
- * Requirements: 7.2
+ * DEPRECATED: Status history is now included in the AOG event data via useAOGEventById
+ * Milestone history is stored in the milestoneHistory field
+ * This hook is kept for backward compatibility but should not be used
  */
 export function useAOGStatusHistory(id: string | null) {
   return useQuery({
     queryKey: ['aog-events', 'history', id],
     queryFn: async () => {
       if (!id) return [];
-      const { data } = await api.get<StatusHistoryEntry[]>(`/aog-events/${id}/history`);
-      return data;
+      // Return empty array - milestone history is now in the event data
+      return [];
     },
-    enabled: !!id,
+    enabled: false, // Disabled - data is in the event
   });
 }
 
@@ -138,7 +141,7 @@ export function useCreateAOGEvent() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (event: Omit<AOGEvent, '_id' | 'createdAt'>) => {
-      const { data } = await api.post<AOGEvent>('/aog-events', event);
+      const { data} = await api.post<AOGEvent>('/aog-events', event);
       return data;
     },
     onSuccess: () => {

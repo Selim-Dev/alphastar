@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion';
-import { Wrench, Calendar, Clock } from 'lucide-react';
+import { Wrench, Calendar, Sparkles, ArrowRight } from 'lucide-react';
 
 /**
  * ComingSoonSection Component
@@ -20,60 +20,99 @@ interface ComingSoonTile {
   title: string;
   description: string;
   icon: React.ReactNode;
+  gradient: string;
+  iconBg: string;
+  accentColor: string;
 }
 
 const comingSoonFeatures: ComingSoonTile[] = [
   {
     title: 'Aircraft at MRO',
     description: 'Track aircraft currently at Maintenance, Repair & Overhaul facilities',
-    icon: <Wrench className="w-6 h-6" />,
+    icon: <Wrench className="w-5 h-5" />,
+    gradient: 'from-blue-500/10 via-indigo-500/5 to-transparent',
+    iconBg: 'bg-gradient-to-br from-blue-500 to-indigo-600',
+    accentColor: 'blue',
   },
   {
     title: 'Vacation Plan',
     description: 'View team vacation schedules and overlap detection',
-    icon: <Calendar className="w-6 h-6" />,
+    icon: <Calendar className="w-5 h-5" />,
+    gradient: 'from-emerald-500/10 via-teal-500/5 to-transparent',
+    iconBg: 'bg-gradient-to-br from-emerald-500 to-teal-600',
+    accentColor: 'emerald',
   },
 ];
 
 export function ComingSoonSection({ className = '' }: ComingSoonSectionProps) {
   return (
     <div className={className}>
-      <div className="flex items-center gap-2 mb-4">
-        <Clock className="w-5 h-5 text-muted-foreground" />
-        <h3 className="text-lg font-semibold text-foreground">Coming Soon</h3>
+      {/* Section Header */}
+      <div className="flex items-center gap-3 mb-5">
+        <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-gradient-to-br from-amber-400 to-orange-500 shadow-lg shadow-amber-500/20">
+          <Sparkles className="w-4 h-4 text-white" />
+        </div>
+        <div>
+          <h3 className="text-lg font-semibold text-foreground">Coming Soon</h3>
+          <p className="text-xs text-muted-foreground">New features in development</p>
+        </div>
       </div>
       
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
         {comingSoonFeatures.map((feature, index) => (
           <motion.div
             key={feature.title}
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: index * 0.1, duration: 0.3 }}
-            className="relative overflow-hidden bg-card border border-border border-dashed rounded-xl p-5 shadow-theme-sm"
+            transition={{ delay: index * 0.15, duration: 0.4, ease: 'easeOut' }}
+            whileHover={{ y: -2, transition: { duration: 0.2 } }}
+            className="group relative overflow-hidden bg-card border border-border/60 rounded-2xl p-6 shadow-theme-sm hover:shadow-theme-md hover:border-border transition-all duration-300 cursor-default"
           >
-            {/* Gradient overlay for "coming soon" effect */}
-            <div className="absolute inset-0 bg-gradient-to-br from-muted/30 to-muted/10 pointer-events-none" />
+            {/* Animated gradient background */}
+            <div className={`absolute inset-0 bg-gradient-to-br ${feature.gradient} opacity-60 group-hover:opacity-100 transition-opacity duration-500`} />
+            
+            {/* Decorative corner accent */}
+            <div className="absolute -top-12 -right-12 w-24 h-24 rounded-full bg-gradient-to-br from-amber-400/20 to-orange-500/10 blur-2xl group-hover:scale-150 transition-transform duration-700" />
+            
+            {/* Subtle grid pattern */}
+            <div className="absolute inset-0 opacity-[0.02] dark:opacity-[0.03]" style={{
+              backgroundImage: `radial-gradient(circle at 1px 1px, currentColor 1px, transparent 0)`,
+              backgroundSize: '24px 24px'
+            }} />
             
             <div className="relative flex items-start gap-4">
-              {/* Icon */}
-              <div className="flex-shrink-0 w-11 h-11 rounded-lg bg-muted/50 flex items-center justify-center text-muted-foreground">
+              {/* Icon with gradient background */}
+              <motion.div 
+                className={`flex-shrink-0 w-12 h-12 rounded-xl ${feature.iconBg} flex items-center justify-center text-white shadow-lg`}
+                whileHover={{ scale: 1.05, rotate: 3 }}
+                transition={{ type: 'spring', stiffness: 400, damping: 17 }}
+              >
                 {feature.icon}
-              </div>
+              </motion.div>
               
               {/* Content */}
               <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2">
-                  <h4 className="text-base font-medium text-foreground">
+                <div className="flex items-center gap-2.5 mb-2">
+                  <h4 className="text-base font-semibold text-foreground">
                     {feature.title}
                   </h4>
-                  <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">
+                  <span className="inline-flex items-center gap-1 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider rounded-full bg-gradient-to-r from-amber-500/20 to-orange-500/20 text-amber-600 dark:text-amber-400 border border-amber-500/30">
+                    <span className="relative flex h-1.5 w-1.5">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
+                      <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-amber-500"></span>
+                    </span>
                     Soon
                   </span>
                 </div>
-                <p className="mt-1 text-sm text-muted-foreground">
+                <p className="text-sm text-muted-foreground leading-relaxed">
                   {feature.description}
                 </p>
+                
+                {/* Hover indicator */}
+                <div className="mt-3 flex items-center gap-1.5 text-xs font-medium text-muted-foreground/60 group-hover:text-muted-foreground transition-colors duration-300">
+                  <span>Stay tuned</span>
+                  <ArrowRight className="w-3 h-3 group-hover:translate-x-1 transition-transform duration-300" />
+                </div>
               </div>
             </div>
           </motion.div>

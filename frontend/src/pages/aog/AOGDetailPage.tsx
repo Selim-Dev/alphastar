@@ -1,4 +1,4 @@
-import { useState } from 'react';
+﻿import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { format, differenceInHours, differenceInDays } from 'date-fns';
@@ -7,160 +7,303 @@ import {
   Plane, 
   Clock, 
   Users, 
-  DollarSign,
-  AlertCircle,
-  History,
-  Package,
-  Paperclip,
-  Wallet,
-  ChevronRight
+  AlertCircle, 
+  History, 
+  Package, 
+  Paperclip, 
+  Wallet, 
+  Edit2,
+  Calendar,
+  Tag,
+  Building2,
+  FileText,
+  Copy,
+  CheckCircle2
 } from 'lucide-react';
 import { Button } from '@/components/ui/Form';
 import { Breadcrumb } from '@/components/ui/Breadcrumb';
-import { 
-  StatusTimeline, 
-  NextStepActionPanel, 
-  PartsTab, 
-  CostsTab, 
-  AttachmentsTab 
-} from '@/components/aog';
-import { useAOGEventById, useAOGStatusHistory } from '@/hooks/useAOGEvents';
+import { MilestoneTimeline, MilestoneEditForm, MilestoneHistory, NextStepActionPanel, PartsTab, CostsTab, AttachmentsTab } from '@/components/aog';
+import { useAOGEventById } from '@/hooks/useAOGEvents';
 import { useAircraft } from '@/hooks/useAircraft';
-import type { Aircraft, AOGWorkflowStatus } from '@/types';
-import { AOG_WORKFLOW_STATUS_LABELS, BLOCKING_REASON_LABELS, BLOCKING_STATUSES, TERMINAL_STATUSES } from '@/types';
+import type { Aircraft, AOGEvent } from '@/types';
 
-// Tab type
-type TabId = 'timeline' | 'parts' | 'costs' | 'attachments';
+type TabId = 'milestones' | 'history' | 'parts' | 'costs' | 'attachments';
 
-// Get workflow status color
-function getWorkflowStatusColor(status: AOGWorkflowStatus): { bg: string; text: string; border: string } {
-  if (TERMINAL_STATUSES.includes(status)) {
-    return { bg: 'bg-green-500/10', text: 'text-green-600', border: 'border-green-500/30' };
-  }
-  if (BLOCKING_STATUSES.includes(status)) {
-    return { bg: 'bg-amber-500/10', text: 'text-amber-600', border: 'border-amber-500/30' };
-  }
-  if (status === 'REPORTED') {
-    return { bg: 'bg-red-500/10', text: 'text-red-600', border: 'border-red-500/30' };
-  }
-  return { bg: 'bg-blue-500/10', text: 'text-blue-600', border: 'border-blue-500/30' };
-}
-
-// Format age duration
 function formatAgeDuration(detectedAt: Date, clearedAt?: Date): string {
   const endDate = clearedAt ? new Date(clearedAt) : new Date();
   const diffHours = differenceInHours(endDate, detectedAt);
   const diffDays = differenceInDays(endDate, detectedAt);
-  
   if (diffHours < 1) return '<1 hour';
   if (diffHours < 24) return `${diffHours} hour${diffHours > 1 ? 's' : ''}`;
   if (diffDays < 7) return `${diffDays} day${diffDays > 1 ? 's' : ''} ${diffHours % 24}h`;
   return `${diffDays} days`;
 }
 
-// Tab button component
-function TabButton({ 
-  id, 
-  label, 
-  icon: Icon, 
-  isActive, 
-  onClick,
-  badge 
-}: { 
-  id: TabId; 
-  label: string; 
-  icon: React.ElementType; 
-  isActive: boolean; 
-  onClick: () => void;
-  badge?: number;
-}) {
-  // Suppress unused id warning - id is used for type safety
+/** Loading skeleton for the detail page */
+function DetailPageSkeleton() {
+  return (
+    <div className="space-y-6 animate-pulse">
+      {/* Breadcrumb skeleton */}
+      <div className="h-5 w-48 bg-muted rounded" />
+      
+      {/* Header skeleton */}
+      <div className="bg-card border border-border rounded-xl p-6">
+        <div className="flex items-start justify-between mb-4">
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 rounded-xl bg-muted" />
+            <div className="space-y-2">
+              <div className="h-7 w-32 bg-muted rounded" />
+              <div className="h-4 w-24 bg-muted rounded" />
+            </div>
+          </div>
+          <div className="h-8 w-24 bg-muted rounded-full" />
+        </div>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+          {[1, 2, 3, 4].map((i) => (
+            <div key={i} className="flex items-center gap-3">
+              <div className="w-5 h-5 bg-muted rounded" />
+              <div className="space-y-1">
+                <div className="h-3 w-16 bg-muted rounded" />
+                <div className="h-5 w-20 bg-muted rounded" />
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+      
+      {/* Metrics skeleton */}
+      <div className="grid grid-cols-4 gap-3">
+        {[1, 2, 3, 4].map((i) => (
+          <div key={i} className="bg-card border border-border rounded-lg p-3">
+            <div className="h-3 w-16 bg-muted rounded mb-2" />
+            <div className="h-6 w-12 bg-muted rounded" />
+          </div>
+        ))}
+      </div>
+      
+      {/* Tabs skeleton */}
+      <div className="flex gap-2 border-b border-border pb-2">
+        {[1, 2, 3, 4, 5].map((i) => (
+          <div key={i} className="h-10 w-28 bg-muted rounded-lg" />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function TabButton({ id, label, icon: Icon, isActive, onClick, badge }: { id: TabId; label: string; icon: React.ElementType; isActive: boolean; onClick: () => void; badge?: number; }) {
   void id;
   return (
-    <button
-      onClick={onClick}
-      className={`flex items-center gap-2 px-4 py-2.5 rounded-lg font-medium transition-colors ${
-        isActive 
-          ? 'bg-primary text-primary-foreground' 
-          : 'text-muted-foreground hover:bg-muted hover:text-foreground'
-      }`}
-    >
-      <Icon className="w-4 h-4" />
-      <span>{label}</span>
-      {badge !== undefined && badge > 0 && (
-        <span className={`px-1.5 py-0.5 text-xs rounded-full ${
-          isActive ? 'bg-primary-foreground/20 text-primary-foreground' : 'bg-muted-foreground/20 text-muted-foreground'
-        }`}>
-          {badge}
-        </span>
-      )}
+    <button onClick={onClick} className={`flex items-center gap-2 px-4 py-2.5 rounded-lg font-medium transition-colors ${isActive ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-muted hover:text-foreground'}`}>
+      <Icon className="w-4 h-4" /><span>{label}</span>
+      {badge !== undefined && badge > 0 && (<span className={`px-1.5 py-0.5 text-xs rounded-full ${isActive ? 'bg-primary-foreground/20 text-primary-foreground' : 'bg-muted-foreground/20 text-muted-foreground'}`}>{badge}</span>)}
     </button>
+  );
+}
+
+/** Simplified cost summary component */
+function SimplifiedCostSummary({ event }: { event: AOGEvent }) {
+  const internalCost = event.internalCost ?? event.costLabor ?? 0;
+  const externalCost = event.externalCost ?? (event.costParts ?? 0) + (event.costExternal ?? 0);
+  const totalCost = internalCost + externalCost;
+
+  return (
+    <div className="grid grid-cols-3 gap-4">
+      <div className="bg-muted/30 rounded-lg p-3">
+        <p className="text-xs text-muted-foreground mb-1">Internal Cost</p>
+        <p className="text-lg font-bold text-foreground">${internalCost.toLocaleString()}</p>
+      </div>
+      <div className="bg-muted/30 rounded-lg p-3">
+        <p className="text-xs text-muted-foreground mb-1">External Cost</p>
+        <p className="text-lg font-bold text-foreground">${externalCost.toLocaleString()}</p>
+      </div>
+      <div className="bg-primary/10 rounded-lg p-3">
+        <p className="text-xs text-muted-foreground mb-1">Total Cost</p>
+        <p className="text-lg font-bold text-primary">${totalCost.toLocaleString()}</p>
+      </div>
+    </div>
+  );
+}
+
+/** Downtime metrics summary component with visual progress bars */
+function DowntimeMetricsSummary({ event }: { event: AOGEvent }) {
+  const technicalHours = event.technicalTimeHours ?? 0;
+  const procurementHours = event.procurementTimeHours ?? 0;
+  const opsHours = event.opsTimeHours ?? 0;
+  const totalHours = event.totalDowntimeHours ?? 0;
+  
+  // Calculate percentages for visual bars
+  const maxHours = Math.max(technicalHours, procurementHours, opsHours, 1);
+  const technicalPct = (technicalHours / maxHours) * 100;
+  const procurementPct = (procurementHours / maxHours) * 100;
+  const opsPct = (opsHours / maxHours) * 100;
+
+  return (
+    <div className="bg-card border border-border rounded-xl p-4">
+      <div className="flex items-center justify-between mb-4">
+        <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
+          <Clock className="w-4 h-4 text-muted-foreground" />
+          Downtime Breakdown
+        </h3>
+        <span className="text-xs text-muted-foreground">
+          Total: <span className="font-semibold text-foreground">{totalHours.toFixed(1)}h</span>
+        </span>
+      </div>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        {/* Technical */}
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-medium text-blue-600 dark:text-blue-400">Technical</span>
+            <span className="text-sm font-bold text-blue-600 dark:text-blue-400">{technicalHours.toFixed(1)}h</span>
+          </div>
+          <div className="h-2 bg-blue-100 dark:bg-blue-900/30 rounded-full overflow-hidden">
+            <motion.div 
+              initial={{ width: 0 }}
+              animate={{ width: `${technicalPct}%` }}
+              transition={{ duration: 0.5, ease: 'easeOut' }}
+              className="h-full bg-blue-500 rounded-full"
+            />
+          </div>
+          <p className="text-xs text-muted-foreground">Troubleshooting & installation</p>
+        </div>
+        
+        {/* Procurement */}
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-medium text-amber-600 dark:text-amber-400">Procurement</span>
+            <span className="text-sm font-bold text-amber-600 dark:text-amber-400">{procurementHours.toFixed(1)}h</span>
+          </div>
+          <div className="h-2 bg-amber-100 dark:bg-amber-900/30 rounded-full overflow-hidden">
+            <motion.div 
+              initial={{ width: 0 }}
+              animate={{ width: `${procurementPct}%` }}
+              transition={{ duration: 0.5, ease: 'easeOut', delay: 0.1 }}
+              className="h-full bg-amber-500 rounded-full"
+            />
+          </div>
+          <p className="text-xs text-muted-foreground">Waiting for parts</p>
+        </div>
+        
+        {/* Ops */}
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-medium text-purple-600 dark:text-purple-400">Operations</span>
+            <span className="text-sm font-bold text-purple-600 dark:text-purple-400">{opsHours.toFixed(1)}h</span>
+          </div>
+          <div className="h-2 bg-purple-100 dark:bg-purple-900/30 rounded-full overflow-hidden">
+            <motion.div 
+              initial={{ width: 0 }}
+              animate={{ width: `${opsPct}%` }}
+              transition={{ duration: 0.5, ease: 'easeOut', delay: 0.2 }}
+              className="h-full bg-purple-500 rounded-full"
+            />
+          </div>
+          <p className="text-xs text-muted-foreground">Testing & validation</p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/** Info card component for consistent styling */
+function InfoCard({ icon: Icon, label, value, subValue, className = '' }: { 
+  icon: React.ElementType; 
+  label: string; 
+  value: string | React.ReactNode; 
+  subValue?: string;
+  className?: string;
+}) {
+  return (
+    <div className={`flex items-start gap-3 ${className}`}>
+      <div className="w-9 h-9 rounded-lg bg-muted/50 flex items-center justify-center flex-shrink-0">
+        <Icon className="w-4 h-4 text-muted-foreground" />
+      </div>
+      <div className="min-w-0">
+        <p className="text-xs text-muted-foreground">{label}</p>
+        <p className="font-medium text-foreground truncate">{value}</p>
+        {subValue && <p className="text-xs text-muted-foreground">{subValue}</p>}
+      </div>
+    </div>
   );
 }
 
 export function AOGDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState<TabId>('timeline');
+  const [activeTab, setActiveTab] = useState<TabId>('milestones');
+  const [isEditingMilestones, setIsEditingMilestones] = useState(false);
+  const [copied, setCopied] = useState(false);
 
-  // Fetch data
-  const { data: aogEvent, isLoading: eventLoading, refetch: refetchEvent } = useAOGEventById(id || null);
-  const { data: statusHistory, refetch: refetchHistory } = useAOGStatusHistory(id || null);
-  const { data: aircraftData } = useAircraft();
+  const { data: event, isLoading: eventLoading, refetch } = useAOGEventById(id || null);
+  const { data: aircraftData, isLoading: aircraftLoading } = useAircraft();
 
-  const aircraft = aircraftData?.data || [];
-  const aircraftMap = new Map<string, Aircraft>();
-  aircraft.forEach((a) => {
+  // Find aircraft for this event - aircraftData is PaginatedResponse
+  // Backend may return 'id' or '_id' depending on serialization
+  const aircraftList = aircraftData?.data || [];
+  const aircraft = aircraftList.find((a: Aircraft) => {
     const aircraftId = a._id || a.id;
-    if (aircraftId) {
-      aircraftMap.set(aircraftId, a);
-    }
+    return aircraftId === event?.aircraftId;
   });
 
-  const eventAircraft = aogEvent ? aircraftMap.get(String(aogEvent.aircraftId)) : undefined;
+  // Determine if event is legacy (no milestone fields)
+  const isLegacy = event?.isLegacy ?? false;
 
-  // Handle refresh after mutations
-  const handleRefresh = () => {
-    refetchEvent();
-    refetchHistory();
+  // Determine if event is active (not cleared)
+  const isActive = !event?.clearedAt;
+
+  // Extract milestone timestamps
+  const milestoneTimestamps = event ? {
+    reportedAt: event.reportedAt || event.detectedAt,
+    procurementRequestedAt: event.procurementRequestedAt,
+    availableAtStoreAt: event.availableAtStoreAt,
+    issuedBackAt: event.issuedBackAt,
+    installationCompleteAt: event.installationCompleteAt,
+    testStartAt: event.testStartAt,
+    upAndRunningAt: event.upAndRunningAt || event.clearedAt,
+  } : {};
+
+  // Computed metrics
+  const computedMetrics = event ? {
+    technicalTimeHours: event.technicalTimeHours ?? 0,
+    procurementTimeHours: event.procurementTimeHours ?? 0,
+    opsTimeHours: event.opsTimeHours ?? 0,
+    totalDowntimeHours: event.totalDowntimeHours ?? 0,
+  } : undefined;
+
+  // Copy event ID to clipboard
+  const handleCopyId = () => {
+    if (event?._id) {
+      navigator.clipboard.writeText(event._id);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }
   };
 
-  // Loading state
-  if (eventLoading) {
-    return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <div className="flex items-center gap-3">
-          <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin" />
-          <span className="text-muted-foreground">Loading AOG event...</span>
-        </div>
-      </div>
-    );
+  // Show loading skeleton
+  if (eventLoading || aircraftLoading) {
+    return <DetailPageSkeleton />;
   }
 
-  // Not found state
-  if (!aogEvent) {
+  if (!event) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-[400px]">
-        <AlertCircle className="w-12 h-12 text-destructive mb-4" />
-        <h2 className="text-xl font-semibold text-foreground mb-2">Event Not Found</h2>
-        <p className="text-muted-foreground mb-4">The requested AOG event could not be found.</p>
-        <Button onClick={() => navigate('/aog/list')}>
+      <div className="flex flex-col items-center justify-center h-64 gap-4">
+        <AlertCircle className="w-12 h-12 text-muted-foreground" />
+        <p className="text-muted-foreground">AOG event not found</p>
+        <Button variant="outline" onClick={() => navigate('/aog/list')}>
           <ArrowLeft className="w-4 h-4 mr-2" />
-          Back to List
+          Back to AOG List
         </Button>
       </div>
     );
   }
 
-  const currentStatus = aogEvent.currentStatus || 'REPORTED';
-  const statusColors = getWorkflowStatusColor(currentStatus);
-  const isActive = !aogEvent.clearedAt;
-  const totalCost = (aogEvent.costLabor || 0) + (aogEvent.costParts || 0) + (aogEvent.costExternal || 0);
-  const detectedDate = new Date(aogEvent.detectedAt);
-  const clearedDate = aogEvent.clearedAt ? new Date(aogEvent.clearedAt) : undefined;
-  
-  // Get the event ID (backend returns 'id' not '_id')
-  const eventId = (aogEvent as unknown as { id?: string }).id || aogEvent._id;
+  const detectedDate = new Date(event.detectedAt);
+  const clearedDate = event.clearedAt ? new Date(event.clearedAt) : undefined;
+
+  // Calculate total cost for quick display
+  const internalCost = event.internalCost ?? event.costLabor ?? 0;
+  const externalCost = event.externalCost ?? (event.costParts ?? 0) + (event.costExternal ?? 0);
+  const totalCost = internalCost + externalCost;
 
   return (
     <div className="space-y-6">
@@ -168,271 +311,264 @@ export function AOGDetailPage() {
       <Breadcrumb
         items={[
           { label: 'AOG Events', path: '/aog/list' },
-          { label: eventAircraft?.registration || 'Event Details' },
+          { label: aircraft?.registration || 'AOG Event' },
         ]}
       />
 
-      {/* Header */}
-      <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">
-        <div className="flex items-start gap-4">
-          {/* Back button */}
-          <Button
-            variant="outline"
-            size="icon"
-            onClick={() => navigate('/aog/list')}
-            className="flex-shrink-0"
-          >
-            <ArrowLeft className="w-4 h-4" />
-          </Button>
-
-          {/* Title and status */}
-          <div>
-            <div className="flex items-center gap-3 mb-2">
-              <motion.h1
-                initial={{ opacity: 0, x: -20 }}
-                animate={{ opacity: 1, x: 0 }}
-                className="text-2xl font-bold text-foreground flex items-center gap-2"
-              >
-                <Plane className="w-6 h-6 text-primary" />
-                {eventAircraft?.registration || 'Unknown Aircraft'}
-              </motion.h1>
-              
-              {/* Active/Cleared badge */}
-              <span className={`px-3 py-1 text-xs font-semibold rounded-full ${
-                isActive 
-                  ? 'bg-destructive text-destructive-foreground' 
-                  : 'bg-green-500 text-white'
-              }`}>
-                {isActive ? 'ACTIVE' : 'CLEARED'}
-              </span>
-
-              {/* Legacy badge */}
-              {aogEvent.isLegacy && (
-                <span className="px-2 py-1 text-xs rounded-full bg-muted text-muted-foreground">
-                  Legacy
-                </span>
-              )}
-            </div>
-
-            {/* Workflow status */}
+      {/* Header Card */}
+      <motion.div
+        initial={{ opacity: 0, y: -10 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="bg-card border border-border rounded-xl overflow-hidden"
+      >
+        {/* Status Banner */}
+        <div className={`px-6 py-2 ${isActive ? 'bg-red-500/10 border-b border-red-500/20' : 'bg-green-500/10 border-b border-green-500/20'}`}>
+          <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <span className={`px-3 py-1 text-sm rounded-full border ${statusColors.bg} ${statusColors.text} ${statusColors.border}`}>
-                {AOG_WORKFLOW_STATUS_LABELS[currentStatus]}
-              </span>
-              {aogEvent.blockingReason && (
-                <span className="px-2 py-1 text-xs rounded-full bg-amber-500/10 text-amber-600">
-                  Blocked: {BLOCKING_REASON_LABELS[aogEvent.blockingReason]}
-                </span>
+              {isActive ? (
+                <AlertCircle className="w-4 h-4 text-red-500 animate-pulse" />
+              ) : (
+                <CheckCircle2 className="w-4 h-4 text-green-500" />
               )}
-            </div>
-          </div>
-        </div>
-
-        {/* Quick stats */}
-        <div className="flex flex-wrap gap-4">
-          <div className="flex items-center gap-2 px-3 py-2 bg-muted/50 rounded-lg">
-            <Clock className="w-4 h-4 text-muted-foreground" />
-            <div className="text-sm">
-              <span className="text-muted-foreground">Age: </span>
-              <span className="font-medium text-foreground">
-                {formatAgeDuration(detectedDate, clearedDate)}
+              <span className={`text-sm font-medium ${isActive ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400'}`}>
+                {isActive ? 'Active AOG Event' : 'Resolved'}
               </span>
             </div>
-          </div>
-          <div className="flex items-center gap-2 px-3 py-2 bg-muted/50 rounded-lg">
-            <Users className="w-4 h-4 text-muted-foreground" />
-            <div className="text-sm">
-              <span className="text-muted-foreground">Man-hours: </span>
-              <span className="font-medium text-foreground">{aogEvent.manHours}</span>
-            </div>
-          </div>
-          <div className="flex items-center gap-2 px-3 py-2 bg-muted/50 rounded-lg">
-            <DollarSign className="w-4 h-4 text-muted-foreground" />
-            <div className="text-sm">
-              <span className="text-muted-foreground">Cost: </span>
-              <span className="font-medium text-foreground">${totalCost.toLocaleString()}</span>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Main content grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Left column - Event details and tabs */}
-        <div className="lg:col-span-2 space-y-6">
-          {/* Event summary card */}
-          <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="bg-card border border-border rounded-xl p-5"
-          >
-            <h3 className="font-semibold text-foreground mb-4">Event Details</h3>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <div>
-                <p className="text-xs text-muted-foreground mb-1">Category</p>
-                <span className={`px-2 py-0.5 text-xs rounded-full ${
-                  aogEvent.category === 'aog'
-                    ? 'bg-destructive/10 text-destructive'
-                    : aogEvent.category === 'unscheduled'
-                    ? 'bg-yellow-500/10 text-yellow-600'
-                    : 'bg-blue-500/10 text-blue-600'
-                }`}>
-                  {aogEvent.category.toUpperCase()}
-                </span>
-              </div>
-              <div>
-                <p className="text-xs text-muted-foreground mb-1">Responsible Party</p>
-                <p className="text-sm font-medium text-foreground">{aogEvent.responsibleParty}</p>
-              </div>
-              <div>
-                <p className="text-xs text-muted-foreground mb-1">Detected</p>
-                <p className="text-sm font-medium text-foreground">
-                  {format(detectedDate, 'MMM dd, yyyy HH:mm')}
-                </p>
-              </div>
-              <div>
-                <p className="text-xs text-muted-foreground mb-1">Cleared</p>
-                <p className="text-sm font-medium text-foreground">
-                  {clearedDate ? format(clearedDate, 'MMM dd, yyyy HH:mm') : '—'}
-                </p>
-              </div>
-            </div>
-            
-            <div className="mt-4 pt-4 border-t border-border">
-              <p className="text-xs text-muted-foreground mb-1">Reason Code</p>
-              <p className="text-sm text-foreground">{aogEvent.reasonCode}</p>
-            </div>
-            
-            <div className="mt-3">
-              <p className="text-xs text-muted-foreground mb-1">Action Taken</p>
-              <p className="text-sm text-foreground">{aogEvent.actionTaken}</p>
-            </div>
-          </motion.div>
-
-          {/* Tabs */}
-          <div className="bg-card border border-border rounded-xl overflow-hidden">
-            {/* Tab buttons */}
-            <div className="flex flex-wrap gap-2 p-3 border-b border-border bg-muted/30">
-              <TabButton
-                id="timeline"
-                label="Timeline"
-                icon={History}
-                isActive={activeTab === 'timeline'}
-                onClick={() => setActiveTab('timeline')}
-                badge={statusHistory?.length}
-              />
-              <TabButton
-                id="parts"
-                label="Parts"
-                icon={Package}
-                isActive={activeTab === 'parts'}
-                onClick={() => setActiveTab('parts')}
-                badge={aogEvent.partRequests?.length}
-              />
-              <TabButton
-                id="costs"
-                label="Costs"
-                icon={Wallet}
-                isActive={activeTab === 'costs'}
-                onClick={() => setActiveTab('costs')}
-              />
-              <TabButton
-                id="attachments"
-                label="Attachments"
-                icon={Paperclip}
-                isActive={activeTab === 'attachments'}
-                onClick={() => setActiveTab('attachments')}
-                badge={(aogEvent.attachments?.length || 0) + (aogEvent.attachmentsMeta?.length || 0)}
-              />
-            </div>
-
-            {/* Tab content */}
-            <div className="p-5">
-              {activeTab === 'timeline' && (
-                <StatusTimeline
-                  history={statusHistory || []}
-                  currentStatus={currentStatus}
-                  isLegacy={aogEvent.isLegacy}
-                />
-              )}
-              {activeTab === 'parts' && (
-                <PartsTab
-                  aogEventId={eventId}
-                  partRequests={aogEvent.partRequests || []}
-                  onUpdate={handleRefresh}
-                />
-              )}
-              {activeTab === 'costs' && (
-                <CostsTab
-                  aogEvent={aogEvent}
-                  onUpdate={handleRefresh}
-                />
-              )}
-              {activeTab === 'attachments' && (
-                <AttachmentsTab
-                  aogEventId={eventId}
-                  attachments={aogEvent.attachments || []}
-                  attachmentsMeta={aogEvent.attachmentsMeta}
-                />
-              )}
-            </div>
-          </div>
-        </div>
-
-        {/* Right column - Next steps */}
-        <div className="space-y-6">
-          <NextStepActionPanel
-            aogEventId={eventId}
-            currentStatus={currentStatus}
-            isLegacy={aogEvent.isLegacy}
-            onTransitionSuccess={handleRefresh}
-          />
-
-          {/* Aircraft info card */}
-          {eventAircraft && (
-            <motion.div
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.1 }}
-              className="bg-card border border-border rounded-xl p-5"
-            >
-              <h3 className="font-semibold text-foreground mb-4 flex items-center gap-2">
-                <Plane className="w-4 h-4 text-primary" />
-                Aircraft
-              </h3>
-              <div className="space-y-3">
-                <div className="flex justify-between">
-                  <span className="text-sm text-muted-foreground">Registration</span>
-                  <span className="text-sm font-medium text-foreground">{eventAircraft.registration}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-sm text-muted-foreground">Fleet Group</span>
-                  <span className="text-sm font-medium text-foreground">{eventAircraft.fleetGroup}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-sm text-muted-foreground">Type</span>
-                  <span className="text-sm font-medium text-foreground">{eventAircraft.aircraftType}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-sm text-muted-foreground">Owner</span>
-                  <span className="text-sm font-medium text-foreground">{eventAircraft.owner}</span>
-                </div>
-              </div>
-              <Button
-                variant="outline"
-                size="sm"
-                className="w-full mt-4"
-                onClick={() => navigate(`/aircraft/${eventAircraft._id || eventAircraft.id}`)}
+            <div className="flex items-center gap-2">
+              <button
+                onClick={handleCopyId}
+                className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
+                title="Copy Event ID"
               >
-                View Aircraft
-                <ChevronRight className="w-4 h-4 ml-1" />
-              </Button>
-            </motion.div>
+                {copied ? (
+                  <>
+                    <CheckCircle2 className="w-3.5 h-3.5 text-green-500" />
+                    <span className="text-green-500">Copied!</span>
+                  </>
+                ) : (
+                  <>
+                    <Copy className="w-3.5 h-3.5" />
+                    <span className="font-mono">{(event._id || '').slice(-8)}</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div className="p-6">
+          {/* Aircraft Info Header */}
+          <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4 mb-6">
+            <div className="flex items-center gap-4">
+              <div className={`w-14 h-14 rounded-xl flex items-center justify-center ${isActive ? 'bg-red-500/10' : 'bg-green-500/10'}`}>
+                <Plane className={`w-7 h-7 ${isActive ? 'text-red-500' : 'text-green-500'}`} />
+              </div>
+              <div>
+                <div className="flex items-center gap-3">
+                  <h1 className="text-2xl font-bold text-foreground">
+                    {aircraft?.registration || 'Unknown Aircraft'}
+                  </h1>
+                  {aircraft?.fleetGroup && (
+                    <span className="px-2 py-0.5 text-xs font-medium bg-primary/10 text-primary rounded-full">
+                      {aircraft.fleetGroup}
+                    </span>
+                  )}
+                </div>
+                <p className="text-muted-foreground">
+                  {aircraft?.aircraftType || 'Unknown Type'}
+                  {aircraft?.owner && <span className="text-muted-foreground/60"> • {aircraft.owner}</span>}
+                </p>
+              </div>
+            </div>
+            
+            {/* Quick Stats */}
+            <div className="flex items-center gap-4 md:gap-6">
+              <div className="text-center">
+                <p className="text-2xl font-bold text-foreground">{formatAgeDuration(detectedDate, clearedDate)}</p>
+                <p className="text-xs text-muted-foreground">Duration</p>
+              </div>
+              {totalCost > 0 && (
+                <div className="text-center">
+                  <p className="text-2xl font-bold text-foreground">${totalCost.toLocaleString()}</p>
+                  <p className="text-xs text-muted-foreground">Total Cost</p>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Event Details Grid */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+            <InfoCard 
+              icon={Calendar} 
+              label="Detected" 
+              value={format(detectedDate, 'MMM dd, yyyy')}
+              subValue={format(detectedDate, 'HH:mm')}
+            />
+            <InfoCard 
+              icon={Users} 
+              label="Manpower" 
+              value={`${event.manpowerCount} personnel`}
+              subValue={`${event.manHours} man-hours`}
+            />
+            <InfoCard 
+              icon={Building2} 
+              label="Responsible" 
+              value={event.responsibleParty}
+            />
+            <InfoCard 
+              icon={Tag} 
+              label="Category" 
+              value={<span className="capitalize">{event.category}</span>}
+            />
+          </div>
+
+          {/* Reason and Action */}
+          <div className="grid md:grid-cols-2 gap-4 pt-4 border-t border-border">
+            <div className="bg-muted/30 rounded-lg p-4">
+              <div className="flex items-center gap-2 mb-2">
+                <AlertCircle className="w-4 h-4 text-muted-foreground" />
+                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Reason Code</p>
+              </div>
+              <p className="text-sm text-foreground">{event.reasonCode || 'Not specified'}</p>
+            </div>
+            <div className="bg-muted/30 rounded-lg p-4">
+              <div className="flex items-center gap-2 mb-2">
+                <FileText className="w-4 h-4 text-muted-foreground" />
+                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Action Taken</p>
+              </div>
+              <p className="text-sm text-foreground">{event.actionTaken || 'Not specified'}</p>
+            </div>
+          </div>
+
+          {/* Cleared Date (if resolved) */}
+          {clearedDate && (
+            <div className="mt-4 pt-4 border-t border-border">
+              <div className="flex items-center gap-2 text-green-600 dark:text-green-400">
+                <CheckCircle2 className="w-4 h-4" />
+                <span className="text-sm">
+                  Cleared on {format(clearedDate, 'MMM dd, yyyy')} at {format(clearedDate, 'HH:mm')}
+                </span>
+              </div>
+            </div>
+          )}
+
+          {/* Legacy badge */}
+          {isLegacy && (
+            <div className="mt-4 p-3 bg-amber-500/10 border border-amber-500/30 rounded-lg">
+              <p className="text-sm text-amber-600 dark:text-amber-400 flex items-center gap-2">
+                <AlertCircle className="w-4 h-4" />
+                Legacy event - milestone tracking not available. Only basic downtime data is shown.
+              </p>
+            </div>
           )}
         </div>
+      </motion.div>
+
+      {/* Downtime Metrics Summary (non-legacy only) */}
+      {!isLegacy && (
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.1 }}
+        >
+          <DowntimeMetricsSummary event={event} />
+        </motion.div>
+      )}
+
+      {/* Next Step Action Panel */}
+      <motion.div
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.15 }}
+      >
+        <NextStepActionPanel
+          milestones={milestoneTimestamps}
+          isLegacy={isLegacy}
+          isActive={isActive}
+        />
+      </motion.div>
+
+      {/* Tabs Navigation */}
+      <div className="bg-card border border-border rounded-xl p-2">
+        <div className="flex flex-wrap gap-1">
+          <TabButton id="milestones" label="Milestones" icon={Clock} isActive={activeTab === 'milestones'} onClick={() => setActiveTab('milestones')} />
+          <TabButton id="history" label="History" icon={History} isActive={activeTab === 'history'} onClick={() => setActiveTab('history')} badge={event.milestoneHistory?.length} />
+          <TabButton id="parts" label="Parts" icon={Package} isActive={activeTab === 'parts'} onClick={() => setActiveTab('parts')} badge={event.partRequests?.length} />
+          <TabButton id="costs" label="Costs" icon={Wallet} isActive={activeTab === 'costs'} onClick={() => setActiveTab('costs')} />
+          <TabButton id="attachments" label="Attachments" icon={Paperclip} isActive={activeTab === 'attachments'} onClick={() => setActiveTab('attachments')} badge={event.attachments?.length} />
+        </div>
       </div>
+
+      {/* Tab Content */}
+      <motion.div
+        key={activeTab}
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="bg-card border border-border rounded-xl p-6"
+      >
+        {activeTab === 'milestones' && (
+          <div className="space-y-6">
+            {/* Edit button */}
+            {!isLegacy && !isEditingMilestones && (
+              <div className="flex justify-end">
+                <Button variant="outline" size="sm" onClick={() => setIsEditingMilestones(true)}>
+                  <Edit2 className="w-4 h-4 mr-2" />
+                  Edit Milestones
+                </Button>
+              </div>
+            )}
+
+            {isEditingMilestones ? (
+              <MilestoneEditForm
+                aogEvent={event}
+                onUpdate={() => {
+                  setIsEditingMilestones(false);
+                  refetch();
+                }}
+                onCancel={() => setIsEditingMilestones(false)}
+              />
+            ) : (
+              <MilestoneTimeline
+                milestones={milestoneTimestamps}
+                computedMetrics={computedMetrics}
+                isLegacy={isLegacy}
+                detectedAt={event.detectedAt}
+                clearedAt={event.clearedAt}
+              />
+            )}
+          </div>
+        )}
+
+        {activeTab === 'history' && (
+          <MilestoneHistory
+            history={event.milestoneHistory}
+            isLegacy={isLegacy}
+          />
+        )}
+
+        {activeTab === 'parts' && (
+          <PartsTab 
+            aogEventId={event._id} 
+            partRequests={event.partRequests || []} 
+            onUpdate={() => refetch()}
+          />
+        )}
+
+        {activeTab === 'costs' && (
+          <div className="space-y-6">
+            <SimplifiedCostSummary event={event} />
+            <CostsTab aogEvent={event} />
+          </div>
+        )}
+
+        {activeTab === 'attachments' && (
+          <AttachmentsTab 
+            aogEventId={event._id}
+            attachments={event.attachments || []} 
+            attachmentsMeta={event.attachmentsMeta}
+          />
+        )}
+      </motion.div>
     </div>
   );
 }
-
-export default AOGDetailPage;

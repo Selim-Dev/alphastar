@@ -62,16 +62,6 @@ const navigationGroups: NavGroupConfig[] = [
     label: 'Maintenance',
     items: [
       { 
-        path: '/maintenance/tasks', 
-        label: 'Maintenance Tasks', 
-        icon: Wrench,
-        subItems: [
-          { path: '/maintenance/tasks', label: 'Task List', icon: List },
-          { path: '/maintenance/tasks/log', label: 'Log Task', icon: PlusCircle, editorOnly: true },
-          { path: '/maintenance/tasks/analytics', label: 'Analytics', icon: BarChart3 },
-        ],
-      },
-      { 
         path: '/aog', 
         label: 'AOG & Events', 
         icon: AlertTriangle,
@@ -79,6 +69,16 @@ const navigationGroups: NavGroupConfig[] = [
           { path: '/aog/list', label: 'Events List', icon: List },
           { path: '/aog/log', label: 'Log Event', icon: PlusCircle, editorOnly: true },
           { path: '/aog/analytics', label: 'Analytics', icon: BarChart3 },
+        ],
+      },
+      { 
+        path: '/maintenance/tasks', 
+        label: 'Maintenance Tasks', 
+        icon: Wrench,
+        subItems: [
+          { path: '/maintenance/tasks', label: 'Task List', icon: List },
+          { path: '/maintenance/tasks/log', label: 'Log Task', icon: PlusCircle, editorOnly: true },
+          { path: '/maintenance/tasks/analytics', label: 'Analytics', icon: BarChart3 },
         ],
       },
       { 

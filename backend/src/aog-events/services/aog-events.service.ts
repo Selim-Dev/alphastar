@@ -1467,9 +1467,10 @@ export class AOGEventsService {
     });
 
     // Lookup aircraft data to get registration and fleetGroup
+    // Note: Mongoose pluralizes 'Aircraft' to 'aircrafts' for the collection name
     pipeline.push({
       $lookup: {
-        from: 'aircraft',
+        from: 'aircrafts',
         localField: 'aircraftIdObj',
         foreignField: '_id',
         as: 'aircraft',

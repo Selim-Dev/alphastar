@@ -160,6 +160,14 @@ export interface AttachmentMeta {
   mimeType?: string;
 }
 
+// Milestone History Entry - tracking milestone timestamp changes
+export interface MilestoneHistoryEntry {
+  milestone: string;
+  timestamp: string;
+  recordedAt: string;
+  recordedBy: string;
+}
+
 // AOG Event types (extended with workflow fields)
 export interface AOGEvent {
   _id: string;
@@ -214,6 +222,8 @@ export interface AOGEvent {
   // Simplified cost fields
   internalCost?: number;
   externalCost?: number;
+  // Milestone history
+  milestoneHistory?: MilestoneHistoryEntry[];
   createdAt: string;
   updatedAt?: string;
 }

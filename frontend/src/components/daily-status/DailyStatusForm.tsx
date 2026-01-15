@@ -454,7 +454,7 @@ export function DailyStatusForm({
     <motion.div
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
-      className="bg-card border border-border rounded-lg p-4 sm:p-6 shadow-xl"
+      className="bg-white dark:bg-slate-900 border border-border rounded-lg p-4 sm:p-6 shadow-xl"
     >
       {/* Form Header */}
       <div className="mb-6">

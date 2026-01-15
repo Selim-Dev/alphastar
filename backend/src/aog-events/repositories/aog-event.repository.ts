@@ -104,7 +104,7 @@ export class AOGEventRepository {
       }
     }
 
-    return this.aogEventModel.find(query).sort({ detectedAt: -1 }).exec();
+    return this.aogEventModel.find(query).sort({ createdAt: -1 }).exec();
   }
 
   async update(

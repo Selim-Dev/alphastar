@@ -158,13 +158,13 @@ export function Button({
       'disabled:from-destructive/40 disabled:to-destructive/30 disabled:cursor-not-allowed',
     ].join(' '),
     outline: [
-      'bg-background text-foreground',
-      'border-2 border-border',
+      'bg-secondary/50 text-foreground',
+      'border border-border/80',
       'shadow-sm',
-      'hover:bg-accent/50 hover:border-primary/50 hover:text-accent-foreground hover:shadow-md hover:-translate-y-0.5',
-      'active:bg-accent/70 active:scale-[0.98] active:translate-y-0',
+      'hover:bg-secondary hover:border-primary/40 hover:text-foreground hover:shadow-md hover:-translate-y-0.5',
+      'active:bg-secondary/80 active:scale-[0.98] active:translate-y-0',
       'focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
-      'disabled:bg-background/50 disabled:text-muted-foreground disabled:border-border/50 disabled:cursor-not-allowed disabled:hover:translate-y-0',
+      'disabled:bg-secondary/30 disabled:text-muted-foreground disabled:border-border/50 disabled:cursor-not-allowed disabled:hover:translate-y-0',
     ].join(' '),
     ghost: [
       'bg-transparent text-foreground',

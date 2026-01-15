@@ -4,15 +4,16 @@ import { format, subDays, startOfMonth, endOfMonth, subMonths } from 'date-fns';
 import { AircraftSelect } from '@/components/ui/AircraftSelect';
 import { GlossaryTerm } from '@/components/ui/GlossaryTooltip';
 import { ThreeBucketChart, BucketSummaryCards } from '@/components/ui/ThreeBucketChart';
+import { AOGAircraftBreakdownTable } from '@/components/aog/AOGAircraftBreakdownTable';
 import { useAOGEvents, useThreeBucketAnalytics } from '@/hooks/useAOGEvents';
 import { useAircraft } from '@/hooks/useAircraft';
 import type { AOGEvent, Aircraft, ThreeBucketBreakdown } from '@/types';
 
-type DatePreset = 'last7days' | 'last30days' | 'thisMonth' | 'lastMonth' | 'custom';
+type DatePreset = 'allTime' | 'last7days' | 'last30days' | 'thisMonth' | 'lastMonth' | 'custom';
 
 interface DateRange {
-  startDate: string;
-  endDate: string;
+  startDate?: string;
+  endDate?: string;
 }
 
 // Fleet groups available in the system
@@ -21,6 +22,9 @@ const FLEET_GROUPS = ['A340', 'A330', 'G650ER', 'Hawker', 'Cessna'];
 function getDateRangeFromPreset(preset: DatePreset): DateRange {
   const today = new Date();
   switch (preset) {
+    case 'allTime':
+      // Return empty object - no date filtering
+      return {};
     case 'last7days':
       return {
         startDate: format(subDays(today, 7), 'yyyy-MM-dd'),
@@ -124,76 +128,7 @@ function SummaryCards({
   );
 }
 
-// Per-Aircraft Breakdown Table
-function AircraftBreakdownTable({
-  data,
-}: {
-  data: Array<{
-    aircraftId: string;
-    registration: string;
-    technicalHours: number;
-    procurementHours: number;
-    opsHours: number;
-    totalHours: number;
-  }>;
-}) {
-  if (data.length === 0) {
-    return (
-      <motion.div
-        initial={{ opacity: 0, y: 10 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="bg-card border border-border rounded-lg p-4"
-      >
-        <h3 className="text-lg font-semibold text-foreground mb-4">
-          Downtime by Aircraft
-        </h3>
-        <p className="text-muted-foreground text-center py-8">No data available</p>
-      </motion.div>
-    );
-  }
 
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 10 }}
-      animate={{ opacity: 1, y: 0 }}
-      className="bg-card border border-border rounded-lg p-4"
-    >
-      <h3 className="text-lg font-semibold text-foreground mb-4">
-        Downtime by Aircraft
-      </h3>
-      <div className="overflow-x-auto">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="border-b border-border">
-              <th className="text-left py-2 px-3 font-medium text-muted-foreground">Aircraft</th>
-              <th className="text-right py-2 px-3 font-medium text-blue-600">Technical</th>
-              <th className="text-right py-2 px-3 font-medium text-amber-600">Procurement</th>
-              <th className="text-right py-2 px-3 font-medium text-emerald-600">Ops</th>
-              <th className="text-right py-2 px-3 font-medium text-foreground">Total</th>
-            </tr>
-          </thead>
-          <tbody>
-            {data.map((row, index) => (
-              <motion.tr
-                key={row.aircraftId}
-                initial={{ opacity: 0, x: -10 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: index * 0.03 }}
-                className="border-b border-border last:border-0 hover:bg-muted/50"
-              >
-                <td className="py-2 px-3 font-medium text-foreground">{row.registration}</td>
-                <td className="py-2 px-3 text-right text-blue-600">{row.technicalHours.toFixed(1)} hrs</td>
-                <td className="py-2 px-3 text-right text-amber-600">{row.procurementHours.toFixed(1)} hrs</td>
-                <td className="py-2 px-3 text-right text-emerald-600">{row.opsHours.toFixed(1)} hrs</td>
-                <td className="py-2 px-3 text-right font-semibold text-foreground">{row.totalHours.toFixed(1)} hrs</td>
-              </motion.tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </motion.div>
-  );
-}
 
 // Event Timeline Component
 function EventTimeline({
@@ -203,8 +138,9 @@ function EventTimeline({
   events: (AOGEvent & { downtimeHours?: number })[];
   aircraftMap: Map<string, Aircraft>;
 }) {
+  // Sort by createdAt descending (newest first) so newly created events appear at top
   const sortedEvents = [...events].sort(
-    (a, b) => new Date(b.detectedAt).getTime() - new Date(a.detectedAt).getTime()
+    (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
   );
 
   return (
@@ -294,7 +230,7 @@ function EventTimeline({
 }
 
 export function AOGAnalyticsPage() {
-  const [datePreset, setDatePreset] = useState<DatePreset>('last30days');
+  const [datePreset, setDatePreset] = useState<DatePreset>('allTime');
   const [customRange, setCustomRange] = useState<DateRange>({
     startDate: format(subDays(new Date(), 30), 'yyyy-MM-dd'),
     endDate: format(new Date(), 'yyyy-MM-dd'),
@@ -385,7 +321,7 @@ export function AOGAnalyticsPage() {
           <div className="flex flex-col gap-2">
             <label className="text-sm font-medium text-muted-foreground">Date Range</label>
             <div className="flex rounded-lg border border-border overflow-hidden">
-              {(['last7days', 'last30days', 'thisMonth', 'lastMonth'] as DatePreset[]).map(
+              {(['allTime', 'last7days', 'last30days', 'thisMonth', 'lastMonth'] as DatePreset[]).map(
                 (preset) => (
                   <button
                     key={preset}
@@ -396,6 +332,7 @@ export function AOGAnalyticsPage() {
                         : 'bg-card text-muted-foreground hover:bg-muted'
                     }`}
                   >
+                    {preset === 'allTime' && 'All Time'}
                     {preset === 'last7days' && '7 Days'}
                     {preset === 'last30days' && '30 Days'}
                     {preset === 'thisMonth' && 'This Month'}
@@ -412,20 +349,20 @@ export function AOGAnalyticsPage() {
             <div className="flex items-center gap-2">
               <input
                 type="date"
-                value={datePreset === 'custom' ? customRange.startDate : dateRange.startDate}
+                value={datePreset === 'custom' ? customRange.startDate || '' : dateRange.startDate || ''}
                 onChange={(e) => {
                   setDatePreset('custom');
-                  setCustomRange((prev) => ({ ...prev, startDate: e.target.value }));
+                  setCustomRange((prev) => ({ ...prev, startDate: e.target.value || undefined }));
                 }}
                 className="px-2 py-1.5 text-sm border border-border rounded-md bg-background text-foreground"
               />
               <span className="text-muted-foreground">to</span>
               <input
                 type="date"
-                value={datePreset === 'custom' ? customRange.endDate : dateRange.endDate}
+                value={datePreset === 'custom' ? customRange.endDate || '' : dateRange.endDate || ''}
                 onChange={(e) => {
                   setDatePreset('custom');
-                  setCustomRange((prev) => ({ ...prev, endDate: e.target.value }));
+                  setCustomRange((prev) => ({ ...prev, endDate: e.target.value || undefined }));
                 }}
                 className="px-2 py-1.5 text-sm border border-border rounded-md bg-background text-foreground"
               />
@@ -444,7 +381,11 @@ export function AOGAnalyticsPage() {
                   setAircraftFilter('');
                 }
               }}
-              className="px-3 py-1.5 text-sm border border-border rounded-md bg-background text-foreground min-w-[140px]"
+              className={`h-9 px-3 py-1.5 text-sm border rounded-md min-w-[140px] cursor-pointer transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-1 ${
+                fleetFilter
+                  ? 'bg-primary/10 border-primary text-primary font-medium'
+                  : 'bg-card border-border text-foreground hover:bg-muted'
+              }`}
             >
               <option value="">All Fleets</option>
               {FLEET_GROUPS.map((group) => (
@@ -489,8 +430,16 @@ export function AOGAnalyticsPage() {
       {/* Three-Bucket Charts */}
       <ThreeBucketChart data={buckets} isLoading={isLoadingBuckets} />
 
-      {/* Per-Aircraft Breakdown */}
-      <AircraftBreakdownTable data={byAircraft} />
+      {/* Per-Aircraft Breakdown with Export */}
+      <AOGAircraftBreakdownTable 
+        data={byAircraft} 
+        filterInfo={{
+          dateRange,
+          fleetGroup: fleetFilter || undefined,
+          aircraftFilter: aircraftFilter ? aircraftMap.get(aircraftFilter)?.registration : undefined,
+        }}
+        isLoading={isLoadingBuckets}
+      />
 
       {/* Event Timeline */}
       <EventTimeline events={events} aircraftMap={aircraftMap} />

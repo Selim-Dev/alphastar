@@ -93,16 +93,21 @@ function getBlockingReasonColor(reason: BlockingReason): { bg: string; text: str
   }
 }
 
-type DatePreset = 'last7days' | 'last30days' | 'thisMonth' | 'lastMonth' | 'custom';
+type DatePreset = 'allTime' | 'last7days' | 'last30days' | 'thisMonth' | 'lastMonth' | 'custom';
 
 interface DateRange {
-  startDate: string;
-  endDate: string;
+  startDate?: string;
+  endDate?: string;
 }
 
 function getDateRangeFromPreset(preset: DatePreset): DateRange {
   const today = new Date();
   switch (preset) {
+    case 'allTime':
+      return {
+        startDate: undefined,
+        endDate: undefined,
+      };
     case 'last7days':
       return {
         startDate: format(subDays(today, 7), 'yyyy-MM-dd'),
@@ -553,10 +558,10 @@ export function AOGListPage() {
   const urlStatus = searchParams.get('status'); // For deep linking from alerts (Requirements: 3.1)
   
   const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
-  const [datePreset, setDatePreset] = useState<DatePreset>('last30days');
+  const [datePreset, setDatePreset] = useState<DatePreset>('allTime');
   const [customRange, setCustomRange] = useState<DateRange>({
-    startDate: format(subDays(new Date(), 30), 'yyyy-MM-dd'),
-    endDate: format(new Date(), 'yyyy-MM-dd'),
+    startDate: undefined,
+    endDate: undefined,
   });
   const [aircraftFilter, setAircraftFilter] = useState<string>('');
   const [responsiblePartyFilter, setResponsiblePartyFilter] = useState<string>('');
@@ -587,10 +592,11 @@ export function AOGListPage() {
     return getDateRangeFromPreset(datePreset);
   }, [datePreset, customRange]);
 
-  // Data fetching - include currentStatus and blockingReason filters (Requirements: 8.1)
+  // Data fetching - no date filter by default, sort by createdAt descending (backend handles this)
   const { data: aircraftData } = useAircraft();
   const { data: eventsData, isLoading: eventsLoading } = useAOGEvents({
-    ...dateRange,
+    // Only include date filters if not "All Time"
+    ...(datePreset !== 'allTime' ? dateRange : {}),
     aircraftId: aircraftFilter || undefined,
     responsibleParty: responsiblePartyFilter || undefined,
     currentStatus: currentStatusFilter as AOGWorkflowStatus || undefined,
@@ -604,17 +610,11 @@ export function AOGListPage() {
   const events = (eventsData || []) as (AOGEvent & { downtimeHours?: number })[];
 
   // Filter events based on active filter (for deep linking from alerts)
+  // Backend already sorts by createdAt descending, so no need to sort here
   const filteredEvents = useMemo(() => {
-    let filtered = showActiveOnly 
+    return showActiveOnly 
       ? events.filter((e) => !e.clearedAt)
       : events;
-    
-    // Sort by detectedAt descending (newest first)
-    return filtered.sort((a, b) => {
-      const dateA = new Date(a.detectedAt).getTime();
-      const dateB = new Date(b.detectedAt).getTime();
-      return dateB - dateA; // Descending order
-    });
   }, [events, showActiveOnly]);
 
   // Create aircraft map for lookups
@@ -670,6 +670,15 @@ export function AOGListPage() {
   // Table columns - Updated with workflow status, blocking reason, age, and cost columns (Requirements: 8.1)
   const columns: ColumnDef<AOGEvent & { downtimeHours?: number }, unknown>[] = useMemo(
     () => [
+      {
+        accessorKey: 'createdAt',
+        header: 'Created',
+        cell: ({ row }) => {
+          const createdAt = row.original.createdAt;
+          if (!createdAt) return <span className="text-muted-foreground text-xs">—</span>;
+          return format(new Date(createdAt), 'MMM dd, yyyy HH:mm');
+        },
+      },
       {
         accessorKey: 'detectedAt',
         header: 'Detected',
@@ -824,24 +833,29 @@ export function AOGListPage() {
     <div className="space-y-6">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <motion.h1
-          initial={{ opacity: 0, x: -20 }}
-          animate={{ opacity: 1, x: 0 }}
-          className="text-2xl font-bold text-foreground"
-        >
-          <GlossaryTerm term="AOG" /> Events List
-        </motion.h1>
+        <div>
+          <motion.h1
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            className="text-2xl font-bold text-foreground"
+          >
+            <GlossaryTerm term="AOG" /> Events List
+          </motion.h1>
+          <p className="text-sm text-muted-foreground mt-1">
+            Showing all events sorted by creation date (newest first)
+          </p>
+        </div>
 
         <ExportButton
           exportType="aog-events"
           filters={{ 
-            ...dateRange, 
+            ...(datePreset !== 'allTime' ? dateRange : {}),
             aircraftId: aircraftFilter || undefined, 
             responsibleParty: responsiblePartyFilter || undefined,
             currentStatus: currentStatusFilter || undefined,
             blockingReason: blockingReasonFilter || undefined,
           }}
-          filename={`aog-events-${dateRange.startDate}-to-${dateRange.endDate}.xlsx`}
+          filename={`aog-events-${datePreset === 'allTime' ? 'all-time' : `${dateRange.startDate}-to-${dateRange.endDate}`}.xlsx`}
           label="Export"
         />
       </div>
@@ -855,9 +869,11 @@ export function AOGListPage() {
         <div className="flex flex-wrap items-center gap-4">
           {/* Date Preset Buttons */}
           <div className="flex flex-col gap-2">
-            <label className="text-sm font-medium text-muted-foreground">Date Range</label>
+            <label className="text-sm font-medium text-muted-foreground">
+              Filter by Detected Date (Optional)
+            </label>
             <div className="flex rounded-lg border border-border overflow-hidden">
-              {(['last7days', 'last30days', 'thisMonth', 'lastMonth'] as DatePreset[]).map(
+              {(['allTime', 'last7days', 'last30days', 'thisMonth', 'lastMonth'] as DatePreset[]).map(
                 (preset) => (
                   <button
                     key={preset}
@@ -868,6 +884,7 @@ export function AOGListPage() {
                         : 'bg-card text-muted-foreground hover:bg-muted'
                     }`}
                   >
+                    {preset === 'allTime' && 'All Time'}
                     {preset === 'last7days' && '7 Days'}
                     {preset === 'last30days' && '30 Days'}
                     {preset === 'thisMonth' && 'This Month'}
@@ -879,30 +896,32 @@ export function AOGListPage() {
           </div>
 
           {/* Custom Date Range */}
-          <div className="flex flex-col gap-2">
-            <label className="text-sm font-medium text-muted-foreground">Custom Range</label>
-            <div className="flex items-center gap-2">
-              <input
-                type="date"
-                value={datePreset === 'custom' ? customRange.startDate : dateRange.startDate}
-                onChange={(e) => {
-                  setDatePreset('custom');
-                  setCustomRange((prev) => ({ ...prev, startDate: e.target.value }));
-                }}
-                className="px-2 py-1.5 text-sm border border-border rounded-md bg-background text-foreground"
-              />
-              <span className="text-muted-foreground">to</span>
-              <input
-                type="date"
-                value={datePreset === 'custom' ? customRange.endDate : dateRange.endDate}
-                onChange={(e) => {
-                  setDatePreset('custom');
-                  setCustomRange((prev) => ({ ...prev, endDate: e.target.value }));
-                }}
-                className="px-2 py-1.5 text-sm border border-border rounded-md bg-background text-foreground"
-              />
+          {datePreset !== 'allTime' && (
+            <div className="flex flex-col gap-2">
+              <label className="text-sm font-medium text-muted-foreground">Custom Range</label>
+              <div className="flex items-center gap-2">
+                <input
+                  type="date"
+                  value={datePreset === 'custom' ? (customRange.startDate || '') : (dateRange.startDate || '')}
+                  onChange={(e) => {
+                    setDatePreset('custom');
+                    setCustomRange((prev) => ({ ...prev, startDate: e.target.value }));
+                  }}
+                  className="px-2 py-1.5 text-sm border border-border rounded-md bg-background text-foreground"
+                />
+                <span className="text-muted-foreground">to</span>
+                <input
+                  type="date"
+                  value={datePreset === 'custom' ? (customRange.endDate || '') : (dateRange.endDate || '')}
+                  onChange={(e) => {
+                    setDatePreset('custom');
+                    setCustomRange((prev) => ({ ...prev, endDate: e.target.value }));
+                  }}
+                  className="px-2 py-1.5 text-sm border border-border rounded-md bg-background text-foreground"
+                />
+              </div>
             </div>
-          </div>
+          )}
 
           {/* Aircraft Filter */}
           <div className="flex flex-col gap-2">

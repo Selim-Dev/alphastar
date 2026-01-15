@@ -1,110 +1,129 @@
-import { useState } from 'react';
+/**
+ * NextStepActionPanel - Simplified Milestone-Based Workflow
+ * 
+ * This component has been simplified to work with the milestone-based AOG workflow.
+ * Instead of complex 18-state transitions, it now guides users through setting
+ * milestone timestamps in the correct order.
+ * 
+ * The actual milestone editing is handled by MilestoneEditForm component.
+ * This panel provides guidance on what the next logical step should be.
+ */
+
 import { motion } from 'framer-motion';
 import { 
-  ArrowRight, 
   CheckCircle2, 
   AlertCircle,
-  Pause,
   Lock,
-  ChevronRight
+  Lightbulb,
+  ArrowRight
 } from 'lucide-react';
-import { Button, Textarea, Select, FormField } from '@/components/ui/Form';
-import { useTransitionAOGStatus } from '@/hooks/useAOGEvents';
 import { usePermissions } from '@/hooks/usePermissions';
-import type { AOGWorkflowStatus, BlockingReason, CreateTransitionDto } from '@/types';
-import { 
-  AOG_WORKFLOW_STATUS_LABELS,
-  ALLOWED_TRANSITIONS, 
-  BLOCKING_STATUSES, 
-  TERMINAL_STATUSES 
-} from '@/types';
 
 interface NextStepActionPanelProps {
-  aogEventId: string;
-  currentStatus: AOGWorkflowStatus;
+  milestones: {
+    reportedAt?: string | Date;
+    procurementRequestedAt?: string | Date;
+    availableAtStoreAt?: string | Date;
+    issuedBackAt?: string | Date;
+    installationCompleteAt?: string | Date;
+    testStartAt?: string | Date;
+    upAndRunningAt?: string | Date;
+  };
   isLegacy?: boolean;
-  onTransitionSuccess?: () => void;
+  isActive: boolean;
 }
 
-// Get color for status button
-function getStatusButtonStyle(status: AOGWorkflowStatus): string {
-  if (TERMINAL_STATUSES.includes(status)) {
-    return 'bg-green-500/10 border-green-500/30 text-green-600 hover:bg-green-500/20';
+/**
+ * Determine the next logical milestone to set
+ */
+function getNextMilestone(milestones?: NextStepActionPanelProps['milestones']): {
+  milestone: string;
+  label: string;
+  description: string;
+} | null {
+  // Handle undefined milestones
+  if (!milestones) {
+    return null;
   }
-  if (BLOCKING_STATUSES.includes(status)) {
-    return 'bg-amber-500/10 border-amber-500/30 text-amber-600 hover:bg-amber-500/20';
-  }
-  return 'bg-blue-500/10 border-blue-500/30 text-blue-600 hover:bg-blue-500/20';
-}
 
-// Blocking reason options
-const BLOCKING_REASON_OPTIONS: { value: BlockingReason; label: string }[] = [
-  { value: 'Finance', label: 'Finance' },
-  { value: 'Port', label: 'Port' },
-  { value: 'Customs', label: 'Customs' },
-  { value: 'Vendor', label: 'Vendor' },
-  { value: 'Ops', label: 'Operations' },
-  { value: 'Other', label: 'Other' },
-];
+  // If event is completed (upAndRunningAt is set), no next step
+  if (milestones.upAndRunningAt) {
+    return null;
+  }
+
+  // If installation is complete but not up and running
+  if (milestones.installationCompleteAt && !milestones.upAndRunningAt) {
+    // Check if ops test is needed
+    if (!milestones.testStartAt) {
+      return {
+        milestone: 'testStartAt',
+        label: 'Start Ops Test (Optional)',
+        description: 'If operational testing is required, set the test start time. Otherwise, proceed to mark aircraft as Up & Running.',
+      };
+    }
+    // Ops test started, now complete it
+    return {
+      milestone: 'upAndRunningAt',
+      label: 'Mark Up & Running',
+      description: 'Set the timestamp when the aircraft was returned to service and the AOG event was cleared.',
+    };
+  }
+
+  // If parts are issued but installation not complete
+  if (milestones.issuedBackAt && !milestones.installationCompleteAt) {
+    return {
+      milestone: 'installationCompleteAt',
+      label: 'Mark Installation Complete',
+      description: 'Set the timestamp when the repair work and installation were completed.',
+    };
+  }
+
+  // If parts are available but not issued
+  if (milestones.availableAtStoreAt && !milestones.issuedBackAt) {
+    return {
+      milestone: 'issuedBackAt',
+      label: 'Mark Parts Issued (Optional)',
+      description: 'Set the timestamp when parts were issued to maintenance. This is optional - you can skip to Installation Complete.',
+    };
+  }
+
+  // If procurement requested but parts not available
+  if (milestones.procurementRequestedAt && !milestones.availableAtStoreAt) {
+    return {
+      milestone: 'availableAtStoreAt',
+      label: 'Mark Parts Available',
+      description: 'Set the timestamp when the required parts arrived and became available in stores.',
+    };
+  }
+
+  // If reported but no procurement requested and no installation complete
+  if (milestones.reportedAt && !milestones.procurementRequestedAt && !milestones.installationCompleteAt) {
+    return {
+      milestone: 'procurementRequestedAt',
+      label: 'Request Procurement (Optional)',
+      description: 'If parts are needed, set the procurement request time. If no parts needed, skip to Installation Complete.',
+    };
+  }
+
+  // If reported but no installation complete (no parts path)
+  if (milestones.reportedAt && !milestones.installationCompleteAt) {
+    return {
+      milestone: 'installationCompleteAt',
+      label: 'Mark Installation Complete',
+      description: 'If no parts were needed, set the timestamp when the repair work was completed.',
+    };
+  }
+
+  // Default: should not reach here, but return null safely
+  return null;
+}
 
 export function NextStepActionPanel({ 
-  aogEventId, 
-  currentStatus, 
+  milestones,
   isLegacy,
-  onTransitionSuccess 
+  isActive
 }: NextStepActionPanelProps) {
   const { canWrite } = usePermissions();
-  const transitionMutation = useTransitionAOGStatus();
-  
-  const [selectedStatus, setSelectedStatus] = useState<AOGWorkflowStatus | null>(null);
-  const [notes, setNotes] = useState('');
-  const [blockingReason, setBlockingReason] = useState<BlockingReason | ''>('');
-  const [showForm, setShowForm] = useState(false);
-
-  // Get available transitions for current status
-  const availableTransitions = ALLOWED_TRANSITIONS[currentStatus] || [];
-  const isTerminal = TERMINAL_STATUSES.includes(currentStatus);
-  const requiresBlockingReason = selectedStatus && BLOCKING_STATUSES.includes(selectedStatus);
-
-  const handleSelectTransition = (status: AOGWorkflowStatus) => {
-    setSelectedStatus(status);
-    setShowForm(true);
-    setNotes('');
-    setBlockingReason('');
-  };
-
-  const handleCancel = () => {
-    setSelectedStatus(null);
-    setShowForm(false);
-    setNotes('');
-    setBlockingReason('');
-  };
-
-  const handleSubmit = async () => {
-    if (!selectedStatus) return;
-    
-    // Validate blocking reason if required
-    if (requiresBlockingReason && !blockingReason) {
-      return;
-    }
-
-    const transition: CreateTransitionDto = {
-      toStatus: selectedStatus,
-      notes: notes || undefined,
-      blockingReason: requiresBlockingReason ? (blockingReason as BlockingReason) : undefined,
-    };
-
-    try {
-      await transitionMutation.mutateAsync({
-        id: aogEventId,
-        transition,
-      });
-      handleCancel();
-      onTransitionSuccess?.();
-    } catch (error) {
-      console.error('Failed to transition status:', error);
-    }
-  };
 
   // Viewer-only message
   if (!canWrite) {
@@ -114,7 +133,7 @@ export function NextStepActionPanel({
           <Lock className="w-5 h-5" />
           <div>
             <p className="font-medium">View Only</p>
-            <p className="text-sm">You don't have permission to transition AOG status.</p>
+            <p className="text-sm">You don't have permission to update milestones.</p>
           </div>
         </div>
       </div>
@@ -129,37 +148,40 @@ export function NextStepActionPanel({
           <AlertCircle className="w-5 h-5" />
           <div>
             <p className="font-medium">Legacy Event</p>
-            <p className="text-sm">This is a legacy event. Status transitions are not available.</p>
+            <p className="text-sm">This is a legacy event. Milestone tracking is not available.</p>
           </div>
         </div>
       </div>
     );
   }
 
-  // Terminal status message
-  if (isTerminal) {
+  // Get next milestone
+  const nextMilestone = getNextMilestone(milestones);
+
+  // Event completed - only show this if the event is actually cleared (not active)
+  if (!isActive) {
     return (
       <div className="bg-green-500/10 border border-green-500/30 rounded-xl p-6">
         <div className="flex items-center gap-3 text-green-600">
           <CheckCircle2 className="w-5 h-5" />
           <div>
             <p className="font-medium">Event Completed</p>
-            <p className="text-sm">This AOG event has been resolved and closed.</p>
+            <p className="text-sm">This AOG event has been resolved and cleared.</p>
           </div>
         </div>
       </div>
     );
   }
 
-  // No available transitions
-  if (availableTransitions.length === 0) {
+  // No next milestone found but event is still active - show generic message
+  if (!nextMilestone) {
     return (
       <div className="bg-muted/30 rounded-xl p-6">
         <div className="flex items-center gap-3 text-muted-foreground">
-          <Pause className="w-5 h-5" />
+          <AlertCircle className="w-5 h-5" />
           <div>
-            <p className="font-medium">No Available Transitions</p>
-            <p className="text-sm">There are no available next steps from the current status.</p>
+            <p className="font-medium">No Next Step Available</p>
+            <p className="text-sm">Unable to determine the next milestone. Please use "Edit Milestones" to update timestamps.</p>
           </div>
         </div>
       </div>
@@ -167,113 +189,44 @@ export function NextStepActionPanel({
   }
 
   return (
-    <div className="bg-card border border-border rounded-xl overflow-hidden">
+    <motion.div
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="bg-card border border-border rounded-xl overflow-hidden"
+    >
       {/* Header */}
-      <div className="px-5 py-4 border-b border-border bg-muted/30">
+      <div className="px-5 py-4 border-b border-border bg-blue-500/5">
         <h3 className="font-semibold text-foreground flex items-center gap-2">
-          <ArrowRight className="w-4 h-4 text-primary" />
-          Next Steps
+          <Lightbulb className="w-4 h-4 text-blue-500" />
+          Suggested Next Step
         </h3>
         <p className="text-sm text-muted-foreground mt-1">
-          Select the next status for this AOG event
+          Based on the current milestones, here's what to do next
         </p>
       </div>
 
       {/* Content */}
       <div className="p-5">
-        {!showForm ? (
-          /* Available transitions */
-          <div className="space-y-2">
-            {availableTransitions.map((status) => (
-              <motion.button
-                key={status}
-                whileHover={{ scale: 1.01 }}
-                whileTap={{ scale: 0.99 }}
-                onClick={() => handleSelectTransition(status)}
-                className={`w-full flex items-center justify-between p-4 rounded-lg border-2 transition-colors ${getStatusButtonStyle(status)}`}
-              >
-                <div className="flex items-center gap-3">
-                  {TERMINAL_STATUSES.includes(status) ? (
-                    <CheckCircle2 className="w-5 h-5" />
-                  ) : BLOCKING_STATUSES.includes(status) ? (
-                    <Pause className="w-5 h-5" />
-                  ) : (
-                    <ArrowRight className="w-5 h-5" />
-                  )}
-                  <span className="font-medium">{AOG_WORKFLOW_STATUS_LABELS[status]}</span>
-                </div>
-                <ChevronRight className="w-4 h-4" />
-              </motion.button>
-            ))}
+        <div className="flex items-start gap-4">
+          <div className="flex-shrink-0 w-10 h-10 rounded-full bg-blue-500/10 flex items-center justify-center">
+            <ArrowRight className="w-5 h-5 text-blue-500" />
           </div>
-        ) : (
-          /* Transition form */
-          <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="space-y-4"
-          >
-            {/* Selected transition */}
-            <div className="flex items-center gap-2 p-3 bg-muted/50 rounded-lg">
-              <span className="text-sm text-muted-foreground">Transitioning to:</span>
-              <span className={`px-2 py-1 text-xs rounded-full font-medium ${getStatusButtonStyle(selectedStatus!)}`}>
-                {AOG_WORKFLOW_STATUS_LABELS[selectedStatus!]}
-              </span>
-            </div>
-
-            {/* Blocking reason (if required) */}
-            {requiresBlockingReason && (
-              <FormField label="Blocking Reason" required>
-                <Select
-                  value={blockingReason}
-                  onChange={(e) => setBlockingReason(e.target.value as BlockingReason | '')}
-                  options={BLOCKING_REASON_OPTIONS}
-                  error={!blockingReason}
-                />
-                <p className="text-xs text-muted-foreground mt-1">
-                  This status requires a blocking reason to be specified.
-                </p>
-              </FormField>
-            )}
-
-            {/* Notes */}
-            <FormField label="Notes">
-              <Textarea
-                value={notes}
-                onChange={(e) => setNotes(e.target.value)}
-                placeholder="Add any notes about this transition..."
-                rows={3}
-              />
-            </FormField>
-
-            {/* Actions */}
-            <div className="flex items-center justify-end gap-2 pt-2">
-              <Button
-                variant="outline"
-                onClick={handleCancel}
-                disabled={transitionMutation.isPending}
-              >
-                Cancel
-              </Button>
-              <Button
-                onClick={handleSubmit}
-                isLoading={transitionMutation.isPending}
-                disabled={!!requiresBlockingReason && !blockingReason}
-              >
-                Confirm Transition
-              </Button>
-            </div>
-
-            {/* Error message */}
-            {transitionMutation.isError && (
-              <p className="text-sm text-destructive">
-                Failed to transition status. Please try again.
+          <div className="flex-1">
+            <h4 className="font-medium text-foreground mb-2">
+              {nextMilestone.label}
+            </h4>
+            <p className="text-sm text-muted-foreground mb-4">
+              {nextMilestone.description}
+            </p>
+            <div className="bg-blue-500/5 border border-blue-500/20 rounded-lg p-3">
+              <p className="text-xs text-blue-600 font-medium">
+                💡 Tip: Click "Edit Milestones" in the Milestones tab above to update timestamps
               </p>
-            )}
-          </motion.div>
-        )}
+            </div>
+          </div>
+        </div>
       </div>
-    </div>
+    </motion.div>
   );
 }
 

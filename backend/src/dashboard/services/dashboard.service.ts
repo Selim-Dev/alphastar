@@ -979,32 +979,63 @@ export class DashboardService {
   /**
    * Get year-over-year comparison
    * Requirements: CEO Dashboard 15.1-15.5
+   * 
+   * Compares current period with the same period from the previous year.
+   * For example, if current period is Jan 1-15, 2026, it compares with Jan 1-15, 2025.
+   * If no data exists for the immediate previous year, it tries to find the most recent
+   * year with data (e.g., 2024 if 2025 has no data).
    */
   async getYoYComparison(startDate?: Date, endDate?: Date): Promise<YoYComparisonResponse> {
     const end = endDate || new Date();
     const start = startDate || new Date(end.getTime() - 30 * 24 * 60 * 60 * 1000);
     
-    const currentYear = end.getFullYear();
-    const previousYear = currentYear - 1;
+    // Use the start date's year as the current year to handle cross-year periods correctly
+    // e.g., Dec 2025 - Jan 2026 should be treated as 2025 data
+    const currentYear = start.getFullYear();
 
-    // Calculate same period last year
-    const prevYearStart = new Date(start);
-    prevYearStart.setFullYear(previousYear);
-    const prevYearEnd = new Date(end);
-    prevYearEnd.setFullYear(previousYear);
+    // Helper to get KPIs for a specific year's equivalent period
+    const getKPIsForYear = async (year: number) => {
+      const yearStart = new Date(start);
+      yearStart.setFullYear(year);
+      const yearEnd = new Date(end);
+      yearEnd.setFullYear(year);
+      return {
+        kpis: await this.getKPISummary(yearStart, yearEnd),
+        startDate: yearStart,
+        endDate: yearEnd,
+      };
+    };
 
     // Get current year KPIs
-    const currentKPIs = await this.getKPISummary(start, end);
-    
-    // Get previous year KPIs
-    const previousKPIs = await this.getKPISummary(prevYearStart, prevYearEnd);
+    const currentData = await getKPIsForYear(currentYear);
+    const currentKPIs = currentData.kpis;
 
-    // Check for historical data - use availability as primary indicator since it doesn't depend on deltas
-    // Also check if there's any daily status data for the previous year period
-    const hasHistoricalData = previousKPIs.fleetAvailabilityPercentage > 0 || 
-                              previousKPIs.totalFlightHours > 0 || 
-                              previousKPIs.totalCycles > 0 ||
-                              previousKPIs.totalPosHours > 0;
+    // Try to find historical data - check previous years going back up to 3 years
+    let previousKPIs = { fleetAvailabilityPercentage: 0, totalFlightHours: 0, totalCycles: 0, activeAOGCount: 0, totalPosHours: 0, totalFmcHours: 0 };
+    let previousYear = currentYear - 1;
+    let prevYearStart = new Date(start);
+    let prevYearEnd = new Date(end);
+    let hasHistoricalData = false;
+
+    for (let yearOffset = 1; yearOffset <= 3; yearOffset++) {
+      const checkYear = currentYear - yearOffset;
+      const checkData = await getKPIsForYear(checkYear);
+      
+      // Check if this year has meaningful data
+      const hasData = checkData.kpis.fleetAvailabilityPercentage > 0 || 
+                      checkData.kpis.totalFlightHours > 0 || 
+                      checkData.kpis.totalCycles > 0 ||
+                      checkData.kpis.totalPosHours > 0;
+      
+      if (hasData) {
+        previousKPIs = checkData.kpis;
+        previousYear = checkYear;
+        prevYearStart = checkData.startDate;
+        prevYearEnd = checkData.endDate;
+        hasHistoricalData = true;
+        break;
+      }
+    }
 
     const createMetric = (name: string, current: number, previous: number, higherIsBetter: boolean): YoYMetric => {
       const change = current - previous;

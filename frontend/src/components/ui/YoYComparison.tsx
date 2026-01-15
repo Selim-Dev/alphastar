@@ -130,8 +130,8 @@ export function YoYComparison({
     );
   }
 
-  // Handle no historical data case
-  if (!data || !data.hasHistoricalData) {
+  // Handle no historical data case - only show if we truly have no metrics or no data at all
+  if (!data || (data.metrics.length === 0)) {
     return (
       <motion.div
         initial={{ opacity: 0, y: 10 }}
@@ -154,6 +154,9 @@ export function YoYComparison({
       </motion.div>
     );
   }
+
+  // Show warning if hasHistoricalData is false but we have metrics (all zeros)
+  const showDataWarning = !data.hasHistoricalData && data.metrics.length > 0;
 
   // Count favorable vs unfavorable changes
   const favorableCount = data.metrics.filter(m => m.favorable && m.trend !== 'flat').length;
@@ -190,6 +193,16 @@ export function YoYComparison({
           )}
         </div>
       </div>
+      
+      {/* Warning banner if no historical data found */}
+      {showDataWarning && (
+        <div className="flex items-center gap-2 p-3 mb-3 rounded-lg bg-amber-500/10 border border-amber-500/20">
+          <AlertCircle className="w-4 h-4 text-amber-500 flex-shrink-0" />
+          <p className="text-xs text-amber-600">
+            No historical data found for {data.previousPeriod.year}. Showing comparison with zero baseline.
+          </p>
+        </div>
+      )}
       
       {/* Header row */}
       <div className="flex items-center justify-between px-3 py-2 text-xs text-muted-foreground border-b border-border mb-2">

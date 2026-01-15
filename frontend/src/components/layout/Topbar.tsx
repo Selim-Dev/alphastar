@@ -258,7 +258,7 @@ interface TopbarProps {
 
 export function Topbar({ title, subtitle, actions }: TopbarProps) {
   return (
-    <div className="sticky top-0 z-40 h-16 bg-white dark:bg-slate-900 border-b border-border shadow-theme-sm">
+    <div className="sticky top-0 z-40 h-16 bg-background border-b border-border shadow-theme-sm">
       <div className="flex items-center justify-between h-full px-4 md:px-6">
         {/* Left section: Mobile menu + Page header */}
         <div className="flex items-center gap-4">

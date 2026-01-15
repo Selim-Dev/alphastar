@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import type { User, LoginCredentials, AuthResponse } from '@/types';
+import { api } from '@/lib/api';
 
 interface AuthContextType {
   user: User | null;
@@ -33,24 +34,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const login = async (credentials: LoginCredentials) => {
-    const response = await fetch('/api/auth/login', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(credentials),
-    });
-
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.message || 'Login failed');
+    try {
+      const response = await api.post<AuthResponse>('/auth/login', credentials);
+      const data = response.data;
+      
+      localStorage.setItem(TOKEN_KEY, data.accessToken);
+      localStorage.setItem(USER_KEY, JSON.stringify(data.user));
+      
+      setToken(data.accessToken);
+      setUser(data.user);
+    } catch (error: any) {
+      throw new Error(error.response?.data?.message || 'Login failed');
     }
-
-    const data: AuthResponse = await response.json();
-    
-    localStorage.setItem(TOKEN_KEY, data.accessToken);
-    localStorage.setItem(USER_KEY, JSON.stringify(data.user));
-    
-    setToken(data.accessToken);
-    setUser(data.user);
   };
 
 

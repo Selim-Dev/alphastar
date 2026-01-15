@@ -1453,11 +1453,24 @@ export class AOGEventsService {
       pipeline.push({ $match: matchStage });
     }
 
+    // Convert aircraftId to ObjectId if it's a string (for proper lookup)
+    pipeline.push({
+      $addFields: {
+        aircraftIdObj: {
+          $cond: {
+            if: { $eq: [{ $type: '$aircraftId' }, 'string'] },
+            then: { $toObjectId: '$aircraftId' },
+            else: '$aircraftId',
+          },
+        },
+      },
+    });
+
     // Lookup aircraft data to get registration and fleetGroup
     pipeline.push({
       $lookup: {
         from: 'aircraft',
-        localField: 'aircraftId',
+        localField: 'aircraftIdObj',
         foreignField: '_id',
         as: 'aircraft',
       },

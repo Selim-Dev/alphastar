@@ -3,7 +3,6 @@ import { api } from '@/lib/api';
 import type {
   AOGEvent,
   DateRangeFilter,
-  StatusHistoryEntry,
   CreateTransitionDto,
   CreatePartRequestDto,
   UpdatePartRequestDto,

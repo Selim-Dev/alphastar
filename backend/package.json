@@ -20,7 +20,8 @@
     "test:e2e": "jest --config ./test/jest-e2e.json",
     "seed": "ts-node -r tsconfig-paths/register src/scripts/seed.ts",
     "seed:historical": "ts-node -r tsconfig-paths/register src/scripts/import-historical.ts",
-    "seed:all": "npm run seed && npm run seed:historical"
+    "seed:all": "npm run seed && npm run seed:historical",
+    "clear:aog": "ts-node -r tsconfig-paths/register src/scripts/clear-aog-events.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.948.0",

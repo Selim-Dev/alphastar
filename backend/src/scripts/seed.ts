@@ -28,7 +28,7 @@ import { Aircraft, AircraftDocument, AircraftStatus, AircraftSchema } from '../a
 import { BudgetPlan, BudgetPlanDocument, BudgetPlanSchema } from '../budget/schemas/budget-plan.schema';
 import { DailyStatus, DailyStatusDocument, DailyStatusSchema } from '../daily-status/schemas/daily-status.schema';
 import { DailyCounter, DailyCounterDocument, DailyCounterSchema } from '../utilization/schemas/daily-counter.schema';
-import { AOGEvent, AOGEventDocument, AOGEventSchema, ResponsibleParty, AOGCategory } from '../aog-events/schemas/aog-event.schema';
+import { AOGEvent, AOGEventDocument, AOGEventSchema, ResponsibleParty, AOGCategory, AOGWorkflowStatus } from '../aog-events/schemas/aog-event.schema';
 import { MaintenanceTask, MaintenanceTaskDocument, MaintenanceTaskSchema, Shift } from '../maintenance-tasks/schemas/maintenance-task.schema';
 import { WorkOrder, WorkOrderDocument, WorkOrderSchema, WorkOrderStatus } from '../work-orders/schemas/work-order.schema';
 import { Discrepancy, DiscrepancyDocument, DiscrepancySchema, ResponsibleParty as DiscrepancyResponsibleParty } from '../discrepancies/schemas/discrepancy.schema';
@@ -837,10 +837,13 @@ class Seeder {
         const internalCost = randomInt(5000, 50000);
         const externalCost = scenario === 'noPart' ? 0 : randomInt(10000, 200000);
 
+        // Determine if this event is closed (90% closed, 10% still active)
+        const isClosed = Math.random() < 0.9;
+
         await this.aogEventModel.create({
           aircraftId: ac._id,
           detectedAt,
-          clearedAt: Math.random() < 0.9 ? clearedAt : undefined, // 10% still active
+          clearedAt: isClosed ? clearedAt : undefined,
           category: randomElement(categories),
           reasonCode: randomElement(AOG_REASON_CODES),
           responsibleParty,
@@ -850,20 +853,22 @@ class Seeder {
           costLabor: internalCost,
           costParts: externalCost,
           costExternal: Math.random() < 0.3 ? randomInt(5000, 100000) : undefined,
-          // NEW: Milestone timestamps
+          // Workflow status based on whether event is closed
+          currentStatus: isClosed ? AOGWorkflowStatus.CLOSED : AOGWorkflowStatus.REPORTED,
+          // Milestone timestamps
           reportedAt,
           procurementRequestedAt,
           availableAtStoreAt,
           issuedBackAt,
           installationCompleteAt,
           testStartAt,
-          upAndRunningAt: Math.random() < 0.9 ? upAndRunningAt : undefined,
-          // NEW: Computed metrics
+          upAndRunningAt: isClosed ? upAndRunningAt : undefined,
+          // Computed metrics
           technicalTimeHours: parseFloat(technicalTimeHours.toFixed(2)),
           procurementTimeHours: parseFloat(procurementTimeHours.toFixed(2)),
           opsTimeHours: parseFloat(opsTimeHours.toFixed(2)),
           totalDowntimeHours: parseFloat(totalDowntimeHours.toFixed(2)),
-          // NEW: Simplified costs
+          // Simplified costs
           internalCost,
           externalCost,
           updatedBy: this.adminUserId,

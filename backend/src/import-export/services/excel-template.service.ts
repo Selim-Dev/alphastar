@@ -82,60 +82,97 @@ export class ExcelTemplateService {
     },
 
     [ImportType.AOGEvents]: {
-      name: 'AOG Events',
+      name: 'AOG Events (Simplified)',
       columns: [
-        { header: 'Aircraft Registration', key: 'aircraftRegistration', type: 'string', required: true },
-        { header: 'Detected At', key: 'detectedAt', type: 'date', required: true, description: 'YYYY-MM-DD HH:mm' },
-        { header: 'Cleared At', key: 'clearedAt', type: 'date', required: false, description: 'YYYY-MM-DD HH:mm' },
-        { header: 'Category', key: 'category', type: 'enum', required: true, enumValues: ['scheduled', 'unscheduled', 'aog'] },
-        { header: 'Reason Code', key: 'reasonCode', type: 'string', required: true },
-        { header: 'Responsible Party', key: 'responsibleParty', type: 'enum', required: true, enumValues: ['Internal', 'OEM', 'Customs', 'Finance', 'Other'] },
-        { header: 'Action Taken', key: 'actionTaken', type: 'string', required: true },
-        { header: 'Manpower Count', key: 'manpowerCount', type: 'number', required: true },
-        { header: 'Man Hours', key: 'manHours', type: 'number', required: true },
-        // Legacy cost fields (preserved for backward compatibility)
-        { header: 'Cost Labor', key: 'costLabor', type: 'number', required: false, description: 'Legacy: Labor cost' },
-        { header: 'Cost Parts', key: 'costParts', type: 'number', required: false, description: 'Legacy: Parts cost' },
-        { header: 'Cost External', key: 'costExternal', type: 'number', required: false, description: 'Legacy: External cost' },
-        // NEW: Simplified cost fields (Requirement 9.1)
-        { header: 'Internal Cost', key: 'internalCost', type: 'number', required: false, description: 'Labor and man-hours cost' },
-        { header: 'External Cost', key: 'externalCost', type: 'number', required: false, description: 'Vendor and third-party cost' },
-        // NEW: Milestone timestamps (Requirement 9.1)
-        { header: 'Reported At', key: 'reportedAt', type: 'date', required: false, description: 'YYYY-MM-DD HH:mm (defaults to Detected At)' },
-        { header: 'Procurement Requested At', key: 'procurementRequestedAt', type: 'date', required: false, description: 'YYYY-MM-DD HH:mm (optional - when parts were requested)' },
-        { header: 'Available At Store At', key: 'availableAtStoreAt', type: 'date', required: false, description: 'YYYY-MM-DD HH:mm (optional - when parts arrived)' },
-        { header: 'Issued Back At', key: 'issuedBackAt', type: 'date', required: false, description: 'YYYY-MM-DD HH:mm (optional - when parts issued to maintenance)' },
-        { header: 'Installation Complete At', key: 'installationCompleteAt', type: 'date', required: false, description: 'YYYY-MM-DD HH:mm (optional - when installation completed)' },
-        { header: 'Test Start At', key: 'testStartAt', type: 'date', required: false, description: 'YYYY-MM-DD HH:mm (optional - when ops testing started)' },
-        { header: 'Up And Running At', key: 'upAndRunningAt', type: 'date', required: false, description: 'YYYY-MM-DD HH:mm (optional - defaults to Cleared At)' },
-        { header: 'Current Status', key: 'currentStatus', type: 'enum', required: false, description: 'Workflow status (defaults to REPORTED on import)', enumValues: ['REPORTED', 'TROUBLESHOOTING', 'ISSUE_IDENTIFIED', 'RESOLVED_NO_PARTS', 'PART_REQUIRED', 'PROCUREMENT_REQUESTED', 'FINANCE_APPROVAL_PENDING', 'ORDER_PLACED', 'IN_TRANSIT', 'AT_PORT', 'CUSTOMS_CLEARANCE', 'RECEIVED_IN_STORES', 'ISSUED_TO_MAINTENANCE', 'INSTALLED_AND_TESTED', 'ENGINE_RUN_REQUESTED', 'ENGINE_RUN_COMPLETED', 'BACK_IN_SERVICE', 'CLOSED'] },
-        { header: 'Blocking Reason', key: 'blockingReason', type: 'enum', required: false, description: 'Reason for blocking (if applicable)', enumValues: ['Finance', 'Port', 'Customs', 'Vendor', 'Ops', 'Other'] },
+        { 
+          header: 'Aircraft', 
+          key: 'aircraft', 
+          type: 'string', 
+          required: true,
+          description: 'Aircraft registration (e.g., HZ-A42) or name'
+        },
+        { 
+          header: 'Defect Description', 
+          key: 'defectDescription', 
+          type: 'string', 
+          required: true,
+          description: 'What went wrong'
+        },
+        { 
+          header: 'Location', 
+          key: 'location', 
+          type: 'string', 
+          required: false,
+          description: 'ICAO airport code (e.g., OERK, LFSB)'
+        },
+        { 
+          header: 'Category', 
+          key: 'category', 
+          type: 'enum', 
+          required: true,
+          enumValues: ['AOG', 'S-MX', 'U-MX', 'MRO', 'CLEANING'],
+          description: 'Event category'
+        },
+        { 
+          header: 'Start Date', 
+          key: 'startDate', 
+          type: 'date', 
+          required: true,
+          description: 'YYYY-MM-DD format'
+        },
+        { 
+          header: 'Start Time', 
+          key: 'startTime', 
+          type: 'string', 
+          required: true,
+          description: 'HH:MM format (24-hour)'
+        },
+        { 
+          header: 'Finish Date', 
+          key: 'finishDate', 
+          type: 'date', 
+          required: false,
+          description: 'YYYY-MM-DD format (empty = still active)'
+        },
+        { 
+          header: 'Finish Time', 
+          key: 'finishTime', 
+          type: 'string', 
+          required: false,
+          description: 'HH:MM format (24-hour)'
+        }
       ],
       exampleRows: [
         {
-          aircraftRegistration: 'HZ-A42',
-          detectedAt: '2024-01-15 08:30',
-          clearedAt: '2024-01-15 14:45',
-          category: 'unscheduled',
-          reasonCode: 'ENG-001',
-          responsibleParty: 'Internal',
-          actionTaken: 'Engine inspection and repair',
-          manpowerCount: 4,
-          manHours: 24,
-          costLabor: 2400,
-          costParts: 15000,
-          internalCost: 2400,
-          externalCost: 15000,
-          reportedAt: '2024-01-15 08:30',
-          procurementRequestedAt: '2024-01-15 09:00',
-          availableAtStoreAt: '2024-01-15 11:00',
-          issuedBackAt: '2024-01-15 11:30',
-          installationCompleteAt: '2024-01-15 13:30',
-          testStartAt: '2024-01-15 14:00',
-          upAndRunningAt: '2024-01-15 14:45',
-          currentStatus: 'REPORTED',
-          blockingReason: '',
+          aircraft: 'HZ-A42',
+          defectDescription: 'Engine hydraulic leak',
+          location: 'OERK',
+          category: 'AOG',
+          startDate: '2024-01-15',
+          startTime: '08:30',
+          finishDate: '2024-01-17',
+          finishTime: '14:45'
         },
+        {
+          aircraft: 'HZ-SK5',
+          defectDescription: 'Scheduled A-check',
+          location: 'LFSB',
+          category: 'S-MX',
+          startDate: '2024-02-01',
+          startTime: '09:00',
+          finishDate: '2024-02-05',
+          finishTime: '17:00'
+        },
+        {
+          aircraft: 'HZ-A10',
+          defectDescription: 'Engine replacement',
+          location: 'OERK',
+          category: 'U-MX',
+          startDate: '2025-01-03',
+          startTime: '07:00',
+          finishDate: '',  // Active event
+          finishTime: ''
+        }
       ],
     },
 
@@ -165,23 +202,39 @@ export class ExcelTemplateService {
       name: 'Aircraft Master',
       columns: [
         { header: 'Registration', key: 'registration', type: 'string', required: true, description: 'e.g., HZ-A42' },
-        { header: 'Fleet Group', key: 'fleetGroup', type: 'string', required: true, description: 'e.g., A330, G650ER' },
-        { header: 'Aircraft Type', key: 'aircraftType', type: 'string', required: true, description: 'e.g., A340-642' },
-        { header: 'MSN', key: 'msn', type: 'string', required: true, description: 'Manufacturer Serial Number' },
+        { header: 'Fleet Group', key: 'fleetGroup', type: 'string', required: true, description: 'e.g., AIRBUS A320 FAMILY, GULFSTREAM' },
+        { header: 'Aircraft Type', key: 'aircraftType', type: 'string', required: false, description: 'e.g., A340-642 ACJ, G650ER' },
+        { header: 'MSN', key: 'msn', type: 'string', required: false, description: 'Manufacturer Serial Number' },
         { header: 'Owner', key: 'owner', type: 'string', required: true },
-        { header: 'Manufacture Date', key: 'manufactureDate', type: 'date', required: true, description: 'YYYY-MM-DD' },
+        { header: 'Manufacture Date', key: 'manufactureDate', type: 'date', required: false, description: 'YYYY-MM-DD (optional)' },
+        { header: 'Certification Date', key: 'certificationDate', type: 'date', required: false, description: 'YYYY-MM-DD (optional)' },
+        { header: 'In Service Date', key: 'inServiceDate', type: 'date', required: false, description: 'YYYY-MM-DD (optional)' },
         { header: 'Engines Count', key: 'enginesCount', type: 'number', required: true, description: '2 or 4' },
-        { header: 'Status', key: 'status', type: 'enum', required: true, enumValues: ['active', 'parked', 'leased'] },
+        { header: 'Status', key: 'status', type: 'enum', required: true, enumValues: ['active', 'parked', 'leased'], description: 'Default: active' },
       ],
       exampleRows: [
         {
           registration: 'HZ-A42',
-          fleetGroup: 'A330',
-          aircraftType: 'A330-243',
-          msn: '1234',
+          fleetGroup: 'AIRBUS 340',
+          aircraftType: 'A340-642 ACJ',
+          msn: '924',
           owner: 'Alpha Star Aviation',
-          manufactureDate: '2015-06-15',
-          enginesCount: 2,
+          manufactureDate: '2008-08-04',
+          certificationDate: '',
+          inServiceDate: '2012-05-25',
+          enginesCount: 4,
+          status: 'active',
+        },
+        {
+          registration: 'HZ-SKY1',
+          fleetGroup: 'AIRBUS 340',
+          aircraftType: 'A340-212 ACJ',
+          msn: '9',
+          owner: 'Alpha Star Aviation',
+          manufactureDate: '',
+          certificationDate: '1993-01-13',
+          inServiceDate: '1993-01-13',
+          enginesCount: 4,
           status: 'active',
         },
       ],

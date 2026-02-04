@@ -18,17 +18,23 @@ export class Aircraft {
   @Prop({ required: true, trim: true })
   fleetGroup: string;
 
-  @Prop({ required: true, trim: true })
-  aircraftType: string;
+  @Prop({ required: false, trim: true })
+  aircraftType?: string;
 
-  @Prop({ required: true, trim: true })
-  msn: string;
+  @Prop({ required: false, trim: true })
+  msn?: string;
 
   @Prop({ required: true, trim: true })
   owner: string;
 
-  @Prop({ required: true })
-  manufactureDate: Date;
+  @Prop({ required: false })
+  manufactureDate?: Date;
+
+  @Prop({ required: false })
+  certificationDate?: Date;
+
+  @Prop({ required: false })
+  inServiceDate?: Date;
 
   @Prop({ required: true, min: 1, max: 4 })
   enginesCount: number;

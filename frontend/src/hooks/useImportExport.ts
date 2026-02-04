@@ -92,10 +92,31 @@ export function useUploadFile() {
       const formData = new FormData();
       formData.append('file', file);
       formData.append('importType', importType);
-      const { data } = await api.post<ImportPreview>('/import/upload', formData, {
+      const { data } = await api.post<any>('/import/upload', formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
-      return data;
+      
+      // Transform backend error format to frontend format
+      // Backend: errors: { row: number; message: string }[]
+      // Frontend: errors: { row: number; errors: string[] }[]
+      const errorsByRow = new Map<number, string[]>();
+      if (data.errors && Array.isArray(data.errors)) {
+        data.errors.forEach((error: { row: number; message: string }) => {
+          if (!errorsByRow.has(error.row)) {
+            errorsByRow.set(error.row, []);
+          }
+          errorsByRow.get(error.row)!.push(error.message);
+        });
+      }
+      
+      const transformedErrors: ImportError[] = Array.from(errorsByRow.entries()).map(
+        ([row, errors]) => ({ row, errors })
+      );
+      
+      return {
+        ...data,
+        errors: transformedErrors,
+      } as ImportPreview;
     },
   });
 }

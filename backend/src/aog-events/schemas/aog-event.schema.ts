@@ -13,9 +13,11 @@ export enum ResponsibleParty {
 }
 
 export enum AOGCategory {
-  Scheduled = 'scheduled',
-  Unscheduled = 'unscheduled',
-  AOG = 'aog',
+  Scheduled = 'scheduled',        // S-MX - Scheduled Maintenance
+  Unscheduled = 'unscheduled',    // U-MX - Unscheduled Maintenance
+  AOG = 'aog',                    // AOG - Aircraft On Ground (critical)
+  MRO = 'mro',                    // MRO - Maintenance Repair Overhaul facility visit
+  Cleaning = 'cleaning',          // CLEANING - Operational cleaning
 }
 
 // NEW: AOG Workflow Status - 18 states for tracking AOG event progression
@@ -236,6 +238,9 @@ export class AOGEvent {
   @Prop({ required: true })
   reasonCode: string;
 
+  @Prop()
+  location?: string; // ICAO airport code (e.g., OERK, LFSB, EDDH)
+
   @Prop({ required: true, enum: ResponsibleParty, index: true })
   responsibleParty: ResponsibleParty;
 
@@ -248,15 +253,14 @@ export class AOGEvent {
   @Prop({ required: true, min: 0 })
   manHours: number;
 
-  // NEW: Workflow status
+  // NEW: Workflow status (optional for simplified model)
   @Prop({
     enum: AOGWorkflowStatus,
-    default: AOGWorkflowStatus.REPORTED,
     index: true,
   })
-  currentStatus: AOGWorkflowStatus;
+  currentStatus?: AOGWorkflowStatus;
 
-  // NEW: Blocking reason for waiting states
+  // NEW: Blocking reason for waiting states (optional for simplified model)
   @Prop({ enum: BlockingReason })
   blockingReason?: BlockingReason;
 
@@ -369,11 +373,94 @@ export class AOGEvent {
   @Prop({ type: [MilestoneHistoryEntrySchema], default: [] })
   milestoneHistory: MilestoneHistoryEntry[];
 
+  // NEW: Import indicator
+  @Prop({ type: Boolean, default: false })
+  isImported: boolean;
+
   createdAt?: Date;
   updatedAt?: Date;
 }
 
 export const AOGEventSchema = SchemaFactory.createForClass(AOGEvent);
+
+// Virtual field: status (computed from clearedAt)
+AOGEventSchema.virtual('status').get(function (this: AOGEventDocument) {
+  return this.clearedAt ? 'resolved' : 'active';
+});
+
+// Virtual field: durationHours (computed from detectedAt and clearedAt or current time)
+AOGEventSchema.virtual('durationHours').get(function (this: AOGEventDocument) {
+  const endTime = this.clearedAt || new Date();
+  const durationMs = endTime.getTime() - this.detectedAt.getTime();
+  return Math.max(0, durationMs / (1000 * 60 * 60)); // Convert to hours
+});
+
+// Ensure virtuals are included in JSON output
+AOGEventSchema.set('toJSON', { virtuals: true });
+AOGEventSchema.set('toObject', { virtuals: true });
+
+// Pre-save hook to compute downtime metrics from milestone timestamps
+AOGEventSchema.pre('save', function (next) {
+  const doc = this as AOGEventDocument;
+  
+  // Compute metrics if milestone timestamps are present
+  if (doc.reportedAt && doc.upAndRunningAt) {
+    // Technical Time = (reportedAt → procurementRequestedAt) + (availableAtStoreAt → installationCompleteAt)
+    let technicalTime = 0;
+    
+    // Phase 1: Troubleshooting (reportedAt → procurementRequestedAt OR installationCompleteAt if no procurement)
+    if (doc.procurementRequestedAt) {
+      const phase1Ms = new Date(doc.procurementRequestedAt).getTime() - new Date(doc.reportedAt).getTime();
+      technicalTime += Math.max(0, phase1Ms / (1000 * 60 * 60));
+    } else if (doc.installationCompleteAt) {
+      // No procurement - all time from reported to installation is technical
+      const phase1Ms = new Date(doc.installationCompleteAt).getTime() - new Date(doc.reportedAt).getTime();
+      technicalTime += Math.max(0, phase1Ms / (1000 * 60 * 60));
+    }
+    
+    // Phase 2: Installation (availableAtStoreAt → installationCompleteAt)
+    if (doc.availableAtStoreAt && doc.installationCompleteAt) {
+      const phase2Ms = new Date(doc.installationCompleteAt).getTime() - new Date(doc.availableAtStoreAt).getTime();
+      technicalTime += Math.max(0, phase2Ms / (1000 * 60 * 60));
+    }
+    
+    doc.technicalTimeHours = technicalTime;
+    
+    // Procurement Time = (procurementRequestedAt → availableAtStoreAt)
+    let procurementTime = 0;
+    if (doc.procurementRequestedAt && doc.availableAtStoreAt) {
+      const procurementMs = new Date(doc.availableAtStoreAt).getTime() - new Date(doc.procurementRequestedAt).getTime();
+      procurementTime = Math.max(0, procurementMs / (1000 * 60 * 60));
+    }
+    doc.procurementTimeHours = procurementTime;
+    
+    // Ops Time = (testStartAt → upAndRunningAt)
+    let opsTime = 0;
+    if (doc.testStartAt && doc.upAndRunningAt) {
+      const opsMs = new Date(doc.upAndRunningAt).getTime() - new Date(doc.testStartAt).getTime();
+      opsTime = Math.max(0, opsMs / (1000 * 60 * 60));
+    }
+    doc.opsTimeHours = opsTime;
+    
+    // Total Downtime = (reportedAt → upAndRunningAt)
+    const totalMs = new Date(doc.upAndRunningAt).getTime() - new Date(doc.reportedAt).getTime();
+    doc.totalDowntimeHours = Math.max(0, totalMs / (1000 * 60 * 60));
+  } else if (doc.detectedAt && doc.clearedAt) {
+    // Fallback: compute total downtime from detectedAt and clearedAt
+    const totalMs = new Date(doc.clearedAt).getTime() - new Date(doc.detectedAt).getTime();
+    doc.totalDowntimeHours = Math.max(0, totalMs / (1000 * 60 * 60));
+  }
+  
+  // Set defaults for reportedAt and upAndRunningAt if not set
+  if (!doc.reportedAt && doc.detectedAt) {
+    doc.reportedAt = doc.detectedAt;
+  }
+  if (!doc.upAndRunningAt && doc.clearedAt) {
+    doc.upAndRunningAt = doc.clearedAt;
+  }
+  
+  next();
+});
 
 // Index on aircraftId for efficient queries
 AOGEventSchema.index({ aircraftId: 1, detectedAt: -1 });

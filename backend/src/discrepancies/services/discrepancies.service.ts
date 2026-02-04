@@ -26,6 +26,7 @@ export class DiscrepanciesService {
       dateCorrected: dto.dateCorrected ? new Date(dto.dateCorrected) : undefined,
       correctiveAction: dto.correctiveAction,
       responsibility: dto.responsibility as ResponsibleParty,
+      type: dto.type,
       downtimeHours: dto.downtimeHours,
       updatedBy: new Types.ObjectId(userId),
     };
@@ -76,6 +77,9 @@ export class DiscrepanciesService {
     }
     if (dto.responsibility !== undefined) {
       updateData.responsibility = dto.responsibility as ResponsibleParty;
+    }
+    if (dto.type !== undefined) {
+      updateData.type = dto.type;
     }
     if (dto.downtimeHours !== undefined) {
       updateData.downtimeHours = dto.downtimeHours;

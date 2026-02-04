@@ -105,24 +105,24 @@ export function DataQualityIndicator({
   const isHealthy = !data.isStale && data.warnings.length === 0;
   const hasWarnings = data.warnings.length > 0;
 
-  // Badge styling based on status
+  // Badge styling based on status - solid backgrounds for better visibility
   const badgeConfig = data.isStale
     ? {
-        bgColor: 'bg-red-500/10',
-        textColor: 'text-red-500',
+        bgColor: 'bg-red-500 dark:bg-red-600',
+        textColor: 'text-white',
         icon: AlertTriangle,
         label: 'Stale Data',
       }
     : hasWarnings
       ? {
-          bgColor: 'bg-amber-500/10',
-          textColor: 'text-amber-500',
+          bgColor: 'bg-amber-500 dark:bg-amber-600',
+          textColor: 'text-white',
           icon: AlertTriangle,
           label: 'Data Warnings',
         }
       : {
-          bgColor: 'bg-green-500/10',
-          textColor: 'text-green-500',
+          bgColor: 'bg-green-500 dark:bg-green-600',
+          textColor: 'text-white',
           icon: CheckCircle,
           label: 'Data Fresh',
         };
@@ -134,7 +134,7 @@ export function DataQualityIndicator({
       {/* Badge button */}
       <button
         onClick={() => setIsExpanded(!isExpanded)}
-        className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full transition-all ${badgeConfig.bgColor} ${badgeConfig.textColor} hover:opacity-80`}
+        className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full transition-all shadow-sm ${badgeConfig.bgColor} ${badgeConfig.textColor} hover:opacity-90`}
       >
         <StatusIcon className="w-4 h-4" />
         <span className="text-xs font-medium">{badgeConfig.label}</span>
@@ -162,11 +162,11 @@ export function DataQualityIndicator({
 
               {/* Stale data warning */}
               {data.isStale && (
-                <div className="flex items-start gap-2 p-2 mb-3 rounded-lg bg-red-500/10 border border-red-500/20">
-                  <AlertTriangle className="w-4 h-4 text-red-500 flex-shrink-0 mt-0.5" />
+                <div className="flex items-start gap-2 p-2 mb-3 rounded-lg bg-red-100 dark:bg-red-900/50 border border-red-300 dark:border-red-700">
+                  <AlertTriangle className="w-4 h-4 text-red-600 dark:text-red-400 flex-shrink-0 mt-0.5" />
                   <div>
-                    <p className="text-xs font-medium text-red-500">Data is stale</p>
-                    <p className="text-xs text-muted-foreground mt-0.5">
+                    <p className="text-xs font-medium text-red-700 dark:text-red-300">Data is stale</p>
+                    <p className="text-xs text-gray-600 dark:text-gray-400 mt-0.5">
                       Last update was more than 24 hours ago
                     </p>
                   </div>
@@ -192,15 +192,15 @@ export function DataQualityIndicator({
               {/* Missing aircraft */}
               {data.missingAircraft.length > 0 && (
                 <div className="mb-3">
-                  <p className="text-xs text-muted-foreground mb-1">Missing data for:</p>
+                  <p className="text-xs text-gray-600 dark:text-gray-400 mb-1 font-medium">Missing data for:</p>
                   <div className="flex flex-wrap gap-1">
                     {data.missingAircraft.slice(0, 5).map((reg) => (
-                      <span key={reg} className="text-xs px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-500 font-mono">
+                      <span key={reg} className="text-xs px-1.5 py-0.5 rounded bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-300 font-mono border border-amber-300 dark:border-amber-700">
                         {reg}
                       </span>
                     ))}
                     {data.missingAircraft.length > 5 && (
-                      <span className="text-xs text-muted-foreground">
+                      <span className="text-xs text-gray-600 dark:text-gray-400">
                         +{data.missingAircraft.length - 5} more
                       </span>
                     )}
@@ -212,9 +212,9 @@ export function DataQualityIndicator({
               {data.warnings.length > 0 && (
                 <div className="space-y-1 mb-3">
                   {data.warnings.map((warning, index) => (
-                    <div key={index} className="flex items-start gap-2 text-xs">
-                      <Info className="w-3 h-3 text-amber-500 flex-shrink-0 mt-0.5" />
-                      <span className="text-muted-foreground">{warning}</span>
+                    <div key={index} className="flex items-start gap-2 text-xs p-2 rounded bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-800">
+                      <Info className="w-3 h-3 text-amber-600 dark:text-amber-400 flex-shrink-0 mt-0.5" />
+                      <span className="text-gray-700 dark:text-gray-300">{warning}</span>
                     </div>
                   ))}
                 </div>
@@ -235,9 +235,9 @@ export function DataQualityIndicator({
 
               {/* All good message */}
               {isHealthy && (
-                <div className="flex items-center gap-2 text-xs text-green-500">
+                <div className="flex items-center gap-2 text-xs text-green-700 dark:text-green-300 bg-green-50 dark:bg-green-900/30 p-2 rounded border border-green-200 dark:border-green-800">
                   <CheckCircle className="w-4 h-4" />
-                  <span>All data is up to date and complete</span>
+                  <span className="font-medium">All data is up to date and complete</span>
                 </div>
               )}
             </div>

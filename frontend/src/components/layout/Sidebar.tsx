@@ -113,9 +113,15 @@ const navigationGroups: NavGroupConfig[] = [
   {
     label: 'Administration',
     items: [
-      { path: '/vacation-plan', label: 'Vacation Plan', icon: CalendarDays },
       { path: '/import', label: 'Data Import', icon: Upload, adminOnly: true },
       { path: '/admin', label: 'Settings', icon: Settings, adminOnly: true },
+    ],
+  },
+  {
+    label: 'Coming Soon',
+    items: [
+      { path: '/fleet-at-mro', label: 'Fleet at MRO', icon: Wrench },
+      { path: '/vacation-plan', label: 'Vacation Plan', icon: CalendarDays },
     ],
   },
   {

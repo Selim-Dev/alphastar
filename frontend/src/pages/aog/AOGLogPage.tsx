@@ -11,17 +11,18 @@ import { useCreateAOGEvent } from '@/hooks/useAOGEvents';
 import { useAircraft } from '@/hooks/useAircraft';
 import type { AOGEvent } from '@/types';
 
-// Validation schema for AOG event form
+// Validation schema for AOG event form (aligned with import structure)
 const aogEventSchema = z.object({
   aircraftId: z.string().min(1, 'Aircraft is required'),
   detectedAt: z.string().min(1, 'Detection date/time is required'),
   clearedAt: z.string().optional(),
-  category: z.enum(['scheduled', 'unscheduled', 'aog']),
-  reasonCode: z.string().min(1, 'Reason code is required'),
+  category: z.enum(['scheduled', 'unscheduled', 'aog', 'mro', 'cleaning']),
+  location: z.string().optional(), // ICAO code
+  reasonCode: z.string().min(1, 'Defect description is required'),
   responsibleParty: z.enum(['Internal', 'OEM', 'Customs', 'Finance', 'Other']),
-  actionTaken: z.string().min(1, 'Action taken is required'),
-  manpowerCount: z.coerce.number().min(0, 'Must be 0 or greater'),
-  manHours: z.coerce.number().min(0, 'Must be 0 or greater'),
+  actionTaken: z.string().optional(), // Optional, defaults to "See defect description"
+  manpowerCount: z.coerce.number().min(0, 'Must be 0 or greater').optional(),
+  manHours: z.coerce.number().min(0, 'Must be 0 or greater').optional(),
   costLabor: z.coerce.number().min(0, 'Must be 0 or greater').optional(),
   costParts: z.coerce.number().min(0, 'Must be 0 or greater').optional(),
   costExternal: z.coerce.number().min(0, 'Must be 0 or greater').optional(),
@@ -41,9 +42,11 @@ const aogEventSchema = z.object({
 type AOGEventFormData = z.infer<typeof aogEventSchema>;
 
 const CATEGORY_OPTIONS = [
-  { value: 'scheduled', label: 'Scheduled' },
-  { value: 'unscheduled', label: 'Unscheduled' },
-  { value: 'aog', label: 'AOG' },
+  { value: 'aog', label: 'AOG (Aircraft On Ground)' },
+  { value: 'unscheduled', label: 'U-MX (Unscheduled Maintenance)' },
+  { value: 'scheduled', label: 'S-MX (Scheduled Maintenance)' },
+  { value: 'mro', label: 'MRO (Maintenance Repair Overhaul)' },
+  { value: 'cleaning', label: 'CLEANING (Operational Cleaning)' },
 ];
 
 const RESPONSIBLE_PARTY_OPTIONS = [
@@ -75,8 +78,10 @@ export function AOGLogPage() {
       detectedAt: format(new Date(), "yyyy-MM-dd'T'HH:mm"),
       clearedAt: '', // Empty by default - event is active until cleared
       category: 'aog',
+      location: '',
       responsibleParty: 'Internal',
-      manpowerCount: 1,
+      actionTaken: '',
+      manpowerCount: 0,
       manHours: 0,
       costLabor: 0,
       costParts: 0,
@@ -93,15 +98,37 @@ export function AOGLogPage() {
         category: data.category,
         reasonCode: data.reasonCode,
         responsibleParty: data.responsibleParty,
-        actionTaken: data.actionTaken,
-        manpowerCount: data.manpowerCount,
-        manHours: data.manHours,
         attachments,
       };
 
       // Only include clearedAt if it has a value
       if (data.clearedAt && data.clearedAt.trim() !== '') {
         cleanedData.clearedAt = data.clearedAt;
+      }
+
+      // Only include location if provided
+      if (data.location && data.location.trim() !== '') {
+        cleanedData.location = data.location.trim().toUpperCase(); // ICAO codes are uppercase
+      }
+
+      // Only include actionTaken if provided, otherwise default
+      if (data.actionTaken && data.actionTaken.trim() !== '') {
+        cleanedData.actionTaken = data.actionTaken;
+      } else {
+        cleanedData.actionTaken = 'See defect description'; // Default value
+      }
+
+      // Only include manpower fields if provided
+      if (data.manpowerCount !== undefined && data.manpowerCount > 0) {
+        cleanedData.manpowerCount = data.manpowerCount;
+      } else {
+        cleanedData.manpowerCount = 0; // Default value
+      }
+
+      if (data.manHours !== undefined && data.manHours > 0) {
+        cleanedData.manHours = data.manHours;
+      } else {
+        cleanedData.manHours = 0; // Default value
       }
 
       // Only include cost fields if they have non-zero values
@@ -176,6 +203,25 @@ export function AOGLogPage() {
               />
             </FormField>
 
+            {/* Category */}
+            <FormField label="Category" error={errors.category} required>
+              <Select
+                {...register('category')}
+                options={CATEGORY_OPTIONS}
+                error={!!errors.category}
+              />
+            </FormField>
+
+            {/* Location (ICAO Code) */}
+            <FormField label="Location (ICAO Code)" error={errors.location}>
+              <Input
+                {...register('location')}
+                placeholder="e.g., OERK, LFSB, EDDH"
+                error={!!errors.location}
+                maxLength={4}
+              />
+            </FormField>
+
             {/* Detected At */}
             <FormField label="Detected At" error={errors.detectedAt} required>
               <Input
@@ -186,20 +232,11 @@ export function AOGLogPage() {
             </FormField>
 
             {/* Cleared At */}
-            <FormField label="Cleared At" error={errors.clearedAt}>
+            <FormField label="Cleared At (leave empty if active)" error={errors.clearedAt}>
               <Input
                 type="datetime-local"
                 {...register('clearedAt')}
                 error={!!errors.clearedAt}
-              />
-            </FormField>
-
-            {/* Category */}
-            <FormField label="Category" error={errors.category} required>
-              <Select
-                {...register('category')}
-                options={CATEGORY_OPTIONS}
-                error={!!errors.category}
               />
             </FormField>
 
@@ -211,79 +248,94 @@ export function AOGLogPage() {
                 error={!!errors.responsibleParty}
               />
             </FormField>
-
-            {/* Reason Code */}
-            <FormField label="Reason Code" error={errors.reasonCode} required>
-              <Input
-                {...register('reasonCode')}
-                placeholder="e.g., ENG-001"
-                error={!!errors.reasonCode}
-              />
-            </FormField>
-
-            {/* Manpower Count */}
-            <FormField label="Manpower Count" error={errors.manpowerCount} required>
-              <Input
-                type="number"
-                min="0"
-                {...register('manpowerCount')}
-                error={!!errors.manpowerCount}
-              />
-            </FormField>
-
-            {/* Man Hours */}
-            <FormField label="Man Hours" error={errors.manHours} required>
-              <Input
-                type="number"
-                min="0"
-                step="0.5"
-                {...register('manHours')}
-                error={!!errors.manHours}
-              />
-            </FormField>
-
-            {/* Cost Labor */}
-            <FormField label="Labor Cost (USD)" error={errors.costLabor}>
-              <Input
-                type="number"
-                min="0"
-                step="0.01"
-                {...register('costLabor')}
-                error={!!errors.costLabor}
-              />
-            </FormField>
-
-            {/* Cost Parts */}
-            <FormField label="Parts Cost (USD)" error={errors.costParts}>
-              <Input
-                type="number"
-                min="0"
-                step="0.01"
-                {...register('costParts')}
-                error={!!errors.costParts}
-              />
-            </FormField>
-
-            {/* Cost External */}
-            <FormField label="External Cost (USD)" error={errors.costExternal}>
-              <Input
-                type="number"
-                min="0"
-                step="0.01"
-                {...register('costExternal')}
-                error={!!errors.costExternal}
-              />
-            </FormField>
           </div>
 
-          {/* Action Taken */}
-          <FormField label="Action Taken" error={errors.actionTaken} required>
+          {/* Defect Description (Reason Code) */}
+          <FormField label="Defect Description" error={errors.reasonCode} required>
             <Textarea
-              {...register('actionTaken')}
-              placeholder="Describe the action taken to resolve the AOG..."
-              error={!!errors.actionTaken}
+              {...register('reasonCode')}
+              placeholder="Describe what went wrong (e.g., Engine hydraulic leak, Oxygen generator due)"
+              error={!!errors.reasonCode}
+              rows={3}
             />
           </FormField>
+
+          {/* Action Taken (Optional) */}
+          <FormField label="Action Taken (optional)" error={errors.actionTaken}>
+            <Textarea
+              {...register('actionTaken')}
+              placeholder="Describe the action taken to resolve the issue (optional - defaults to 'See defect description')"
+              error={!!errors.actionTaken}
+              rows={3}
+            />
+          </FormField>
+
+          {/* Optional Fields Section */}
+          <div className="border-t border-border pt-4 mt-4">
+            <h3 className="text-sm font-medium text-foreground mb-3">
+              Additional Details (Optional)
+            </h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {/* Manpower Count */}
+              <FormField label="Manpower Count" error={errors.manpowerCount}>
+                <Input
+                  type="number"
+                  min="0"
+                  {...register('manpowerCount')}
+                  error={!!errors.manpowerCount}
+                  placeholder="0"
+                />
+              </FormField>
+
+              {/* Man Hours */}
+              <FormField label="Man Hours" error={errors.manHours}>
+                <Input
+                  type="number"
+                  min="0"
+                  step="0.5"
+                  {...register('manHours')}
+                  error={!!errors.manHours}
+                  placeholder="0"
+                />
+              </FormField>
+
+              {/* Cost Labor */}
+              <FormField label="Labor Cost (USD)" error={errors.costLabor}>
+                <Input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  {...register('costLabor')}
+                  error={!!errors.costLabor}
+                  placeholder="0.00"
+                />
+              </FormField>
+
+              {/* Cost Parts */}
+              <FormField label="Parts Cost (USD)" error={errors.costParts}>
+                <Input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  {...register('costParts')}
+                  error={!!errors.costParts}
+                  placeholder="0.00"
+                />
+              </FormField>
+
+              {/* Cost External */}
+              <FormField label="External Cost (USD)" error={errors.costExternal}>
+                <Input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  {...register('costExternal')}
+                  error={!!errors.costExternal}
+                  placeholder="0.00"
+                />
+              </FormField>
+            </div>
+          </div>
 
           {/* File Attachments */}
           <div className="space-y-2">

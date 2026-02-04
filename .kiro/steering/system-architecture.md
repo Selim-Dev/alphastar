@@ -692,6 +692,10 @@ costPerCycle = totalMaintenanceCost / totalCycles;
 - `POST /api/aog-events` - Create AOG event with optional milestone timestamps
 - `GET /api/aog-events/analytics` - Get analytics by responsibility
 - `GET /api/aog-events/analytics/buckets` - **Get three-bucket downtime breakdown**
+- `GET /api/aog-events/analytics/monthly-trend` - **Get monthly event count and downtime trends (NEW)**
+- `GET /api/aog-events/analytics/insights` - **Get automated insights and recommendations (NEW)**
+- `GET /api/aog-events/analytics/forecast` - **Get predictive analytics for future downtime (NEW)**
+- `GET /api/aog-events/analytics/reliability` - **Get aircraft reliability scores and rankings (NEW)**
 - `GET /api/aog-events/active` - Get active AOG events
 - `GET /api/aog-events/active/count` - Get count of active AOG events
 - `GET /api/aog-events/:id` - Get single event with computed metrics
@@ -898,6 +902,12 @@ costPerCycle = totalMaintenanceCost / totalCycles;
 | AOG analytics | `aog-events/services/aog-events.service.ts` | `hooks/useAOGEvents.ts` |
 | AOG three-bucket analytics | `aog-events/services/aog-events.service.ts` | `hooks/useAOGEvents.ts` |
 | AOG downtime computation | `aog-events/services/aog-events.service.ts` | `hooks/useAOGEvents.ts` |
+| **AOG monthly trend analytics (NEW)** | `aog-events/services/aog-events.service.ts` | `hooks/useAOGEvents.ts` |
+| **AOG insights generation (NEW)** | `aog-events/services/aog-events.service.ts` | `hooks/useAOGEvents.ts` |
+| **AOG forecast prediction (NEW)** | `aog-events/services/aog-events.service.ts` | `hooks/useAOGEvents.ts` |
+| **AOG reliability scoring (NEW)** | `aog-events/services/aog-events.service.ts` | `lib/reliabilityScore.ts` |
+| **AOG risk scoring (NEW)** | `aog-events/services/aog-events.service.ts` | `lib/riskScore.ts` |
+| **AOG cost analysis (NEW)** | `aog-events/services/aog-events.service.ts` | `lib/costAnalysis.ts` |
 | Work order summaries | `work-order-summaries/services/work-order-summaries.service.ts` | `hooks/useWorkOrderSummaries.ts` |
 | Work order trends | `work-order-summaries/services/work-order-summaries.service.ts` | `hooks/useWorkOrderSummaries.ts` |
 | Vacation plan management | `vacation-plans/services/vacation-plans.service.ts` | `hooks/useVacationPlans.ts` |
@@ -936,3 +946,313 @@ costPerCycle = totalMaintenanceCost / totalCycles;
 2. Update formula
 3. Verify dashboard service aggregations
 4. Update frontend display if needed
+
+
+---
+
+## AOG Analytics Enhancement (NEW)
+
+### Overview
+
+The AOG Analytics page has been enhanced with 10+ visualizations, predictive analytics, and automated insights. This section documents the new analytics calculations and algorithms.
+
+### New Analytics Endpoints
+
+#### 1. Monthly Trend Analytics
+
+**Endpoint:** `GET /api/aog-events/analytics/monthly-trend`
+
+**Purpose:** Provide monthly event count and downtime trends with 3-month moving average.
+
+**Calculation:**
+```typescript
+// Group events by month
+monthlyData = events.groupBy(e => format(e.detectedAt, 'yyyy-MM'));
+
+// Calculate metrics per month
+for each month:
+  eventCount = count of events in month
+  totalDowntimeHours = sum of totalDowntimeHours
+  averageDowntimeHours = totalDowntimeHours / eventCount
+
+// Calculate 3-month moving average
+for each month (starting from month 3):
+  movingAverage = (month[i] + month[i-1] + month[i-2]) / 3
+```
+
+#### 2. Automated Insights Generation
+
+**Endpoint:** `GET /api/aog-events/analytics/insights`
+
+**Purpose:** Generate automated insights and recommendations based on AOG patterns.
+
+**Insight Algorithms:**
+
+1. **High Procurement Time**
+   - Trigger: Procurement time > 50% of total downtime
+   - Priority: Warning
+   - Recommendation: Review supplier contracts and inventory levels
+
+2. **Recurring Issues**
+   - Trigger: Same reason code appears 3+ times in 30 days
+   - Priority: Warning
+   - Recommendation: Consider root cause analysis and preventive maintenance
+
+3. **Cost Spike**
+   - Trigger: Current month cost > 150% of 3-month average
+   - Priority: Warning
+   - Recommendation: Review recent high-cost events
+
+4. **Improving Trend**
+   - Trigger: Downtime decreased by >20% vs previous period
+   - Priority: Success
+   - Recommendation: Document successful practices for replication
+
+5. **Data Quality Issue**
+   - Trigger: >30% of events are legacy (no milestones)
+   - Priority: Info
+   - Recommendation: Update recent events with milestone data
+
+6. **Aircraft at Risk**
+   - Trigger: Aircraft risk score > 70
+   - Priority: Warning
+   - Recommendation: Schedule preventive maintenance review
+
+7. **Seasonal Pattern**
+   - Trigger: Consistent pattern across years
+   - Priority: Info
+   - Recommendation: Plan additional resources for peak periods
+
+8. **Bottleneck Identified**
+   - Trigger: One bucket consistently >60% of total time
+   - Priority: Info
+   - Recommendation: Focus improvement efforts on specific area
+
+#### 3. Forecast Prediction
+
+**Endpoint:** `GET /api/aog-events/analytics/forecast`
+
+**Purpose:** Predict future downtime using linear regression.
+
+**Algorithm:**
+```typescript
+// Simple Linear Regression
+// y = mx + b
+// where: y = predicted downtime hours, x = month index
+
+// Calculate slope (m) and intercept (b)
+n = number of historical months (minimum 6)
+sumX = sum of month indices (0, 1, 2, ...)
+sumY = sum of downtime hours
+sumXY = sum of (month index × downtime hours)
+sumX2 = sum of (month index²)
+
+slope = (n × sumXY - sumX × sumY) / (n × sumX2 - sumX²)
+intercept = (sumY - slope × sumX) / n
+
+// Generate forecast for next N months
+for each future month i:
+  predicted = slope × (lastIndex + i) + intercept
+  confidenceInterval = predicted × 0.20 // ±20%
+  lower = max(0, predicted - confidenceInterval)
+  upper = predicted + confidenceInterval
+```
+
+#### 4. Reliability Score Calculation
+
+**Purpose:** Rank aircraft by reliability (0-100, higher is better).
+
+**Formula:**
+```typescript
+reliabilityScore = 100 - min(100, (eventCount × 5) + (totalDowntimeHours / 10))
+
+// Trend calculation (compare to previous period)
+if (currentScore - previousScore > 5):
+  trend = 'improving'
+else if (previousScore - currentScore > 5):
+  trend = 'declining'
+else:
+  trend = 'stable'
+```
+
+**Interpretation:**
+- 90-100: Excellent (green)
+- 70-89: Good (blue)
+- 50-69: Fair (amber)
+- <50: Poor (red)
+
+#### 5. Risk Score Calculation
+
+**Purpose:** Predict aircraft at risk of future events (0-100, higher = higher risk).
+
+**Formula:**
+```typescript
+riskScore = (
+  recentEventFrequency × 0.40 +
+  averageDowntimeTrend × 0.30 +
+  costTrend × 0.20 +
+  recurringIssues × 0.10
+) × 100
+
+// Component calculations:
+recentEventFrequency = (eventsLast30Days / averageEventsPerMonth) - 1
+averageDowntimeTrend = (currentAvgDowntime / previousAvgDowntime) - 1
+costTrend = (currentAvgCost / previousAvgCost) - 1
+recurringIssues = count of reason codes appearing 2+ times / totalEvents
+```
+
+**Risk Zones:**
+- 0-30: Low risk (green)
+- 31-60: Medium risk (amber)
+- 61-100: High risk (red)
+
+#### 6. Cost Analysis Calculations
+
+**Cost per Hour:**
+```typescript
+costPerHour = totalCost / totalDowntimeHours
+```
+
+**Cost per Event:**
+```typescript
+costPerEvent = totalCost / totalEvents
+```
+
+**Cost Efficiency Trend:**
+```typescript
+// Calculate for last 6 months
+for each month:
+  monthlyCostPerHour = monthCost / monthDowntimeHours
+  
+// Trend indicator
+if (currentMonth < previousMonth):
+  trend = 'improving' (green)
+else if (currentMonth > previousMonth):
+  trend = 'declining' (red)
+else:
+  trend = 'stable' (gray)
+```
+
+### Frontend Components
+
+#### New Chart Components
+
+| Component | Location | Purpose |
+|-----------|----------|---------|
+| BucketTrendChart | `components/ui/BucketTrendChart.tsx` | Stacked area chart for bucket trends over time |
+| WaterfallChart | `components/ui/WaterfallChart.tsx` | Waterfall chart showing downtime composition |
+| MonthlyTrendChart | `components/ui/MonthlyTrendChart.tsx` | Combo chart (bars + line) for monthly trends |
+| MovingAverageChart | `components/ui/MovingAverageChart.tsx` | Line chart with 3-month moving average |
+| YearOverYearChart | `components/ui/YearOverYearChart.tsx` | Grouped bar chart comparing years |
+| AircraftHeatmap | `components/ui/AircraftHeatmap.tsx` | Grid heatmap showing aircraft × months |
+| ReliabilityScoreCards | `components/ui/ReliabilityScoreCards.tsx` | Top 5 reliable and needs attention aircraft |
+| ParetoChart | `components/ui/ParetoChart.tsx` | Combo chart for reason code analysis |
+| CategoryBreakdownPie | `components/ui/CategoryBreakdownPie.tsx` | Pie chart for AOG/Unscheduled/Scheduled |
+| ResponsibilityDistributionChart | `components/ui/ResponsibilityDistributionChart.tsx` | Horizontal bar chart by responsible party |
+| CostBreakdownChart | `components/ui/CostBreakdownChart.tsx` | Stacked bar chart with trend line |
+| CostEfficiencyMetrics | `components/ui/CostEfficiencyMetrics.tsx` | Cost per hour and cost per event cards |
+| ForecastChart | `components/ui/ForecastChart.tsx` | Line chart with confidence interval |
+| RiskScoreGauge | `components/ui/RiskScoreGauge.tsx` | Radial gauge for risk assessment |
+| InsightsPanel | `components/ui/InsightsPanel.tsx` | Card-based layout for automated insights |
+| AOGDataQualityIndicator | `components/ui/AOGDataQualityIndicator.tsx` | Badge showing data completeness |
+| EnhancedAOGAnalyticsPDFExport | `components/ui/EnhancedAOGAnalyticsPDFExport.tsx` | Multi-page PDF export with all sections |
+
+#### Utility Functions
+
+| Function | Location | Purpose |
+|----------|----------|---------|
+| calculateReliabilityScore | `lib/reliabilityScore.ts` | Calculate aircraft reliability score |
+| calculateRiskScore | `lib/riskScore.ts` | Calculate aircraft risk score |
+| calculateCostPerHour | `lib/costAnalysis.ts` | Calculate cost efficiency metrics |
+| calculateCostPerEvent | `lib/costAnalysis.ts` | Calculate cost per event |
+| sampleData | `lib/sampleData.ts` | Sample large datasets for performance |
+
+### Performance Optimizations
+
+#### Backend Optimizations
+
+1. **MongoDB Indexing:**
+   - `{ detectedAt: -1 }` - Date range queries
+   - `{ aircraftId: 1, detectedAt: -1 }` - Aircraft filtering
+   - `{ reportedAt: 1 }` - Milestone queries
+   - `{ responsibleParty: 1, detectedAt: -1 }` - Responsibility analytics
+
+2. **Aggregation Pipeline Optimization:**
+   - Match early to reduce documents processed
+   - Project only needed fields
+   - Use $facet for multiple aggregations in one query
+   - Limit results when possible
+
+3. **Caching:**
+   - Server-side caching with 5-minute TTL
+   - Cache invalidation on AOG event create/update/delete
+   - TanStack Query client-side caching
+
+#### Frontend Optimizations
+
+1. **Progressive Loading:**
+   - Priority 1: Critical data (summary cards, bucket analytics)
+   - Priority 2: Important visualizations (trends, aircraft performance)
+   - Priority 3: Nice-to-have analytics (forecast, insights)
+
+2. **Data Sampling:**
+   - Sample large datasets to max 100 points for charts
+   - Preserve distribution using systematic sampling
+
+3. **Memoization:**
+   - Memoize expensive calculations (reliability scores, cost analysis)
+   - Memoize data transformations for charts
+
+4. **Code Splitting:**
+   - Lazy load heavy chart components
+   - Use Suspense with loading skeletons
+
+### PDF Export Enhancement
+
+The enhanced PDF export generates a professional multi-page report:
+
+**Pages Included:**
+1. Cover Page - Title, date range, filters, timestamp
+2. Executive Summary - Key metrics and top 5 insights
+3. Three-Bucket Analysis - All charts and per-aircraft breakdown
+4. Trend Analysis - Monthly trends, moving averages, YoY comparison
+5. Aircraft Performance - Heatmap and reliability scores
+6. Root Cause Analysis - Pareto chart, category breakdown, responsibility
+7. Cost Analysis - Cost breakdown and efficiency metrics
+8. Predictive Analytics - Forecast chart, risk scores, insights
+
+**Technical Implementation:**
+- Uses jsPDF + html2canvas for generation
+- Captures charts at 2x scale for high resolution (300 DPI)
+- Handles multi-page sections with content overflow
+- Adds page numbers and footers to all pages
+- Generation time: 10-15 seconds for full report
+
+### Data Quality Handling
+
+**Legacy Events:**
+- Events without milestone timestamps are flagged as `isLegacy: true`
+- Show total downtime only (clearedAt - detectedAt)
+- Cannot provide three-bucket breakdown
+- Display "Limited Analytics" badge in UI
+
+**Data Completeness:**
+- Calculate: (eventsWithMilestones / totalEvents) × 100
+- Color coding: Green (>80%), Amber (50-80%), Red (<50%)
+- Displayed prominently at top of analytics page
+
+**Fallback Metrics:**
+- `reportedAt` defaults to `detectedAt` if missing
+- `upAndRunningAt` defaults to `clearedAt` if missing
+- Bucket times computed only when both endpoints available
+
+### Related Documentation
+
+- **AOG Analytics API Documentation** - Comprehensive API reference
+- **AOG Analytics User Guide** - End-user documentation
+- **AOG Analytics Developer Guide** - Technical implementation guide
+- **AOG Analytics Enhancement Requirements** - Original requirements
+- **AOG Analytics Enhancement Design** - Detailed design document
+
+---
+

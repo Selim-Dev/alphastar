@@ -122,8 +122,10 @@ const DEMO_BUDGET_AMOUNTS: Record<string, Record<number, number>> = {
   },
 };
 
+import { COMMON_ATA_CHAPTER_CODES } from '../common/constants/ata-chapters';
+
 // ATA Chapters for discrepancies
-const ATA_CHAPTERS = ['21', '24', '27', '29', '32', '34', '36', '49', '52', '71', '72', '73', '74', '78', '79', '80'];
+const ATA_CHAPTERS = COMMON_ATA_CHAPTER_CODES;
 
 // Maintenance task types
 const TASK_TYPES = ['Routine Inspection', 'Scheduled Maintenance', 'Component Replacement', 'System Check', 'Lubrication', 'Cleaning', 'Calibration', 'Software Update'];
@@ -417,9 +419,11 @@ export class DemoService {
 
   private async seedUtilizationCounters(aircraft: AircraftDocument[], adminUserId: Types.ObjectId): Promise<void> {
     for (const ac of aircraft) {
-      const yearsOld = (new Date().getTime() - new Date(ac.manufactureDate).getTime()) / (365.25 * 24 * 60 * 60 * 1000);
-      let baseHours = yearsOld * 800 + randomInt(1000, 5000);
-      let baseCycles = yearsOld * 300 + randomInt(500, 2000);
+      // Use the earliest available date (manufactureDate, certificationDate, or inServiceDate)
+      const referenceDate = ac.manufactureDate || ac.certificationDate || ac.inServiceDate || new Date('2010-01-01');
+      const yearsOld = (new Date().getTime() - new Date(referenceDate).getTime()) / (365.25 * 24 * 60 * 60 * 1000);
+      let baseHours = Math.max(0, yearsOld * 800 + randomInt(1000, 5000));
+      let baseCycles = Math.max(0, yearsOld * 300 + randomInt(500, 2000));
       let engineHours = baseHours * 0.95;
       let engineCycles = baseCycles * 0.95;
       let apuHours = baseHours * 0.3;

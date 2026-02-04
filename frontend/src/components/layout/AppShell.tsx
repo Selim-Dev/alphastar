@@ -162,7 +162,7 @@ function AppShellContent({ sidebar, topbar, children }: AppShellProps) {
         style={{ '--sidebar-width': `${sidebarWidth}px` } as React.CSSProperties}
       >
         {/* Topbar - Sticky at top */}
-        <header className="sticky top-0 z-40">
+        <header className="sticky top-0 z-40 bg-white">
           {topbar}
         </header>
 

@@ -210,7 +210,7 @@ export function ImportPage() {
       header: 'Validation Errors',
       cell: ({ row }) => (
         <ul className="list-disc list-inside text-sm text-destructive">
-          {row.original.errors.map((error, idx) => (
+          {(row.original.errors || []).map((error, idx) => (
             <li key={idx}>{error}</li>
           ))}
         </ul>

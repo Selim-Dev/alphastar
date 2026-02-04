@@ -250,7 +250,7 @@ export function DiscrepanciesAnalyticsPage() {
     
     // Get top ATA chapter from analytics
     const topATAChapter = analyticsData && analyticsData.length > 0
-      ? (analyticsData as { _id: string }[])[0]._id
+      ? (analyticsData as { _id: string }[]).find(item => item._id && item._id !== 'undefined')?._id || ''
       : '';
     
     return { totalDiscrepancies, uncorrectedCount, totalDowntimeHours, topATAChapter };
@@ -259,13 +259,13 @@ export function DiscrepanciesAnalyticsPage() {
   // Transform analytics data for charts
   const ataChapterAnalytics = useMemo(() => {
     if (!analyticsData) return [];
-    return (analyticsData as { _id: string; count: number; totalDowntimeHours: number }[]).map(
-      (item) => ({
+    return (analyticsData as { _id: string; count: number; totalDowntimeHours: number }[])
+      .filter((item) => item._id && item._id !== 'undefined') // Filter out undefined values
+      .map((item) => ({
         ataChapter: item._id,
         count: item.count,
         totalDowntimeHours: item.totalDowntimeHours || 0,
-      })
-    );
+      }));
   }, [analyticsData]);
 
   // Calculate responsibility distribution from discrepancies
@@ -282,6 +282,7 @@ export function DiscrepanciesAnalyticsPage() {
     });
     
     return Array.from(responsibilityMap.entries())
+      .filter(([responsibility]) => responsibility && responsibility !== 'undefined') // Filter out undefined
       .map(([responsibility, data]) => ({
         responsibility,
         count: data.count,

@@ -9,7 +9,7 @@ import {
   Min,
 } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { ResponsibleParty } from '../schemas/discrepancy.schema';
+import { ResponsibleParty, DiscrepancyType } from '../schemas/discrepancy.schema';
 
 export class CreateDiscrepancyDto {
   @ApiProperty({ description: 'Aircraft ID', example: '507f1f77bcf86cd799439011' })
@@ -50,6 +50,15 @@ export class CreateDiscrepancyDto {
   @IsEnum(ResponsibleParty)
   @IsOptional()
   responsibility?: ResponsibleParty;
+
+  @ApiPropertyOptional({
+    description: 'Type of discrepancy',
+    enum: DiscrepancyType,
+    example: 'AOG',
+  })
+  @IsEnum(DiscrepancyType)
+  @IsOptional()
+  type?: DiscrepancyType;
 
   @ApiPropertyOptional({ description: 'Downtime hours caused by discrepancy', example: 8.5 })
   @IsNumber()

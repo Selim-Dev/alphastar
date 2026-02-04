@@ -27,7 +27,7 @@
   --muted-foreground: 215 16% 47%;
   --accent: 210 40% 96%;
   --accent-foreground: 222 47% 11%;
-  --destructive: 0 84% 60%;
+  --destructive: 0 72% 51%;
   --destructive-foreground: 210 40% 98%;
   
   /* Aviation accent colors (Teal/Sky-blue) */
@@ -78,7 +78,7 @@
   --muted-foreground: 215 20% 65%;
   --accent: 217 33% 17%;
   --accent-foreground: 210 40% 98%;
-  --destructive: 0 63% 31%;
+  --destructive: 0 72% 51%;
   --destructive-foreground: 210 40% 98%;
   
   /* Aviation accent colors (Brighter teal for dark mode) */

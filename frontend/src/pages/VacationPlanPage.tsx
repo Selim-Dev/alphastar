@@ -1,3 +1,49 @@
+import { CalendarDays } from 'lucide-react';
+import { Breadcrumb } from '@/components/ui/Breadcrumb';
+import { ComingSoon } from '@/components/ui/ComingSoon';
+
+/**
+ * VacationPlanPage Component
+ * Coming Soon - Team vacation schedule management with stunning visuals
+ * Requirements: 16.1, 16.2, 16.4, 16.6
+ */
+export function VacationPlanPage() {
+  return (
+    <div className="space-y-6">
+      {/* Breadcrumb */}
+      <Breadcrumb
+        items={[
+          { label: 'Home', path: '/' },
+          { label: 'Vacation Plan' },
+        ]}
+      />
+
+      {/* Coming Soon Overlay */}
+      <ComingSoon
+        icon={CalendarDays}
+        title="Vacation Plan Management"
+        description="Comprehensive team vacation scheduling and overlap detection system for seamless workforce planning"
+        features={[
+          '48-week interactive vacation grid for Engineering and TPL teams',
+          'Real-time overlap detection with intelligent conflict alerts',
+          'Excel import/export for seamless data management',
+          'Employee vacation balance tracking and analytics',
+          'Team coverage analytics with visual insights',
+          'Historical vacation trends and forecasting',
+          'Mobile-responsive design for on-the-go access',
+        ]}
+        estimatedRelease="Q2 2026"
+      />
+    </div>
+  );
+}
+
+export default VacationPlanPage;
+
+/* ============================================
+ * ORIGINAL IMPLEMENTATION (COMMENTED OUT)
+ * ============================================
+
 import { useState, useCallback, useRef } from 'react';
 import { 
   Calendar, 
@@ -25,11 +71,6 @@ import { useAuth } from '@/contexts/AuthContext';
 import type { VacationTeam } from '@/types';
 import { VACATION_TEAM_LABELS } from '@/types';
 
-/**
- * VacationPlanPage Component
- * Main page for managing vacation plans with tabs for Engineering and TPL teams
- * Requirements: 16.1, 16.2, 16.4, 16.6
- */
 export function VacationPlanPage() {
   const { user } = useAuth();
   const isEditable = user?.role === 'Admin' || user?.role === 'Editor';
@@ -196,7 +237,7 @@ export function VacationPlanPage() {
 
   return (
     <div className="space-y-6">
-      {/* Breadcrumb */}
+      {/* Breadcrumb *\/}
       <Breadcrumb
         items={[
           { label: 'Home', path: '/' },
@@ -204,7 +245,7 @@ export function VacationPlanPage() {
         ]}
       />
 
-      {/* Page Header */}
+      {/* Page Header *\/}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div className="flex items-center gap-3">
           <div className="p-2 rounded-lg bg-primary/10">
@@ -218,7 +259,7 @@ export function VacationPlanPage() {
           </div>
         </div>
 
-        {/* Year Selector */}
+        {/* Year Selector *\/}
         <div className="flex items-center gap-2">
           <button
             onClick={handlePreviousYear}
@@ -240,9 +281,9 @@ export function VacationPlanPage() {
         </div>
       </div>
 
-      {/* Team Tabs and Actions */}
+      {/* Team Tabs and Actions *\/}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        {/* Team Tabs */}
+        {/* Team Tabs *\/}
         <div className="flex gap-1 p-1 bg-muted rounded-lg">
           {(['Engineering', 'TPL'] as VacationTeam[]).map((team) => (
             <button
@@ -262,7 +303,7 @@ export function VacationPlanPage() {
           ))}
         </div>
 
-        {/* Action Buttons */}
+        {/* Action Buttons *\/}
         <div className="flex items-center gap-2">
           {isEditable && (
             <>
@@ -304,7 +345,7 @@ export function VacationPlanPage() {
         </div>
       </div>
 
-      {/* Add Employee Form */}
+      {/* Add Employee Form *\/}
       {showAddEmployee && isEditable && (
         <Card className="p-4">
           <div className="flex items-center gap-4">
@@ -343,7 +384,7 @@ export function VacationPlanPage() {
         </Card>
       )}
 
-      {/* Error State */}
+      {/* Error State *\/}
       {error && (
         <Card className="p-4 border-destructive bg-destructive/10">
           <div className="flex items-center gap-2 text-destructive">
@@ -353,7 +394,7 @@ export function VacationPlanPage() {
         </Card>
       )}
 
-      {/* Loading State */}
+      {/* Loading State *\/}
       {isLoading && (
         <Card className="p-8">
           <div className="flex items-center justify-center">
@@ -362,7 +403,7 @@ export function VacationPlanPage() {
         </Card>
       )}
 
-      {/* No Plan State */}
+      {/* No Plan State *\/}
       {!isLoading && !error && !plan && (
         <Card className="p-8">
           <div className="text-center space-y-4">
@@ -386,7 +427,7 @@ export function VacationPlanPage() {
         </Card>
       )}
 
-      {/* Vacation Plan Grid */}
+      {/* Vacation Plan Grid *\/}
       {!isLoading && !error && plan && (
         <VacationPlanGrid
           plan={plan}
@@ -397,7 +438,7 @@ export function VacationPlanPage() {
         />
       )}
 
-      {/* Legend */}
+      {/* Legend *\/}
       <Card className="p-4">
         <h3 className="text-sm font-semibold mb-3">Legend</h3>
         <div className="flex flex-wrap gap-6 text-sm">
@@ -428,3 +469,5 @@ export function VacationPlanPage() {
 }
 
 export default VacationPlanPage;
+
+============================================ */

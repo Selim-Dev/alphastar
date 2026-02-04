@@ -73,9 +73,11 @@ async function bootstrap() {
   const counterDocs: Partial<DailyCounter>[] = [];
 
   for (const ac of aircraft) {
-    const yearsOld = (new Date().getTime() - new Date(ac.manufactureDate).getTime()) / (365.25 * 24 * 60 * 60 * 1000);
-    let baseHours = (yearsOld - 1) * 800 + randomInt(800, 4000);
-    let baseCycles = (yearsOld - 1) * 300 + randomInt(400, 1500);
+    // Use the earliest available date (manufactureDate, certificationDate, or inServiceDate)
+    const referenceDate = ac.manufactureDate || ac.certificationDate || ac.inServiceDate || new Date('2010-01-01');
+    const yearsOld = (new Date().getTime() - new Date(referenceDate).getTime()) / (365.25 * 24 * 60 * 60 * 1000);
+    let baseHours = Math.max(0, (yearsOld - 1) * 800 + randomInt(800, 4000));
+    let baseCycles = Math.max(0, (yearsOld - 1) * 300 + randomInt(400, 1500));
     let engineHours = baseHours * 0.95;
     let engineCycles = baseCycles * 0.95;
     let apuHours = baseHours * 0.3;

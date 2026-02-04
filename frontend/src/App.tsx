@@ -21,7 +21,7 @@ import { AvailabilityPage } from '@/pages/AvailabilityPage';
 import { DailyStatusPage } from '@/pages/DailyStatusPage';
 import { AircraftDetailPage } from '@/pages/AircraftDetailPage';
 import { MaintenanceTasksListPage, MaintenanceTasksLogPage, MaintenanceTasksAnalyticsPage } from '@/pages/maintenance';
-import { AOGListPage, AOGLogPage, AOGAnalyticsPage, AOGDetailPage } from '@/pages/aog';
+import { AOGListPageEnhanced, AOGLogPage, AOGAnalyticsPage, AOGDetailPage } from '@/pages/aog';
 import { WorkOrdersListPage, WorkOrdersNewPage, WorkOrdersAnalyticsPage, WorkOrderSummaryPage } from '@/pages/work-orders';
 import { DiscrepanciesListPage, DiscrepanciesNewPage, DiscrepanciesAnalyticsPage } from '@/pages/discrepancies';
 import { BudgetPage } from '@/pages/BudgetPage';
@@ -29,6 +29,7 @@ import { ImportPage } from '@/pages/ImportPage';
 import { AdminPage } from '@/pages/AdminPage';
 import { HelpCenterPage } from '@/pages/HelpCenterPage';
 import { VacationPlanPage } from '@/pages/VacationPlanPage';
+import { FleetAtMROPage } from '@/pages/FleetAtMROPage';
 
 function App() {
   return (
@@ -62,7 +63,7 @@ function App() {
         
         {/* AOG Routes - separate pages instead of tabs */}
         <Route path="/aog" element={<RedirectWithParams to="/aog/list" />} />
-        <Route path="/aog/list" element={<AOGListPage />} />
+        <Route path="/aog/list" element={<AOGListPageEnhanced />} />
         <Route path="/aog/:id" element={<AOGDetailPage />} />
         <Route path="/aog/log" element={
           <ProtectedRoute allowedRoles={['Admin', 'Editor']}>
@@ -104,6 +105,7 @@ function App() {
         } />
         <Route path="/discrepancies/analytics" element={<DiscrepanciesAnalyticsPage />} />
         
+        <Route path="/fleet-at-mro" element={<FleetAtMROPage />} />
         <Route path="/budget" element={<BudgetPage />} />
         <Route path="/vacation-plan" element={<VacationPlanPage />} />
         <Route

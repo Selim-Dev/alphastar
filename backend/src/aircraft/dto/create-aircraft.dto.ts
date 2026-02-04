@@ -57,13 +57,29 @@ export class CreateAircraftDto {
   owner: string;
 
 
-  @ApiProperty({
+  @ApiPropertyOptional({
     example: '2015-06-15',
     description: 'Aircraft manufacture date (ISO 8601 format)',
   })
+  @IsOptional()
   @IsDateString({}, { message: 'Manufacture date must be a valid ISO 8601 date string' })
-  @IsNotEmpty({ message: 'Manufacture date is required' })
-  manufactureDate: string;
+  manufactureDate?: string;
+
+  @ApiPropertyOptional({
+    example: '2015-08-20',
+    description: 'Aircraft certification date (ISO 8601 format)',
+  })
+  @IsOptional()
+  @IsDateString({}, { message: 'Certification date must be a valid ISO 8601 date string' })
+  certificationDate?: string;
+
+  @ApiPropertyOptional({
+    example: '2015-09-01',
+    description: 'Aircraft in-service date (ISO 8601 format)',
+  })
+  @IsOptional()
+  @IsDateString({}, { message: 'In-service date must be a valid ISO 8601 date string' })
+  inServiceDate?: string;
 
   @ApiProperty({
     example: 2,

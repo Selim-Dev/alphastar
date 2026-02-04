@@ -9,7 +9,18 @@ export enum ResponsibleParty {
   OEM = 'OEM',
   Customs = 'Customs',
   Finance = 'Finance',
+  AOG = 'AOG',
   Other = 'Other',
+}
+
+export enum DiscrepancyType {
+  AD = 'AD',
+  ADDR = 'ADDR',
+  AOG = 'AOG',
+  CADD = 'CADD',
+  CDL = 'CDL',
+  CORR = 'CORR',
+  DMI = 'DMI',
 }
 
 @Schema(baseSchemaOptions)
@@ -34,6 +45,9 @@ export class Discrepancy {
 
   @Prop({ enum: ResponsibleParty })
   responsibility?: ResponsibleParty;
+
+  @Prop({ enum: DiscrepancyType })
+  type?: DiscrepancyType;
 
   @Prop()
   downtimeHours?: number;

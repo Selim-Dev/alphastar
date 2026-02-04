@@ -2,6 +2,7 @@ import { Injectable, BadRequestException } from '@nestjs/common';
 import * as XLSX from 'xlsx';
 import { ImportType } from '../schemas/import-log.schema';
 import { ExcelTemplateService, TemplateColumn } from './excel-template.service';
+import { AircraftRepository } from '../../aircraft/repositories/aircraft.repository';
 
 export interface ParsedRow {
   rowNumber: number;
@@ -18,15 +19,27 @@ export interface ParseResult {
   allRows: ParsedRow[];
 }
 
+// Category mapping from Excel values to database enum
+const CATEGORY_MAP: Record<string, string> = {
+  'AOG': 'aog',
+  'S-MX': 'scheduled',
+  'U-MX': 'unscheduled',
+  'MRO': 'mro',
+  'CLEANING': 'cleaning',
+};
+
 @Injectable()
 export class ExcelParserService {
-  constructor(private readonly templateService: ExcelTemplateService) {}
+  constructor(
+    private readonly templateService: ExcelTemplateService,
+    private readonly aircraftRepository: AircraftRepository,
+  ) {}
 
   /**
    * Parses an uploaded Excel file and validates rows against the template
    * Requirements: 10.2, 10.3
    */
-  parseExcelFile(buffer: Buffer, importType: ImportType): ParseResult {
+  async parseExcelFile(buffer: Buffer, importType: ImportType): Promise<ParseResult> {
     const template = this.templateService.getTemplateDefinition(importType);
     if (!template) {
       throw new BadRequestException(`Unknown import type: ${importType}`);
@@ -66,7 +79,7 @@ export class ExcelParserService {
       const row = rawData[i] as unknown[];
       if (this.isEmptyRow(row)) continue;
 
-      const parsedRow = this.parseRow(row, i + 1, headerMap, template.columns, importType);
+      const parsedRow = await this.parseRow(row, i + 1, headerMap, template.columns, importType);
       allRows.push(parsedRow);
     }
 
@@ -117,13 +130,13 @@ export class ExcelParserService {
   /**
    * Parses and validates a single row
    */
-  private parseRow(
+  private async parseRow(
     row: unknown[],
     rowNumber: number,
     headerMap: Map<number, TemplateColumn>,
     columns: TemplateColumn[],
     importType?: ImportType,
-  ): ParsedRow {
+  ): Promise<ParsedRow> {
     const data: Record<string, unknown> = {};
     const errors: string[] = [];
 
@@ -151,6 +164,8 @@ export class ExcelParserService {
     // Apply import-type-specific validation
     if (importType === ImportType.DailyStatus) {
       this.validateDailyStatusRow(data, errors);
+    } else if (importType === ImportType.AOGEvents) {
+      await this.validateAOGEventRow(data, errors);
     }
 
     return {
@@ -192,6 +207,176 @@ export class ExcelParserService {
         errors.push(`Total downtime (${totalDowntime}h) exceeds POS hours (${posHours}h)`);
       }
     }
+  }
+
+  /**
+   * Validates AOG Event specific business rules
+   * Requirements: 2.1, 2.2, 2.3, 2.4, 3.1, 3.2, 3.3, 4.1-4.8
+   */
+  private async validateAOGEventRow(data: Record<string, unknown>, errors: string[]): Promise<void> {
+    // 1. Validate and lookup aircraft (registration or name)
+    const aircraftInput = data.aircraft as string | undefined;
+    if (aircraftInput) {
+      const aircraft = await this.lookupAircraft(aircraftInput);
+      if (!aircraft) {
+        errors.push(`Aircraft: Registration or name not found: ${aircraftInput}`);
+      } else {
+        // Store the aircraftId for later use
+        data.aircraftId = aircraft._id.toString();
+        data.aircraftRegistration = aircraft.registration;
+      }
+    }
+
+    // 2. Validate and map category
+    const categoryInput = data.category as string | undefined;
+    if (categoryInput) {
+      const mappedCategory = CATEGORY_MAP[categoryInput.toUpperCase()];
+      if (!mappedCategory) {
+        errors.push(`Category: Invalid value "${categoryInput}". Allowed: AOG, S-MX, U-MX, MRO, CLEANING`);
+      } else {
+        data.categoryMapped = mappedCategory;
+      }
+    }
+
+    // 3. Parse and validate Start Date + Time → detectedAt
+    const startDate = data.startDate as Date | undefined;
+    const startTime = data.startTime as string | undefined;
+    
+    if (startDate && startTime) {
+      const detectedAt = this.combineDateAndTime(startDate, startTime);
+      if (!detectedAt) {
+        errors.push(`Start Time: Invalid time format "${startTime}". Expected HH:MM (24-hour)`);
+      } else {
+        // Validate not in future
+        if (detectedAt > new Date()) {
+          errors.push(`Start Date/Time: Cannot be in the future`);
+        }
+        data.detectedAt = detectedAt;
+      }
+    }
+
+    // 4. Parse and validate Finish Date + Time → clearedAt (optional)
+    const finishDate = data.finishDate as Date | undefined;
+    const finishTime = data.finishTime as string | undefined;
+    
+    if (finishDate && finishTime) {
+      const clearedAt = this.combineDateAndTime(finishDate, finishTime);
+      if (!clearedAt) {
+        errors.push(`Finish Time: Invalid time format "${finishTime}". Expected HH:MM (24-hour)`);
+      } else {
+        data.clearedAt = clearedAt;
+        
+        // Validate Finish >= Start
+        const detectedAt = data.detectedAt as Date | undefined;
+        if (detectedAt && clearedAt < detectedAt) {
+          errors.push(`Finish Date/Time: Must be >= Start Date/Time`);
+        }
+      }
+    } else if (finishDate || finishTime) {
+      // If one is provided but not the other
+      if (finishDate && !finishTime) {
+        errors.push(`Finish Time: Required when Finish Date is provided`);
+      }
+      if (finishTime && !finishDate) {
+        errors.push(`Finish Date: Required when Finish Time is provided`);
+      }
+    } else {
+      // Both empty = active event
+      data.clearedAt = null;
+    }
+
+    // 5. Validate location (ICAO code format - optional)
+    const location = data.location as string | undefined;
+    if (location && location.trim()) {
+      const trimmedLocation = location.trim().toUpperCase();
+      // Basic ICAO validation: 4 letters
+      if (!/^[A-Z]{4}$/.test(trimmedLocation)) {
+        errors.push(`Location: Invalid ICAO code format "${location}". Expected 4 letters (e.g., OERK, LFSB)`);
+      } else {
+        data.location = trimmedLocation;
+      }
+    }
+  }
+
+  /**
+   * Looks up aircraft by registration or name (case-insensitive, fuzzy matching)
+   * Requirements: 2.8, 3.1, 3.2, 3.3
+   */
+  private async lookupAircraft(input: string): Promise<{ _id: any; registration: string } | null> {
+    const trimmedInput = input.trim();
+    
+    // Try exact registration match first (case-insensitive)
+    const byRegistration = await this.aircraftRepository.findByRegistration(trimmedInput);
+    if (byRegistration) {
+      return byRegistration;
+    }
+
+    // Try fuzzy name matching
+    // Get all aircraft and search by name/type fields
+    const allAircraft = await this.aircraftRepository.findAll({ limit: 1000 });
+    
+    const inputLower = trimmedInput.toLowerCase();
+    
+    // Try exact match on registration (already tried above, but included for completeness)
+    for (const aircraft of allAircraft.data) {
+      if (aircraft.registration.toLowerCase() === inputLower) {
+        return aircraft;
+      }
+    }
+    
+    // Try fuzzy match on aircraft type or fleet group
+    for (const aircraft of allAircraft.data) {
+      const aircraftType = aircraft.aircraftType?.toLowerCase() || '';
+      const fleetGroup = aircraft.fleetGroup?.toLowerCase() || '';
+      
+      // Check if input contains the registration
+      if (inputLower.includes(aircraft.registration.toLowerCase())) {
+        return aircraft;
+      }
+      
+      // Check if aircraft type or fleet group contains the input
+      if (aircraftType.includes(inputLower) || inputLower.includes(aircraftType)) {
+        // If multiple matches possible, this is ambiguous - return null
+        // For now, return first match
+        return aircraft;
+      }
+      
+      if (fleetGroup.includes(inputLower) || inputLower.includes(fleetGroup)) {
+        return aircraft;
+      }
+    }
+    
+    return null;
+  }
+
+  /**
+   * Combines a date and time string (HH:MM) into a single Date object
+   * Requirements: 2.3, 2.4
+   */
+  private combineDateAndTime(date: Date, timeStr: string): Date | null {
+    if (!date || !timeStr) {
+      return null;
+    }
+
+    // Parse time string (HH:MM format, 24-hour)
+    const timeMatch = timeStr.trim().match(/^(\d{1,2}):(\d{2})$/);
+    if (!timeMatch) {
+      return null;
+    }
+
+    const hours = parseInt(timeMatch[1], 10);
+    const minutes = parseInt(timeMatch[2], 10);
+
+    // Validate time ranges
+    if (hours < 0 || hours > 23 || minutes < 0 || minutes > 59) {
+      return null;
+    }
+
+    // Create new date with combined date and time
+    const combined = new Date(date);
+    combined.setHours(hours, minutes, 0, 0);
+
+    return combined;
   }
 
   /**
@@ -244,6 +429,7 @@ export class ExcelParserService {
 
   /**
    * Parses various date formats
+   * Supports: YYYY-MM-DD, MM/DD/YYYY, Excel serial dates, ISO dates
    */
   private parseDate(value: unknown): Date | null {
     if (value instanceof Date) {
@@ -259,16 +445,18 @@ export class ExcelParserService {
     }
 
     if (typeof value === 'string') {
+      const trimmedValue = value.trim();
+      
       // Try parsing ISO format and common formats
-      const parsed = new Date(value);
+      const parsed = new Date(trimmedValue);
       if (!isNaN(parsed.getTime())) {
         return parsed;
       }
 
-      // Try YYYY-MM-DD format
-      const match = value.match(/^(\d{4})-(\d{2})-(\d{2})(?:\s+(\d{2}):(\d{2}))?$/);
-      if (match) {
-        const [, year, month, day, hour, minute] = match;
+      // Try YYYY-MM-DD format (with optional time)
+      const isoMatch = trimmedValue.match(/^(\d{4})-(\d{1,2})-(\d{1,2})(?:\s+(\d{1,2}):(\d{2}))?$/);
+      if (isoMatch) {
+        const [, year, month, day, hour, minute] = isoMatch;
         return new Date(
           parseInt(year),
           parseInt(month) - 1,
@@ -276,6 +464,38 @@ export class ExcelParserService {
           hour ? parseInt(hour) : 0,
           minute ? parseInt(minute) : 0,
         );
+      }
+
+      // Try MM/DD/YYYY format (with optional time)
+      const usMatch = trimmedValue.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})(?:\s+(\d{1,2}):(\d{2}))?$/);
+      if (usMatch) {
+        const [, month, day, year, hour, minute] = usMatch;
+        return new Date(
+          parseInt(year),
+          parseInt(month) - 1,
+          parseInt(day),
+          hour ? parseInt(hour) : 0,
+          minute ? parseInt(minute) : 0,
+        );
+      }
+
+      // Try DD/MM/YYYY format (with optional time) - common in some regions
+      const euMatch = trimmedValue.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})(?:\s+(\d{1,2}):(\d{2}))?$/);
+      if (euMatch) {
+        const [, day, month, year, hour, minute] = euMatch;
+        const parsedDate = new Date(
+          parseInt(year),
+          parseInt(month) - 1,
+          parseInt(day),
+          hour ? parseInt(hour) : 0,
+          minute ? parseInt(minute) : 0,
+        );
+        // Validate the date is valid (e.g., not 13/25/2026)
+        if (!isNaN(parsedDate.getTime()) && 
+            parsedDate.getMonth() === parseInt(month) - 1 &&
+            parsedDate.getDate() === parseInt(day)) {
+          return parsedDate;
+        }
       }
     }
 

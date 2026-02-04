@@ -273,6 +273,36 @@ export interface WorkOrderCountTrendResponse {
   };
 }
 
+// AOG Summary Types (Task 10.1)
+export interface AOGSummaryEvent {
+  id: string;
+  aircraftId: string;
+  registration: string;
+  reasonCode: string;
+  location: string | null;
+  durationHours: number;
+  detectedAt: string;
+}
+
+export interface AOGSummaryTrendPoint {
+  month: string;
+  count: number;
+}
+
+export interface AOGSummaryResponse {
+  activeCount: number;
+  totalThisMonth: number;
+  avgDurationHours: number;
+  totalDowntimeHours: number;
+  activeEvents: AOGSummaryEvent[];
+  unavailableAircraft: {
+    registration: string;
+    reason: string;
+    durationDays: number;
+  }[];
+  trendData: AOGSummaryTrendPoint[];
+}
+
 @Injectable()
 export class DashboardService {
   constructor(
@@ -498,7 +528,7 @@ export class DashboardService {
         description: `${event.reasonCode} - ${event.responsibleParty}`,
         aircraftId: event.aircraftId?.toString(),
         aircraftRegistration: ac?.registration,
-        actionUrl: `/aog/list?eventId=${eventId}`,
+        actionUrl: `/aog/${eventId}`,
         createdAt: event.detectedAt?.toISOString() || new Date().toISOString(),
       });
     }
@@ -533,7 +563,7 @@ export class DashboardService {
         description: `Status: ${statusLabel} - Blocked by: ${blockingReasonLabel}`,
         aircraftId: event.aircraftId?.toString(),
         aircraftRegistration: ac?.registration,
-        actionUrl: `/aog/list?eventId=${eventId}`,
+        actionUrl: `/aog/${eventId}`,
         createdAt: event.detectedAt?.toISOString() || new Date().toISOString(),
       });
     }
@@ -1260,6 +1290,109 @@ export class DashboardService {
         startDate: start.toISOString(),
         endDate: end.toISOString(),
       },
+    };
+  }
+
+  /**
+   * Get AOG summary for dashboard integration
+   * Requirements: 12.1, 12.2, 12.3, 12.4, 12.5, 12.6, 12.7, 12.8
+   */
+  async getAOGSummary(): Promise<AOGSummaryResponse> {
+    const now = new Date();
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    const sixMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 6, 1);
+
+    // Get active AOG count
+    const activeCount = await this.aogEventsService.countActiveAOGEvents();
+
+    // Get total AOG events this month
+    const totalThisMonth = await this.aogEventModel.countDocuments({
+      detectedAt: { $gte: startOfMonth, $lte: now },
+    }).exec();
+
+    // Get all cleared events this month for average duration calculation
+    const clearedEventsThisMonth = await this.aogEventModel.find({
+      detectedAt: { $gte: startOfMonth, $lte: now },
+      clearedAt: { $ne: null },
+    }).exec();
+
+    // Calculate average duration
+    let avgDurationHours = 0;
+    let totalDowntimeHours = 0;
+    if (clearedEventsThisMonth.length > 0) {
+      const totalDuration = clearedEventsThisMonth.reduce((sum, event) => {
+        if (event.clearedAt && event.detectedAt) {
+          const duration = (event.clearedAt.getTime() - event.detectedAt.getTime()) / (1000 * 60 * 60);
+          return sum + duration;
+        }
+        return sum;
+      }, 0);
+      avgDurationHours = totalDuration / clearedEventsThisMonth.length;
+      totalDowntimeHours = totalDuration;
+    }
+
+    // Add downtime from active events (from detection to now)
+    const activeEvents = await this.aogEventModel.find({ clearedAt: null }).limit(5).exec();
+    for (const event of activeEvents) {
+      if (event.detectedAt) {
+        const duration = (now.getTime() - event.detectedAt.getTime()) / (1000 * 60 * 60);
+        totalDowntimeHours += duration;
+      }
+    }
+
+    // Get aircraft map for registration lookup
+    const aircraft = await this.aircraftModel.find().exec();
+    const aircraftMap = new Map(aircraft.map(a => [a._id.toString(), a]));
+
+    // Get list of active events (up to 5)
+    const activeEventsList: AOGSummaryEvent[] = activeEvents.map(event => {
+      const ac = aircraftMap.get(event.aircraftId?.toString());
+      const durationHours = event.detectedAt 
+        ? (now.getTime() - event.detectedAt.getTime()) / (1000 * 60 * 60)
+        : 0;
+
+      return {
+        id: event._id.toString(),
+        aircraftId: event.aircraftId?.toString() || '',
+        registration: ac?.registration || 'Unknown',
+        reasonCode: event.reasonCode || 'Unknown',
+        location: event.location || null,
+        durationHours: Math.round(durationHours * 10) / 10,
+        detectedAt: event.detectedAt?.toISOString() || now.toISOString(),
+      };
+    });
+
+    // Get unavailable aircraft (active AOG events)
+    const unavailableAircraft = activeEventsList.map(event => ({
+      registration: event.registration,
+      reason: event.reasonCode,
+      durationDays: Math.round((event.durationHours / 24) * 10) / 10,
+    }));
+
+    // Get trend data (last 6 months)
+    const trendData: AOGSummaryTrendPoint[] = [];
+    for (let i = 5; i >= 0; i--) {
+      const monthStart = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const monthEnd = new Date(now.getFullYear(), now.getMonth() - i + 1, 0);
+      
+      const count = await this.aogEventModel.countDocuments({
+        detectedAt: { $gte: monthStart, $lte: monthEnd },
+      }).exec();
+
+      trendData.push({
+        month: `${monthStart.getFullYear()}-${String(monthStart.getMonth() + 1).padStart(2, '0')}`,
+        count,
+      });
+    }
+
+    return {
+      activeCount,
+      totalThisMonth,
+      avgDurationHours: Math.round(avgDurationHours * 10) / 10,
+      totalDowntimeHours: Math.round(totalDowntimeHours * 10) / 10,
+      activeEvents: activeEventsList,
+      unavailableAircraft,
+      trendData,
     };
   }
 }

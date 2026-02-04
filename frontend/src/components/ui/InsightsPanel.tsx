@@ -1,275 +1,167 @@
-import { useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { 
-  Lightbulb, 
-  TrendingUp, 
-  TrendingDown, 
-  Minus,
-  ChevronDown,
-  ChevronUp,
-  Plane,
-  Wrench,
-  DollarSign,
-  Clock
+import {
+  AlertTriangle,
+  Info,
+  CheckCircle,
+  TrendingUp,
+  ChevronRight,
 } from 'lucide-react';
-import type { InsightsResponse, Insight } from '@/types';
+
+interface AutomatedInsight {
+  id: string;
+  type: 'warning' | 'info' | 'success';
+  title: string;
+  description: string;
+  metric?: number;
+  recommendation?: string;
+}
 
 interface InsightsPanelProps {
-  data?: InsightsResponse;
+  insights: AutomatedInsight[];
   isLoading?: boolean;
-  className?: string;
-  defaultCollapsed?: boolean;
+  onViewAll?: () => void;
 }
 
-function getCategoryConfig(category: Insight['category']) {
-  switch (category) {
-    case 'positive':
-      return {
-        bgColor: 'bg-green-500/10',
-        borderColor: 'border-green-500/20',
-        textColor: 'text-green-600 dark:text-green-400',
-        dotColor: 'bg-green-500',
-      };
-    case 'concerning':
-      return {
-        bgColor: 'bg-amber-500/10',
-        borderColor: 'border-amber-500/20',
-        textColor: 'text-amber-600 dark:text-amber-400',
-        dotColor: 'bg-amber-500',
-      };
-    case 'neutral':
-    default:
-      return {
-        bgColor: 'bg-blue-500/10',
-        borderColor: 'border-blue-500/20',
-        textColor: 'text-blue-600 dark:text-blue-400',
-        dotColor: 'bg-blue-500',
-      };
-  }
-}
-
-function getTypeIcon(type: Insight['type']) {
-  switch (type) {
-    case 'availability':
-      return Plane;
-    case 'maintenance':
-      return Wrench;
-    case 'budget':
-      return DollarSign;
-    case 'utilization':
-      return Clock;
-    default:
-      return Lightbulb;
-  }
-}
-
-function MetricChange({ metric }: { metric: Insight['metric'] }) {
-  if (!metric) return null;
-
-  const isPositive = metric.change > 0;
-  const Icon = isPositive ? TrendingUp : metric.change < 0 ? TrendingDown : Minus;
-  const changeColor = metric.change === 0 
-    ? 'text-muted-foreground' 
-    : isPositive 
-      ? 'text-green-500' 
-      : 'text-red-500';
-
-  return (
-    <div className="flex items-center gap-2 mt-2 text-xs">
-      <span className="text-muted-foreground">
-        {metric.previous.toFixed(1)} → {metric.current.toFixed(1)}
-      </span>
-      <span className={`flex items-center gap-0.5 font-medium ${changeColor}`}>
-        <Icon className="w-3 h-3" />
-        {metric.change > 0 ? '+' : ''}{metric.change.toFixed(1)}%
-      </span>
-    </div>
-  );
-}
-
-function InsightItem({
-  insight,
-  index,
-}: {
-  insight: Insight;
-  index: number;
-}) {
-  const categoryConfig = getCategoryConfig(insight.category);
-  const TypeIcon = getTypeIcon(insight.type);
-
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 10 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ delay: index * 0.05 }}
-      className={`p-3 rounded-lg border ${categoryConfig.bgColor} ${categoryConfig.borderColor}`}
-    >
-      <div className="flex items-start gap-3">
-        <div className={`w-2 h-2 rounded-full mt-1.5 flex-shrink-0 ${categoryConfig.dotColor}`} />
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2">
-            <TypeIcon className={`w-4 h-4 ${categoryConfig.textColor}`} />
-            <span className={`text-sm font-medium ${categoryConfig.textColor}`}>
-              {insight.title}
-            </span>
-            {insight.aircraftRegistration && (
-              <span className="text-xs px-1.5 py-0.5 rounded bg-muted text-foreground font-mono">
-                {insight.aircraftRegistration}
-              </span>
-            )}
-          </div>
-          <p className="text-sm text-muted-foreground mt-1">
-            {insight.description}
-          </p>
-          {insight.metric && <MetricChange metric={insight.metric} />}
-        </div>
-      </div>
-    </motion.div>
-  );
-}
-
-function LoadingSkeleton() {
-  return (
-    <div className="space-y-3">
-      {[1, 2, 3].map((i) => (
-        <div key={i} className="p-3 rounded-lg bg-muted/30">
-          <div className="flex items-start gap-3">
-            <div className="animate-pulse bg-muted h-2 w-2 rounded-full mt-1.5" />
-            <div className="flex-1 space-y-2">
-              <div className="animate-pulse bg-muted h-4 w-32 rounded" />
-              <div className="animate-pulse bg-muted h-3 w-full rounded" />
-              <div className="animate-pulse bg-muted h-3 w-24 rounded" />
-            </div>
-          </div>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-export function InsightsPanel({
-  data,
-  isLoading,
-  className = '',
-  defaultCollapsed = false,
-}: InsightsPanelProps) {
-  const [isCollapsed, setIsCollapsed] = useState(defaultCollapsed);
-
+export function InsightsPanel({ insights, isLoading, onViewAll }: InsightsPanelProps) {
   if (isLoading) {
     return (
-      <div className={`bg-card border border-border rounded-xl p-5 ${className}`}>
-        <div className="flex items-center gap-2 mb-4">
-          <div className="p-2 rounded-lg bg-primary/10">
-            <Lightbulb className="w-5 h-5 text-primary" />
+      <div className="space-y-4">
+        {[1, 2, 3].map((i) => (
+          <div key={i} className="animate-pulse">
+            <div className="h-24 bg-muted rounded-lg" />
           </div>
-          <div className="animate-pulse h-5 w-32 bg-muted rounded" />
-        </div>
-        <LoadingSkeleton />
+        ))}
       </div>
     );
   }
 
-  // Handle no data case
-  if (!data || data.insights.length === 0) {
+  if (!insights || insights.length === 0) {
     return (
-      <motion.div
-        initial={{ opacity: 0, y: 10 }}
-        animate={{ opacity: 1, y: 0 }}
-        className={`bg-card border border-border rounded-xl p-5 ${className}`}
-      >
-        <div className="flex items-center gap-2 mb-4">
-          <div className="p-2 rounded-lg bg-primary/10">
-            <Lightbulb className="w-5 h-5 text-primary" />
-          </div>
-          <h3 className="text-base font-semibold text-foreground">Insights</h3>
-        </div>
-        <div className="flex items-center justify-center py-8 text-muted-foreground">
-          <div className="text-center">
-            <Lightbulb className="w-8 h-8 mx-auto mb-2 opacity-50" />
-            <p className="text-sm font-medium">No insights available</p>
-            <p className="text-xs mt-1">Insights will appear as patterns are detected</p>
-          </div>
-        </div>
-      </motion.div>
+      <div className="flex flex-col items-center justify-center py-12 text-center">
+        <Info className="w-12 h-12 text-muted-foreground/50 mb-4" />
+        <p className="text-sm text-muted-foreground">No insights available</p>
+        <p className="text-xs text-muted-foreground mt-1">
+          Insights will appear as patterns are detected in your data
+        </p>
+      </div>
     );
   }
 
-  // Group insights by category
-  const positiveInsights = data.insights.filter(i => i.category === 'positive');
-  const concerningInsights = data.insights.filter(i => i.category === 'concerning');
-  const neutralInsights = data.insights.filter(i => i.category === 'neutral');
+  // Show maximum 5 insights
+  const displayedInsights = insights.slice(0, 5);
+  const hasMore = insights.length > 5;
+
+  // Get icon for insight type
+  const getIcon = (type: string) => {
+    switch (type) {
+      case 'warning':
+        return AlertTriangle;
+      case 'success':
+        return CheckCircle;
+      default:
+        return Info;
+    }
+  };
+
+  // Get color classes for insight type
+  const getColorClasses = (type: string) => {
+    switch (type) {
+      case 'warning':
+        return {
+          border: 'border-red-200 dark:border-red-800',
+          bg: 'bg-red-50 dark:bg-red-900/20',
+          icon: 'text-red-600 dark:text-red-400',
+          title: 'text-red-900 dark:text-red-100',
+        };
+      case 'success':
+        return {
+          border: 'border-green-200 dark:border-green-800',
+          bg: 'bg-green-50 dark:bg-green-900/20',
+          icon: 'text-green-600 dark:text-green-400',
+          title: 'text-green-900 dark:text-green-100',
+        };
+      default:
+        return {
+          border: 'border-blue-200 dark:border-blue-800',
+          bg: 'bg-blue-50 dark:bg-blue-900/20',
+          icon: 'text-blue-600 dark:text-blue-400',
+          title: 'text-blue-900 dark:text-blue-100',
+        };
+    }
+  };
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 10 }}
-      animate={{ opacity: 1, y: 0 }}
-      className={`bg-card border border-border rounded-xl p-5 ${className}`}
-    >
-      <div 
-        className="flex items-center justify-between mb-4 cursor-pointer"
-        onClick={() => setIsCollapsed(!isCollapsed)}
-      >
-        <div className="flex items-center gap-2">
-          <div className="p-2 rounded-lg bg-primary/10">
-            <Lightbulb className="w-5 h-5 text-primary" />
-          </div>
-          <h3 className="text-base font-semibold text-foreground">Insights</h3>
-          <span className="text-xs text-muted-foreground">
-            ({data.insights.length})
-          </span>
-        </div>
-        <div className="flex items-center gap-3">
-          {/* Category summary badges */}
-          <div className="flex items-center gap-2">
-            {positiveInsights.length > 0 && (
-              <span className="text-xs px-2 py-0.5 rounded-full bg-green-500/10 text-green-600 dark:text-green-400">
-                {positiveInsights.length} positive
-              </span>
-            )}
-            {concerningInsights.length > 0 && (
-              <span className="text-xs px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-600 dark:text-amber-400">
-                {concerningInsights.length} concerning
-              </span>
-            )}
-          </div>
-          {isCollapsed ? (
-            <ChevronDown className="w-4 h-4 text-muted-foreground" />
-          ) : (
-            <ChevronUp className="w-4 h-4 text-muted-foreground" />
-          )}
-        </div>
-      </div>
-      
-      <AnimatePresence>
-        {!isCollapsed && (
-          <motion.div
-            initial={{ height: 0, opacity: 0 }}
-            animate={{ height: 'auto', opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }}
-            transition={{ duration: 0.2 }}
-            className="overflow-hidden"
+    <div className="space-y-4">
+      {displayedInsights.map((insight) => {
+        const Icon = getIcon(insight.type);
+        const colors = getColorClasses(insight.type);
+
+        return (
+          <div
+            key={insight.id}
+            className={`p-4 rounded-lg border ${colors.border} ${colors.bg}`}
           >
-            <div className="space-y-3">
-              {/* Show concerning first, then neutral, then positive */}
-              {[...concerningInsights, ...neutralInsights, ...positiveInsights].map((insight, index) => (
-                <InsightItem
-                  key={insight.id}
-                  insight={insight}
-                  index={index}
-                />
-              ))}
+            <div className="flex items-start gap-3">
+              {/* Icon */}
+              <div className="flex-shrink-0 mt-0.5">
+                <Icon className={`w-5 h-5 ${colors.icon}`} />
+              </div>
+
+              {/* Content */}
+              <div className="flex-1 min-w-0">
+                {/* Title and Metric */}
+                <div className="flex items-start justify-between gap-2 mb-2">
+                  <h4 className={`text-sm font-semibold ${colors.title}`}>
+                    {insight.title}
+                  </h4>
+                  {insight.metric !== undefined && (
+                    <div className={`text-sm font-bold ${colors.icon} flex-shrink-0`}>
+                      {insight.metric.toFixed(1)}
+                      {insight.id.includes('percentage') || insight.id.includes('trend') ? '%' : ''}
+                    </div>
+                  )}
+                </div>
+
+                {/* Description */}
+                <p className="text-sm text-foreground/80 mb-3">
+                  {insight.description}
+                </p>
+
+                {/* Recommendation */}
+                {insight.recommendation && (
+                  <div className="flex items-start gap-2 mt-3 pt-3 border-t border-current/10">
+                    <TrendingUp className="w-4 h-4 text-foreground/60 flex-shrink-0 mt-0.5" />
+                    <p className="text-xs text-foreground/70">
+                      <span className="font-medium">Recommendation:</span>{' '}
+                      {insight.recommendation}
+                    </p>
+                  </div>
+                )}
+              </div>
             </div>
-            
-            <div className="mt-4 pt-3 border-t border-border">
-              <p className="text-xs text-muted-foreground">
-                Generated: {new Date(data.generatedAt).toLocaleString()}
-              </p>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </motion.div>
+          </div>
+        );
+      })}
+
+      {/* View All Link */}
+      {hasMore && onViewAll && (
+        <button
+          onClick={onViewAll}
+          className="w-full py-3 px-4 text-sm font-medium text-primary hover:text-primary/80 bg-muted/50 hover:bg-muted rounded-lg transition-colors flex items-center justify-center gap-2"
+        >
+          <span>View All {insights.length} Insights</span>
+          <ChevronRight className="w-4 h-4" />
+        </button>
+      )}
+
+      {/* Empty state when no insights but not loading */}
+      {displayedInsights.length === 0 && !isLoading && (
+        <div className="text-center py-8">
+          <Info className="w-12 h-12 text-muted-foreground/30 mx-auto mb-3" />
+          <p className="text-sm text-muted-foreground">
+            No insights detected for the selected period
+          </p>
+        </div>
+      )}
+    </div>
   );
 }
-
-export default InsightsPanel;

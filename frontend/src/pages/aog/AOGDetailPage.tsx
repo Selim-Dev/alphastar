@@ -22,8 +22,8 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/Form';
 import { Breadcrumb } from '@/components/ui/Breadcrumb';
-import { MilestoneTimeline, MilestoneEditForm, MilestoneHistory, NextStepActionPanel, PartsTab, CostsTab, AttachmentsTab } from '@/components/aog';
-import { useAOGEventById } from '@/hooks/useAOGEvents';
+import { MilestoneTimeline, MilestoneEditForm, MilestoneHistory, NextStepActionPanel, PartsTab, CostsTab, AttachmentsTab, EventTimeline, RelatedEvents, AOGEventEditForm } from '@/components/aog';
+import { useAOGEventById, useAOGEvents } from '@/hooks/useAOGEvents';
 import { useAircraft } from '@/hooks/useAircraft';
 import type { Aircraft, AOGEvent } from '@/types';
 
@@ -232,10 +232,17 @@ export function AOGDetailPage() {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<TabId>('milestones');
   const [isEditingMilestones, setIsEditingMilestones] = useState(false);
+  const [isEditingEvent, setIsEditingEvent] = useState(false);
   const [copied, setCopied] = useState(false);
 
   const { data: event, isLoading: eventLoading, refetch } = useAOGEventById(id || null);
   const { data: aircraftData, isLoading: aircraftLoading } = useAircraft();
+  
+  // Fetch related events for the same aircraft
+  const { data: relatedEventsData } = useAOGEvents(
+    event?.aircraftId ? { aircraftId: event.aircraftId } : undefined
+  );
+  const relatedEvents = relatedEventsData || [];
 
   // Find aircraft for this event - aircraftData is PaginatedResponse
   // Backend may return 'id' or '_id' depending on serialization
@@ -314,6 +321,75 @@ export function AOGDetailPage() {
           { label: aircraft?.registration || 'AOG Event' },
         ]}
       />
+
+      {/* Prominent Status Badge - Requirements 3.1, 3.2 */}
+      <motion.div
+        initial={{ opacity: 0, scale: 0.95 }}
+        animate={{ opacity: 1, scale: 1 }}
+        className="flex justify-center mb-6"
+      >
+        {isActive ? (
+          <div className="inline-flex items-center gap-3 px-8 py-4 rounded-2xl bg-red-500 text-white shadow-lg shadow-red-500/30">
+            <div className="relative flex">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75"></span>
+              <span className="relative inline-flex rounded-full bg-white h-4 w-4"></span>
+            </div>
+            <span className="text-2xl font-bold tracking-wide">ACTIVE</span>
+          </div>
+        ) : (
+          <div className="inline-flex items-center gap-3 px-8 py-4 rounded-2xl bg-green-500 text-white shadow-lg shadow-green-500/30">
+            <CheckCircle2 className="w-6 h-6" />
+            <span className="text-2xl font-bold tracking-wide">RESOLVED</span>
+          </div>
+        )}
+      </motion.div>
+
+      {/* Visual Timeline - Requirements 3.6, 10.1 */}
+      <motion.div
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.1 }}
+      >
+        <EventTimeline
+          detectedAt={event.detectedAt}
+          clearedAt={event.clearedAt}
+          isActive={isActive}
+        />
+      </motion.div>
+
+      {/* Edit Event Section - Requirements 3.5, 3.7 */}
+      {isEditingEvent ? (
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="bg-card border border-border rounded-xl p-6"
+        >
+          <h3 className="text-lg font-semibold text-foreground mb-4">Edit Event Details</h3>
+          <AOGEventEditForm
+            event={event}
+            onUpdate={() => {
+              setIsEditingEvent(false);
+              refetch();
+            }}
+            onCancel={() => setIsEditingEvent(false)}
+          />
+        </motion.div>
+      ) : (
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="flex justify-end"
+        >
+          <Button
+            variant="outline"
+            onClick={() => setIsEditingEvent(true)}
+            className="flex items-center gap-2"
+          >
+            <Edit2 className="w-4 h-4" />
+            Edit Event Details
+          </Button>
+        </motion.div>
+      )}
 
       {/* Header Card */}
       <motion.div
@@ -486,6 +562,15 @@ export function AOGDetailPage() {
           isLegacy={isLegacy}
           isActive={isActive}
         />
+      </motion.div>
+
+      {/* Related Events - Requirements 10.3 */}
+      <motion.div
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.2 }}
+      >
+        <RelatedEvents events={relatedEvents} currentEventId={event._id} />
       </motion.div>
 
       {/* Tabs Navigation */}

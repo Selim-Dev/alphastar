@@ -56,7 +56,7 @@ export interface ThreeBucketAnalyticsFilter {
 
 /**
  * Interface for three-bucket analytics response
- * Requirements: 5.2, 5.3, 5.4
+ * Requirements: 5.2, 5.3, 5.4, FR-1.1, FR-1.3
  */
 export interface ThreeBucketAnalytics {
   summary: {
@@ -90,6 +90,9 @@ export interface ThreeBucketAnalytics {
     opsHours: number;
     totalHours: number;
   }>;
+  // Legacy data handling (FR-1.1, FR-1.3)
+  legacyEventCount?: number;
+  legacyDowntimeHours?: number;
 }
 
 /**
@@ -844,6 +847,9 @@ export class AOGEventsService {
     if (dto.reasonCode) {
       updateData.reasonCode = dto.reasonCode;
     }
+    if (dto.location !== undefined) {
+      updateData.location = dto.location || undefined;
+    }
     if (dto.responsibleParty) {
       updateData.responsibleParty = dto.responsibleParty;
     }
@@ -1501,6 +1507,7 @@ export class AOGEventsService {
         registration: '$aircraft.registration',
         fleetGroup: '$aircraft.fleetGroup',
         clearedAt: 1,
+        isLegacy: { $ifNull: ['$isLegacy', false] },
         // For legacy events, use total downtime as technical time
         technicalTimeHours: {
           $cond: {
@@ -1524,6 +1531,14 @@ export class AOGEventsService {
           },
         },
         totalDowntimeHours: { $ifNull: ['$totalDowntimeHours', 0] },
+        // Track legacy downtime separately
+        legacyDowntime: {
+          $cond: {
+            if: { $eq: ['$isLegacy', true] },
+            then: { $ifNull: ['$totalDowntimeHours', 0] },
+            else: 0,
+          },
+        },
       },
     });
 
@@ -1541,10 +1556,16 @@ export class AOGEventsService {
                   $cond: [{ $eq: ['$clearedAt', null] }, 1, 0],
                 },
               },
+              legacyEventCount: {
+                $sum: {
+                  $cond: [{ $eq: ['$isLegacy', true] }, 1, 0],
+                },
+              },
               totalTechnicalHours: { $sum: '$technicalTimeHours' },
               totalProcurementHours: { $sum: '$procurementTimeHours' },
               totalOpsHours: { $sum: '$opsTimeHours' },
               totalDowntimeHours: { $sum: '$totalDowntimeHours' },
+              totalLegacyDowntime: { $sum: '$legacyDowntime' },
             },
           },
         ],
@@ -1584,18 +1605,22 @@ export class AOGEventsService {
     const summaryData = result.summary[0] || {
       totalEvents: 0,
       activeEvents: 0,
+      legacyEventCount: 0,
       totalTechnicalHours: 0,
       totalProcurementHours: 0,
       totalOpsHours: 0,
       totalDowntimeHours: 0,
+      totalLegacyDowntime: 0,
     };
 
     // Calculate averages and percentages
     const totalEvents = summaryData.totalEvents || 0;
+    const legacyEventCount = summaryData.legacyEventCount || 0;
     const totalDowntimeHours = summaryData.totalDowntimeHours || 0;
     const totalTechnicalHours = summaryData.totalTechnicalHours || 0;
     const totalProcurementHours = summaryData.totalProcurementHours || 0;
     const totalOpsHours = summaryData.totalOpsHours || 0;
+    const totalLegacyDowntime = summaryData.totalLegacyDowntime || 0;
 
     // Calculate percentages (avoid division by zero)
     const calculatePercentage = (value: number, total: number): number => {
@@ -1637,8 +1662,1403 @@ export class AOGEventsService {
         },
       },
       byAircraft: result.byAircraft || [],
+      // Legacy data handling (FR-1.1, FR-1.3)
+      legacyEventCount,
+      legacyDowntimeHours: Math.round(totalLegacyDowntime * 100) / 100,
     };
 
     return response;
+  }
+
+  // ============================================
+  // New Analytics Endpoints for Import Enhancement
+  // Requirements: 8.1, 8.2, 8.3, 8.4, 8.5, 16.1-16.8
+  // ============================================
+
+  /**
+   * Gets category breakdown analytics
+   * Groups events by category and calculates count, percentage, and total hours
+   * 
+   * Requirements: 8.1, 16.4
+   * 
+   * @param startDate - Optional start date filter
+   * @param endDate - Optional end date filter
+   * @param aircraftId - Optional aircraft ID filter
+   * @returns Array of category breakdown with count, percentage, and total hours
+   */
+  async getCategoryBreakdown(
+    startDate?: Date,
+    endDate?: Date,
+    aircraftId?: string,
+  ): Promise<Array<{
+    category: string;
+    count: number;
+    percentage: number;
+    totalHours: number;
+  }>> {
+    const matchStage: Record<string, unknown> = {};
+
+    if (aircraftId) {
+      matchStage.aircraftId = new Types.ObjectId(aircraftId);
+    }
+
+    if (startDate || endDate) {
+      matchStage.detectedAt = {
+        ...(startDate && { $gte: startDate }),
+        ...(endDate && { $lte: endDate }),
+      };
+    }
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const pipeline: any[] = [];
+
+    if (Object.keys(matchStage).length > 0) {
+      pipeline.push({ $match: matchStage });
+    }
+
+    pipeline.push(
+      {
+        $group: {
+          _id: '$category',
+          count: { $sum: 1 },
+          totalHours: { $sum: { $ifNull: ['$totalDowntimeHours', 0] } },
+        },
+      },
+      {
+        $group: {
+          _id: null,
+          categories: {
+            $push: {
+              category: '$_id',
+              count: '$count',
+              totalHours: '$totalHours',
+            },
+          },
+          totalCount: { $sum: '$count' },
+        },
+      },
+      {
+        $unwind: '$categories',
+      },
+      {
+        $project: {
+          _id: 0,
+          category: '$categories.category',
+          count: '$categories.count',
+          percentage: {
+            $round: [
+              {
+                $multiply: [
+                  { $divide: ['$categories.count', '$totalCount'] },
+                  100,
+                ],
+              },
+              2,
+            ],
+          },
+          totalHours: { $round: ['$categories.totalHours', 2] },
+        },
+      },
+      {
+        $sort: { count: -1 },
+      },
+    );
+
+    return this.aogEventRepository['aogEventModel'].aggregate(pipeline).exec();
+  }
+
+  /**
+   * Gets location heatmap analytics
+   * Groups events by location and calculates count and percentage
+   * Returns top N locations by event count
+   * 
+   * Requirements: 8.2, 16.3
+   * 
+   * @param startDate - Optional start date filter
+   * @param endDate - Optional end date filter
+   * @param aircraftId - Optional aircraft ID filter
+   * @param limit - Number of top locations to return (default: 5)
+   * @returns Array of location breakdown with count and percentage
+   */
+  async getLocationHeatmap(
+    startDate?: Date,
+    endDate?: Date,
+    aircraftId?: string,
+    limit: number = 5,
+  ): Promise<Array<{
+    location: string;
+    count: number;
+    percentage: number;
+  }>> {
+    const matchStage: Record<string, unknown> = {};
+
+    if (aircraftId) {
+      matchStage.aircraftId = new Types.ObjectId(aircraftId);
+    }
+
+    if (startDate || endDate) {
+      matchStage.detectedAt = {
+        ...(startDate && { $gte: startDate }),
+        ...(endDate && { $lte: endDate }),
+      };
+    }
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const pipeline: any[] = [];
+
+    if (Object.keys(matchStage).length > 0) {
+      pipeline.push({ $match: matchStage });
+    }
+
+    // Filter out events without location
+    pipeline.push({
+      $match: {
+        location: { $ne: null, $exists: true },
+      },
+    });
+
+    pipeline.push(
+      {
+        $group: {
+          _id: '$location',
+          count: { $sum: 1 },
+        },
+      },
+      {
+        $group: {
+          _id: null,
+          locations: {
+            $push: {
+              location: '$_id',
+              count: '$count',
+            },
+          },
+          totalCount: { $sum: '$count' },
+        },
+      },
+      {
+        $unwind: '$locations',
+      },
+      {
+        $project: {
+          _id: 0,
+          location: '$locations.location',
+          count: '$locations.count',
+          percentage: {
+            $round: [
+              {
+                $multiply: [
+                  { $divide: ['$locations.count', '$totalCount'] },
+                  100,
+                ],
+              },
+              2,
+            ],
+          },
+        },
+      },
+      {
+        $sort: { count: -1 },
+      },
+      {
+        $limit: limit,
+      },
+    );
+
+    return this.aogEventRepository['aogEventModel'].aggregate(pipeline).exec();
+  }
+
+  /**
+   * Gets duration distribution analytics
+   * Groups events by duration ranges and calculates count and percentage
+   * 
+   * Duration ranges:
+   * - < 24 hours
+   * - 1-7 days
+   * - 1-4 weeks
+   * - > 1 month
+   * 
+   * Requirements: 8.3, 6.5
+   * 
+   * @param startDate - Optional start date filter
+   * @param endDate - Optional end date filter
+   * @param aircraftId - Optional aircraft ID filter
+   * @returns Array of duration ranges with count and percentage
+   */
+  async getDurationDistribution(
+    startDate?: Date,
+    endDate?: Date,
+    aircraftId?: string,
+  ): Promise<Array<{
+    range: string;
+    count: number;
+    percentage: number;
+  }>> {
+    const matchStage: Record<string, unknown> = {};
+
+    if (aircraftId) {
+      matchStage.aircraftId = new Types.ObjectId(aircraftId);
+    }
+
+    if (startDate || endDate) {
+      matchStage.detectedAt = {
+        ...(startDate && { $gte: startDate }),
+        ...(endDate && { $lte: endDate }),
+      };
+    }
+
+    // Only include resolved events (with clearedAt)
+    matchStage.clearedAt = { $ne: null, $exists: true };
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const pipeline: any[] = [];
+
+    if (Object.keys(matchStage).length > 0) {
+      pipeline.push({ $match: matchStage });
+    }
+
+    pipeline.push(
+      {
+        $addFields: {
+          durationHours: { $ifNull: ['$totalDowntimeHours', 0] },
+        },
+      },
+      {
+        $bucket: {
+          groupBy: '$durationHours',
+          boundaries: [0, 24, 168, 672, Infinity], // 24h, 7d, 28d, infinity
+          default: 'Unknown',
+          output: {
+            count: { $sum: 1 },
+          },
+        },
+      },
+      {
+        $group: {
+          _id: null,
+          ranges: {
+            $push: {
+              boundary: '$_id',
+              count: '$count',
+            },
+          },
+          totalCount: { $sum: '$count' },
+        },
+      },
+      {
+        $unwind: '$ranges',
+      },
+      {
+        $project: {
+          _id: 0,
+          range: {
+            $switch: {
+              branches: [
+                { case: { $eq: ['$ranges.boundary', 0] }, then: '< 24 hours' },
+                { case: { $eq: ['$ranges.boundary', 24] }, then: '1-7 days' },
+                { case: { $eq: ['$ranges.boundary', 168] }, then: '1-4 weeks' },
+                { case: { $eq: ['$ranges.boundary', 672] }, then: '> 1 month' },
+              ],
+              default: 'Unknown',
+            },
+          },
+          count: '$ranges.count',
+          percentage: {
+            $round: [
+              {
+                $multiply: [
+                  { $divide: ['$ranges.count', '$totalCount'] },
+                  100,
+                ],
+              },
+              2,
+            ],
+          },
+        },
+      },
+    );
+
+    return this.aogEventRepository['aogEventModel'].aggregate(pipeline).exec();
+  }
+
+  /**
+   * Gets aircraft reliability analytics
+   * Ranks aircraft by event count and total downtime
+   * Returns top 3 most reliable and top 3 needing attention
+   * 
+   * Requirements: 8.4, 16.1
+   * 
+   * @param startDate - Optional start date filter
+   * @param endDate - Optional end date filter
+   * @returns Object with mostReliable and needsAttention arrays
+   */
+  async getAircraftReliability(
+    startDate?: Date,
+    endDate?: Date,
+  ): Promise<{
+    mostReliable: Array<{
+      aircraftId: string;
+      registration: string;
+      eventCount: number;
+      totalHours: number;
+    }>;
+    needsAttention: Array<{
+      aircraftId: string;
+      registration: string;
+      eventCount: number;
+      totalHours: number;
+    }>;
+  }> {
+    const matchStage: Record<string, unknown> = {};
+
+    if (startDate || endDate) {
+      matchStage.detectedAt = {
+        ...(startDate && { $gte: startDate }),
+        ...(endDate && { $lte: endDate }),
+      };
+    }
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const pipeline: any[] = [];
+
+    if (Object.keys(matchStage).length > 0) {
+      pipeline.push({ $match: matchStage });
+    }
+
+    // Convert aircraftId to ObjectId if it's a string
+    pipeline.push({
+      $addFields: {
+        aircraftIdObj: {
+          $cond: {
+            if: { $eq: [{ $type: '$aircraftId' }, 'string'] },
+            then: { $toObjectId: '$aircraftId' },
+            else: '$aircraftId',
+          },
+        },
+      },
+    });
+
+    // Lookup aircraft data
+    pipeline.push({
+      $lookup: {
+        from: 'aircrafts',
+        localField: 'aircraftIdObj',
+        foreignField: '_id',
+        as: 'aircraft',
+      },
+    });
+
+    pipeline.push({
+      $unwind: {
+        path: '$aircraft',
+        preserveNullAndEmptyArrays: true,
+      },
+    });
+
+    pipeline.push(
+      {
+        $group: {
+          _id: '$aircraftId',
+          registration: { $first: '$aircraft.registration' },
+          eventCount: { $sum: 1 },
+          totalHours: { $sum: { $ifNull: ['$totalDowntimeHours', 0] } },
+        },
+      },
+      {
+        $project: {
+          _id: 0,
+          aircraftId: { $toString: '$_id' },
+          registration: { $ifNull: ['$registration', 'Unknown'] },
+          eventCount: 1,
+          totalHours: { $round: ['$totalHours', 2] },
+        },
+      },
+    );
+
+    const allAircraft = await this.aogEventRepository['aogEventModel']
+      .aggregate(pipeline)
+      .exec();
+
+    // Sort by event count ascending for most reliable
+    const mostReliable = [...allAircraft]
+      .sort((a, b) => a.eventCount - b.eventCount)
+      .slice(0, 3);
+
+    // Sort by event count descending for needs attention
+    const needsAttention = [...allAircraft]
+      .sort((a, b) => b.eventCount - a.eventCount)
+      .slice(0, 3);
+
+    return {
+      mostReliable,
+      needsAttention,
+    };
+  }
+
+  /**
+   * Gets monthly trend analytics
+   * Groups events by month and calculates count and total hours
+   * 
+   * Requirements: 8.5, 16.5
+   * 
+   * @param startDate - Optional start date filter
+   * @param endDate - Optional end date filter
+   * @param aircraftId - Optional aircraft ID filter
+   * @returns Array of monthly data with count and total hours
+   */
+  async getMonthlyTrend(
+    startDate?: Date,
+    endDate?: Date,
+    aircraftId?: string,
+  ): Promise<{
+    trends: Array<{
+      month: string;
+      eventCount: number;
+      totalDowntimeHours: number;
+      averageDowntimeHours: number;
+    }>;
+    movingAverage: Array<{
+      month: string;
+      value: number;
+    }>;
+  }> {
+    const matchStage: Record<string, unknown> = {};
+
+    if (aircraftId) {
+      matchStage.aircraftId = new Types.ObjectId(aircraftId);
+    }
+
+    if (startDate || endDate) {
+      matchStage.detectedAt = {
+        ...(startDate && { $gte: startDate }),
+        ...(endDate && { $lte: endDate }),
+      };
+    }
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const pipeline: any[] = [];
+
+    if (Object.keys(matchStage).length > 0) {
+      pipeline.push({ $match: matchStage });
+    }
+
+    pipeline.push(
+      {
+        $group: {
+          _id: {
+            year: { $year: '$detectedAt' },
+            month: { $month: '$detectedAt' },
+          },
+          eventCount: { $sum: 1 },
+          totalDowntimeHours: { $sum: { $ifNull: ['$totalDowntimeHours', 0] } },
+        },
+      },
+      {
+        $project: {
+          _id: 0,
+          month: {
+            $concat: [
+              { $toString: '$_id.year' },
+              '-',
+              {
+                $cond: {
+                  if: { $lt: ['$_id.month', 10] },
+                  then: { $concat: ['0', { $toString: '$_id.month' }] },
+                  else: { $toString: '$_id.month' },
+                },
+              },
+            ],
+          },
+          eventCount: 1,
+          totalDowntimeHours: { $round: ['$totalDowntimeHours', 2] },
+          averageDowntimeHours: {
+            $round: [
+              {
+                $cond: {
+                  if: { $eq: ['$eventCount', 0] },
+                  then: 0,
+                  else: { $divide: ['$totalDowntimeHours', '$eventCount'] },
+                },
+              },
+              2,
+            ],
+          },
+        },
+      },
+      {
+        $sort: { month: 1 },
+      },
+    );
+
+    const trends = await this.aogEventRepository['aogEventModel'].aggregate(pipeline).exec();
+
+    // Calculate 3-month moving average
+    const movingAverage = this.calculateMovingAverage(trends, 3);
+
+    return { trends, movingAverage };
+  }
+
+  /**
+   * Calculates moving average for time-series data
+   * 
+   * For the first (window - 1) points, uses the actual value.
+   * For subsequent points, calculates the average of the last 'window' points.
+   * 
+   * Requirements: FR-2.2
+   * 
+   * @param data - Array of data points with month and totalDowntimeHours
+   * @param window - Window size for moving average (default: 3)
+   * @returns Array of moving average data points
+   */
+  private calculateMovingAverage(
+    data: Array<{ month: string; totalDowntimeHours: number }>,
+    window: number,
+  ): Array<{ month: string; value: number }> {
+    const result: Array<{ month: string; value: number }> = [];
+    
+    for (let i = 0; i < data.length; i++) {
+      if (i < window - 1) {
+        // For the first (window - 1) points, use the actual value
+        result.push({ 
+          month: data[i].month, 
+          value: Math.round(data[i].totalDowntimeHours * 100) / 100,
+        });
+      } else {
+        // Calculate average of the last 'window' points
+        const sum = data
+          .slice(i - window + 1, i + 1)
+          .reduce((acc, item) => acc + item.totalDowntimeHours, 0);
+        result.push({
+          month: data[i].month,
+          value: Math.round((sum / window) * 100) / 100,
+        });
+      }
+    }
+    
+    return result;
+  }
+
+  /**
+   * Generates insights from AOG data
+   * Calculates top problem aircraft, most common issues, busiest locations,
+   * average resolution time by category, and fleet health score
+   * Enhanced with 8 insight detection algorithms
+   * 
+   * Requirements: FR-2.6, FR-1.3
+   * 
+   * @param startDate - Optional start date filter
+   * @param endDate - Optional end date filter
+   * @returns InsightsResponseDto with top 5 insights and data quality metrics
+   */
+  async getInsights(
+    startDate?: Date,
+    endDate?: Date,
+  ): Promise<{
+    insights: Array<{
+      id: string;
+      type: 'warning' | 'info' | 'success';
+      title: string;
+      description: string;
+      metric?: number;
+      recommendation?: string;
+    }>;
+    dataQuality: {
+      completenessPercentage: number;
+      legacyEventCount: number;
+      totalEvents: number;
+    };
+  }> {
+    const insights: Array<{
+      id: string;
+      type: 'warning' | 'info' | 'success';
+      title: string;
+      description: string;
+      metric?: number;
+      recommendation?: string;
+    }> = [];
+
+    // Fetch necessary data
+    const filter: AOGEventFilter = {
+      startDate,
+      endDate,
+    };
+    const events = await this.findAll(filter);
+    const bucketAnalytics = await this.getThreeBucketAnalytics({ startDate, endDate });
+
+    // 1. Check for procurement bottleneck (>50% of downtime)
+    const procurementPercentage = bucketAnalytics.buckets.procurement.percentage;
+    if (procurementPercentage > 50) {
+      insights.push({
+        id: 'procurement-bottleneck',
+        type: 'warning',
+        title: 'Procurement Delays Detected',
+        description: `Parts procurement accounts for ${procurementPercentage.toFixed(1)}% of total downtime, indicating supply chain issues.`,
+        metric: procurementPercentage,
+        recommendation: 'Review supplier contracts and consider increasing critical parts inventory.',
+      });
+    }
+
+    // 2. Check for recurring issues (same reason code 3+ times in period)
+    const reasonCodeCounts = this.countReasonCodes(events);
+    const recurringIssues = reasonCodeCounts.filter(rc => rc.count >= 3);
+    if (recurringIssues.length > 0) {
+      const topIssue = recurringIssues[0];
+      insights.push({
+        id: 'recurring-issue',
+        type: 'warning',
+        title: `Recurring Issue: ${topIssue.reasonCode}`,
+        description: `This issue has occurred ${topIssue.count} times in the selected period.`,
+        metric: topIssue.count,
+        recommendation: 'Conduct root cause analysis and implement preventive measures.',
+      });
+    }
+
+    // 3. Check for cost spike (current month > 150% of 3-month average)
+    const costSpike = await this.detectCostSpike(events);
+    if (costSpike.detected) {
+      insights.push({
+        id: 'cost-spike',
+        type: 'warning',
+        title: 'Unusual Cost Increase',
+        description: `AOG costs are ${costSpike.increasePercentage.toFixed(1)}% higher than the 3-month average.`,
+        metric: costSpike.increasePercentage,
+        recommendation: 'Review recent high-cost events and identify cost drivers.',
+      });
+    }
+
+    // 4. Check for improving trend (downtime decreased >20% vs previous period)
+    const trendAnalysis = await this.analyzeTrend(startDate, endDate);
+    if (trendAnalysis.improving && trendAnalysis.improvement > 20) {
+      insights.push({
+        id: 'improving-trend',
+        type: 'success',
+        title: 'Downtime Reduction Success',
+        description: `Total downtime decreased by ${trendAnalysis.improvement.toFixed(1)}% compared to the previous period.`,
+        metric: trendAnalysis.improvement,
+        recommendation: 'Document successful practices for replication across the fleet.',
+      });
+    }
+
+    // 5. Check data quality (>30% legacy events)
+    const legacyEventCount = events.filter(e => e.isLegacy).length;
+    const completenessPercentage = events.length > 0 
+      ? ((events.length - legacyEventCount) / events.length) * 100 
+      : 100;
+    
+    if (completenessPercentage < 70) {
+      insights.push({
+        id: 'data-quality',
+        type: 'info',
+        title: 'Incomplete Data Detected',
+        description: `${(100 - completenessPercentage).toFixed(1)}% of events lack milestone timestamps, limiting analytics accuracy.`,
+        metric: completenessPercentage,
+        recommendation: 'Update recent events with milestone data for better insights.',
+      });
+    }
+
+    // 6. Check for high-risk aircraft (risk score > 70)
+    const highRiskAircraft = await this.identifyHighRiskAircraft(events);
+    if (highRiskAircraft.length > 0) {
+      const topRisk = highRiskAircraft[0];
+      insights.push({
+        id: 'high-risk-aircraft',
+        type: 'warning',
+        title: `High-Risk Aircraft: ${topRisk.registration}`,
+        description: `Aircraft has ${topRisk.eventCount} events with ${topRisk.totalHours.toFixed(1)} hours of downtime.`,
+        metric: topRisk.eventCount,
+        recommendation: 'Schedule comprehensive maintenance review and preventive actions.',
+      });
+    }
+
+    // 7. Check for seasonal pattern (consistent pattern across years)
+    const seasonalPattern = await this.detectSeasonalPattern(events);
+    if (seasonalPattern.detected) {
+      insights.push({
+        id: 'seasonal-pattern',
+        type: 'info',
+        title: 'Seasonal Pattern Detected',
+        description: `AOG events increase during ${seasonalPattern.peakMonths.join(', ')}.`,
+        metric: seasonalPattern.peakIncrease,
+        recommendation: 'Plan additional resources for peak periods.',
+      });
+    }
+
+    // 8. Check for bottleneck (one bucket >60% of total time)
+    const bottleneck = this.identifyBottleneck(bucketAnalytics);
+    if (bottleneck.detected) {
+      insights.push({
+        id: 'bottleneck-identified',
+        type: 'warning',
+        title: `${bottleneck.bucketName} Bottleneck`,
+        description: `${bottleneck.bucketName} time accounts for ${bottleneck.percentage.toFixed(1)}% of downtime.`,
+        metric: bottleneck.percentage,
+        recommendation: `Focus improvement efforts on ${bottleneck.specificArea}.`,
+      });
+    }
+
+    // Sort insights by priority (warnings first, then info, then success)
+    const priorityOrder = { warning: 1, info: 2, success: 3 };
+    insights.sort((a, b) => priorityOrder[a.type] - priorityOrder[b.type]);
+
+    // Return top 5 insights
+    const topInsights = insights.slice(0, 5);
+
+    // Calculate data quality metrics
+    const dataQuality = {
+      completenessPercentage: Math.round(completenessPercentage * 100) / 100,
+      legacyEventCount,
+      totalEvents: events.length,
+    };
+
+    return { insights: topInsights, dataQuality };
+  }
+
+  /**
+   * Helper method to get top problem aircraft
+   * Requirements: 16.1
+   */
+  private async getTopProblemAircraft(
+    matchStage: Record<string, unknown>,
+  ): Promise<Array<{
+    registration: string;
+    eventCount: number;
+    totalHours: number;
+  }>> {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const pipeline: any[] = [];
+
+    if (Object.keys(matchStage).length > 0) {
+      pipeline.push({ $match: matchStage });
+    }
+
+    // Convert aircraftId to ObjectId if it's a string
+    pipeline.push({
+      $addFields: {
+        aircraftIdObj: {
+          $cond: {
+            if: { $eq: [{ $type: '$aircraftId' }, 'string'] },
+            then: { $toObjectId: '$aircraftId' },
+            else: '$aircraftId',
+          },
+        },
+      },
+    });
+
+    // Lookup aircraft data
+    pipeline.push({
+      $lookup: {
+        from: 'aircrafts',
+        localField: 'aircraftIdObj',
+        foreignField: '_id',
+        as: 'aircraft',
+      },
+    });
+
+    pipeline.push({
+      $unwind: {
+        path: '$aircraft',
+        preserveNullAndEmptyArrays: true,
+      },
+    });
+
+    pipeline.push(
+      {
+        $group: {
+          _id: '$aircraftId',
+          registration: { $first: '$aircraft.registration' },
+          eventCount: { $sum: 1 },
+          totalHours: { $sum: { $ifNull: ['$totalDowntimeHours', 0] } },
+        },
+      },
+      {
+        $match: {
+          eventCount: { $gt: 10 },
+        },
+      },
+      {
+        $project: {
+          _id: 0,
+          registration: { $ifNull: ['$registration', 'Unknown'] },
+          eventCount: 1,
+          totalHours: { $round: ['$totalHours', 2] },
+        },
+      },
+      {
+        $sort: { eventCount: -1 },
+      },
+      {
+        $limit: 5,
+      },
+    );
+
+    return this.aogEventRepository['aogEventModel'].aggregate(pipeline).exec();
+  }
+
+  /**
+   * Helper method to get most common issues
+   * Requirements: 16.2
+   */
+  private async getMostCommonIssues(
+    matchStage: Record<string, unknown>,
+  ): Promise<Array<{
+    issue: string;
+    count: number;
+  }>> {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const pipeline: any[] = [];
+
+    if (Object.keys(matchStage).length > 0) {
+      pipeline.push({ $match: matchStage });
+    }
+
+    // Filter out events without reasonCode
+    pipeline.push({
+      $match: {
+        $and: [
+          { reasonCode: { $exists: true } },
+          { reasonCode: { $ne: null } },
+          { reasonCode: { $ne: '' } },
+        ],
+      },
+    });
+
+    pipeline.push(
+      {
+        $group: {
+          _id: '$reasonCode',
+          count: { $sum: 1 },
+        },
+      },
+      {
+        $project: {
+          _id: 0,
+          issue: '$_id',
+          count: 1,
+        },
+      },
+      {
+        $sort: { count: -1 },
+      },
+      {
+        $limit: 10,
+      },
+    );
+
+    return this.aogEventRepository['aogEventModel'].aggregate(pipeline).exec();
+  }
+
+  /**
+   * Helper method to get busiest locations
+   * Requirements: 16.3
+   */
+  private async getBusiestLocations(
+    matchStage: Record<string, unknown>,
+  ): Promise<Array<{
+    location: string;
+    count: number;
+  }>> {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const pipeline: any[] = [];
+
+    if (Object.keys(matchStage).length > 0) {
+      pipeline.push({ $match: matchStage });
+    }
+
+    // Filter out events without location
+    pipeline.push({
+      $match: {
+        $and: [
+          { location: { $exists: true } },
+          { location: { $ne: null } },
+          { location: { $ne: '' } },
+        ],
+      },
+    });
+
+    pipeline.push(
+      {
+        $group: {
+          _id: '$location',
+          count: { $sum: 1 },
+        },
+      },
+      {
+        $project: {
+          _id: 0,
+          location: '$_id',
+          count: 1,
+        },
+      },
+      {
+        $sort: { count: -1 },
+      },
+      {
+        $limit: 5,
+      },
+    );
+
+    return this.aogEventRepository['aogEventModel'].aggregate(pipeline).exec();
+  }
+
+  /**
+   * Helper method to get average resolution time by category
+   * Requirements: 16.4, 16.5
+   */
+  private async getAverageResolutionTimeByCategory(
+    matchStage: Record<string, unknown>,
+  ): Promise<{
+    aog: number;
+    scheduled: number;
+    unscheduled: number;
+    mro: number;
+    cleaning: number;
+  }> {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const pipeline: any[] = [];
+
+    if (Object.keys(matchStage).length > 0) {
+      pipeline.push({ $match: matchStage });
+    }
+
+    // Only include resolved events
+    pipeline.push({
+      $match: {
+        clearedAt: { $ne: null, $exists: true },
+      },
+    });
+
+    pipeline.push(
+      {
+        $group: {
+          _id: '$category',
+          avgHours: { $avg: { $ifNull: ['$totalDowntimeHours', 0] } },
+        },
+      },
+      {
+        $project: {
+          _id: 0,
+          category: '$_id',
+          avgHours: { $round: ['$avgHours', 2] },
+        },
+      },
+    );
+
+    const results = await this.aogEventRepository['aogEventModel']
+      .aggregate(pipeline)
+      .exec();
+
+    // Build the response object with default values
+    const response = {
+      aog: 0,
+      scheduled: 0,
+      unscheduled: 0,
+      mro: 0,
+      cleaning: 0,
+    };
+
+    // Map the results to the response object
+    for (const result of results) {
+      if (result.category in response) {
+        response[result.category as keyof typeof response] = result.avgHours;
+      }
+    }
+
+    return response;
+  }
+
+  /**
+   * Helper method to calculate fleet health score
+   * Requirements: 16.6, 16.7, 16.8
+   * 
+   * Fleet Health Score (0-100) is calculated based on:
+   * - Active AOG count (lower is better)
+   * - Average downtime (lower is better)
+   * - Event frequency (lower is better)
+   */
+  private async calculateFleetHealthScore(
+    matchStage: Record<string, unknown>,
+  ): Promise<number> {
+    // Get active AOG count
+    const activeCount = await this.aogEventRepository.countActiveAOGEvents();
+
+    // Get total events in period
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const pipeline: any[] = [];
+
+    if (Object.keys(matchStage).length > 0) {
+      pipeline.push({ $match: matchStage });
+    }
+
+    pipeline.push({
+      $group: {
+        _id: null,
+        totalEvents: { $sum: 1 },
+        avgDowntime: { $avg: { $ifNull: ['$totalDowntimeHours', 0] } },
+      },
+    });
+
+    const results = await this.aogEventRepository['aogEventModel']
+      .aggregate(pipeline)
+      .exec();
+
+    const stats = results[0] || { totalEvents: 0, avgDowntime: 0 };
+
+    // Calculate score components
+    // Active AOG penalty: -10 points per active AOG (max -50)
+    const activeAOGPenalty = Math.min(activeCount * 10, 50);
+
+    // Event frequency penalty: -1 point per event (max -30)
+    const eventFrequencyPenalty = Math.min(stats.totalEvents, 30);
+
+    // Average downtime penalty: -1 point per 10 hours (max -20)
+    const downtimePenalty = Math.min(Math.floor(stats.avgDowntime / 10), 20);
+
+    // Calculate final score (start at 100, subtract penalties)
+    const score = Math.max(
+      0,
+      100 - activeAOGPenalty - eventFrequencyPenalty - downtimePenalty,
+    );
+
+    return Math.round(score);
+  }
+
+  /**
+   * Helper method: Count reason codes and sort by frequency
+   * Requirements: FR-2.6 (Insight 2: Recurring Issues)
+   */
+  private countReasonCodes(
+    events: AOGEventWithDuration[],
+  ): Array<{ reasonCode: string; count: number }> {
+    const counts = new Map<string, number>();
+    
+    for (const event of events) {
+      if (event.reasonCode) {
+        const current = counts.get(event.reasonCode) || 0;
+        counts.set(event.reasonCode, current + 1);
+      }
+    }
+    
+    return Array.from(counts.entries())
+      .map(([reasonCode, count]) => ({ reasonCode, count }))
+      .sort((a, b) => b.count - a.count);
+  }
+
+  /**
+   * Helper method: Detect cost spike (current month > 150% of 3-month average)
+   * Requirements: FR-2.6 (Insight 3: Cost Spike)
+   */
+  private async detectCostSpike(
+    events: AOGEventWithDuration[],
+  ): Promise<{ detected: boolean; increasePercentage: number }> {
+    if (events.length === 0) {
+      return { detected: false, increasePercentage: 0 };
+    }
+
+    // Group events by month and calculate costs
+    const monthlyCosts = new Map<string, number>();
+    
+    for (const event of events) {
+      const month = new Date(event.detectedAt).toISOString().substring(0, 7); // YYYY-MM
+      const totalCost = (event.internalCost || 0) + (event.externalCost || 0);
+      const current = monthlyCosts.get(month) || 0;
+      monthlyCosts.set(month, current + totalCost);
+    }
+
+    // Get sorted months
+    const sortedMonths = Array.from(monthlyCosts.keys()).sort();
+    
+    if (sortedMonths.length < 2) {
+      return { detected: false, increasePercentage: 0 };
+    }
+
+    // Get current month (most recent)
+    const currentMonth = sortedMonths[sortedMonths.length - 1];
+    const currentCost = monthlyCosts.get(currentMonth) || 0;
+
+    // Calculate 3-month average (excluding current month)
+    const previousMonths = sortedMonths.slice(Math.max(0, sortedMonths.length - 4), sortedMonths.length - 1);
+    const previousCosts = previousMonths.map(m => monthlyCosts.get(m) || 0);
+    const averageCost = previousCosts.length > 0
+      ? previousCosts.reduce((sum, cost) => sum + cost, 0) / previousCosts.length
+      : 0;
+
+    if (averageCost === 0) {
+      return { detected: false, increasePercentage: 0 };
+    }
+
+    const increasePercentage = ((currentCost - averageCost) / averageCost) * 100;
+    const detected = currentCost > averageCost * 1.5;
+
+    return { detected, increasePercentage };
+  }
+
+  /**
+   * Helper method: Analyze trend (compare current period to previous period)
+   * Requirements: FR-2.6 (Insight 4: Improving Trend)
+   */
+  private async analyzeTrend(
+    startDate?: Date,
+    endDate?: Date,
+  ): Promise<{ improving: boolean; improvement: number }> {
+    if (!startDate || !endDate) {
+      return { improving: false, improvement: 0 };
+    }
+
+    // Calculate period duration
+    const periodDuration = endDate.getTime() - startDate.getTime();
+    
+    // Calculate previous period dates
+    const previousEndDate = new Date(startDate.getTime() - 1);
+    const previousStartDate = new Date(previousEndDate.getTime() - periodDuration);
+
+    // Get current period downtime
+    const currentEvents = await this.findAll({ startDate, endDate });
+    const currentDowntime = currentEvents.reduce(
+      (sum, event) => sum + (event.totalDowntimeHours || 0),
+      0,
+    );
+
+    // Get previous period downtime
+    const previousEvents = await this.findAll({
+      startDate: previousStartDate,
+      endDate: previousEndDate,
+    });
+    const previousDowntime = previousEvents.reduce(
+      (sum, event) => sum + (event.totalDowntimeHours || 0),
+      0,
+    );
+
+    if (previousDowntime === 0) {
+      return { improving: false, improvement: 0 };
+    }
+
+    const improvement = ((previousDowntime - currentDowntime) / previousDowntime) * 100;
+    const improving = improvement > 0;
+
+    return { improving, improvement };
+  }
+
+  /**
+   * Helper method: Identify high-risk aircraft (risk score > 70)
+   * Requirements: FR-2.6 (Insight 6: Aircraft at Risk)
+   */
+  private async identifyHighRiskAircraft(
+    events: AOGEventWithDuration[],
+  ): Promise<Array<{ registration: string; eventCount: number; totalHours: number; riskScore: number }>> {
+    // Group events by aircraft
+    const aircraftMap = new Map<string, { eventCount: number; totalHours: number; registration: string }>();
+    
+    for (const event of events) {
+      const aircraftId = event.aircraftId.toString();
+      const existing = aircraftMap.get(aircraftId);
+      
+      if (existing) {
+        existing.eventCount++;
+        existing.totalHours += event.totalDowntimeHours || 0;
+      } else {
+        // Get aircraft registration from populated field or fetch it
+        const registration = (event as any).aircraft?.registration || 'Unknown';
+        aircraftMap.set(aircraftId, {
+          eventCount: 1,
+          totalHours: event.totalDowntimeHours || 0,
+          registration,
+        });
+      }
+    }
+
+    // Calculate risk scores and filter high-risk aircraft
+    const highRiskAircraft = Array.from(aircraftMap.values())
+      .map(aircraft => {
+        // Risk score based on event count and downtime
+        // Formula: (eventCount * 5) + (totalHours / 10)
+        const riskScore = (aircraft.eventCount * 5) + (aircraft.totalHours / 10);
+        return { ...aircraft, riskScore };
+      })
+      .filter(aircraft => aircraft.riskScore > 70)
+      .sort((a, b) => b.riskScore - a.riskScore);
+
+    return highRiskAircraft;
+  }
+
+  /**
+   * Helper method: Detect seasonal pattern
+   * Requirements: FR-2.6 (Insight 7: Seasonal Pattern)
+   */
+  private async detectSeasonalPattern(
+    events: AOGEventWithDuration[],
+  ): Promise<{ detected: boolean; peakMonths: string[]; peakIncrease: number }> {
+    if (events.length < 12) {
+      // Need at least a year of data to detect seasonal patterns
+      return { detected: false, peakMonths: [], peakIncrease: 0 };
+    }
+
+    // Group events by month (1-12)
+    const monthCounts = new Array(12).fill(0);
+    
+    for (const event of events) {
+      const month = new Date(event.detectedAt).getMonth(); // 0-11
+      monthCounts[month]++;
+    }
+
+    // Calculate average
+    const average = monthCounts.reduce((sum, count) => sum + count, 0) / 12;
+
+    // Find peak months (>30% above average)
+    const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 
+                        'July', 'August', 'September', 'October', 'November', 'December'];
+    const peakMonths: string[] = [];
+    let maxIncrease = 0;
+
+    for (let i = 0; i < 12; i++) {
+      const increase = ((monthCounts[i] - average) / average) * 100;
+      if (increase > 30) {
+        peakMonths.push(monthNames[i]);
+        maxIncrease = Math.max(maxIncrease, increase);
+      }
+    }
+
+    const detected = peakMonths.length > 0;
+
+    return { detected, peakMonths, peakIncrease: maxIncrease };
+  }
+
+  /**
+   * Helper method: Identify bottleneck (one bucket >60% of total time)
+   * Requirements: FR-2.6 (Insight 8: Bottleneck Identified)
+   */
+  private identifyBottleneck(
+    bucketAnalytics: ThreeBucketAnalytics,
+  ): { detected: boolean; bucketName: string; percentage: number; specificArea: string } {
+    const buckets = [
+      { name: 'Technical', percentage: bucketAnalytics.buckets.technical.percentage, area: 'troubleshooting and installation processes' },
+      { name: 'Procurement', percentage: bucketAnalytics.buckets.procurement.percentage, area: 'parts procurement and supply chain' },
+      { name: 'Ops', percentage: bucketAnalytics.buckets.ops.percentage, area: 'operational testing and validation' },
+    ];
+
+    // Find bucket with highest percentage
+    const maxBucket = buckets.reduce((max, bucket) => 
+      bucket.percentage > max.percentage ? bucket : max
+    );
+
+    const detected = maxBucket.percentage > 60;
+
+    return {
+      detected,
+      bucketName: maxBucket.name,
+      percentage: maxBucket.percentage,
+      specificArea: maxBucket.area,
+    };
+  }
+
+  /**
+   * Generates 3-month downtime forecast using linear regression
+   * 
+   * Uses last 12 months of historical data to predict future downtime.
+   * Applies simple linear regression (y = mx + b) and includes ±20% confidence intervals.
+   * 
+   * Requirements: FR-2.6, Property 8 (Forecast Bounds)
+   * 
+   * @param startDate - Optional start date filter (defaults to 12 months ago)
+   * @param endDate - Optional end date filter (defaults to today)
+   * @param aircraftId - Optional aircraft ID filter
+   * @returns ForecastResponseDto with historical and predicted values
+   */
+  async generateForecast(
+    startDate?: Date,
+    endDate?: Date,
+    aircraftId?: string,
+  ): Promise<{
+    historical: Array<{
+      month: string;
+      actual: number;
+    }>;
+    forecast: Array<{
+      month: string;
+      predicted: number;
+      confidenceInterval: {
+        lower: number;
+        upper: number;
+      };
+    }>;
+  }> {
+    // Get historical monthly data (last 12 months if no date range specified)
+    const defaultEndDate = endDate || new Date();
+    const defaultStartDate = startDate || new Date(defaultEndDate.getFullYear(), defaultEndDate.getMonth() - 11, 1);
+
+    const monthlyTrend = await this.getMonthlyTrend(
+      defaultStartDate,
+      defaultEndDate,
+      aircraftId,
+    );
+
+    // Prepare data for linear regression
+    const historicalData = monthlyTrend.trends.map((item, index) => ({
+      x: index,
+      y: item.totalDowntimeHours,
+      month: item.month,
+    }));
+
+    // Need at least 3 data points for meaningful forecast
+    if (historicalData.length < 3) {
+      return {
+        historical: historicalData.map(item => ({
+          month: item.month,
+          actual: item.y,
+        })),
+        forecast: [],
+      };
+    }
+
+    // Calculate linear regression: y = mx + b
+    const n = historicalData.length;
+    const sumX = historicalData.reduce((sum, item) => sum + item.x, 0);
+    const sumY = historicalData.reduce((sum, item) => sum + item.y, 0);
+    const sumXY = historicalData.reduce((sum, item) => sum + item.x * item.y, 0);
+    const sumX2 = historicalData.reduce((sum, item) => sum + item.x * item.x, 0);
+
+    // Calculate slope (m) and intercept (b)
+    const slope = (n * sumXY - sumX * sumY) / (n * sumX2 - sumX * sumX);
+    const intercept = (sumY - slope * sumX) / n;
+
+    // Generate forecast for next 3 months
+    const forecastData: Array<{
+      month: string;
+      predicted: number;
+      confidenceInterval: {
+        lower: number;
+        upper: number;
+      };
+    }> = [];
+    for (let i = 1; i <= 3; i++) {
+      const x = n + i - 1;
+      const predicted = slope * x + intercept;
+      const confidenceInterval = Math.abs(predicted) * 0.2; // ±20% confidence
+
+      // Calculate next month (YYYY-MM format)
+      const lastMonth = new Date(historicalData[historicalData.length - 1].month + '-01');
+      const nextMonth = new Date(lastMonth);
+      nextMonth.setMonth(nextMonth.getMonth() + i);
+      
+      const year = nextMonth.getFullYear();
+      const month = String(nextMonth.getMonth() + 1).padStart(2, '0');
+      const monthStr = `${year}-${month}`;
+
+      forecastData.push({
+        month: monthStr,
+        predicted: Math.max(0, Math.round(predicted * 100) / 100),
+        confidenceInterval: {
+          lower: Math.max(0, Math.round((predicted - confidenceInterval) * 100) / 100),
+          upper: Math.round((predicted + confidenceInterval) * 100) / 100,
+        },
+      });
+    }
+
+    return {
+      historical: historicalData.map(item => ({
+        month: item.month,
+        actual: item.y,
+      })),
+      forecast: forecastData,
+    };
   }
 }

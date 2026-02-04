@@ -12,6 +12,11 @@ import type {
   BlockingReason,
   ThreeBucketAnalytics,
   ThreeBucketAnalyticsFilter,
+  MonthlyTrendResponseDto,
+  ForecastData,
+  InsightsResponseDto,
+  DataQualityMetrics,
+  AnalyticsFilters,
 } from '@/types';
 
 interface AOGFilters extends DateRangeFilter {
@@ -23,10 +28,6 @@ interface AOGFilters extends DateRangeFilter {
   blockingReason?: BlockingReason;
   page?: number;
   limit?: number;
-}
-
-interface AnalyticsFilters extends DateRangeFilter {
-  aircraftId?: string;
 }
 
 export function useAOGEvents(filters?: AOGFilters) {
@@ -80,6 +81,144 @@ export function useThreeBucketAnalytics(filter: ThreeBucketAnalyticsFilter) {
         { params: filter }
       );
       return data;
+    },
+  });
+}
+
+/**
+ * Hook for fetching category breakdown analytics
+ * Requirements: 8.1, 16.4
+ */
+export function useCategoryBreakdown(query: AnalyticsFilters, options?: { enabled?: boolean }) {
+  return useQuery({
+    queryKey: ['aog-events', 'analytics', 'category-breakdown', query],
+    queryFn: async () => {
+      const { data } = await api.get('/aog-events/analytics/category-breakdown', { params: query });
+      return data;
+    },
+    ...options,
+  });
+}
+
+/**
+ * Hook for fetching location heatmap analytics
+ * Requirements: 8.2, 16.3
+ */
+export function useLocationHeatmap(query: AnalyticsFilters & { limit?: number }) {
+  return useQuery({
+    queryKey: ['aog-events', 'analytics', 'location-heatmap', query],
+    queryFn: async () => {
+      const { data } = await api.get('/aog-events/analytics/location-heatmap', { params: query });
+      return data;
+    },
+  });
+}
+
+/**
+ * Hook for fetching duration distribution analytics
+ * Requirements: 8.3, 6.5
+ */
+export function useDurationDistribution(query: AnalyticsFilters) {
+  return useQuery({
+    queryKey: ['aog-events', 'analytics', 'duration-distribution', query],
+    queryFn: async () => {
+      const { data } = await api.get('/aog-events/analytics/duration-distribution', { params: query });
+      return data;
+    },
+  });
+}
+
+/**
+ * Hook for fetching aircraft reliability ranking
+ * Requirements: 8.4, 16.1
+ */
+export function useAircraftReliability(query: AnalyticsFilters) {
+  return useQuery({
+    queryKey: ['aog-events', 'analytics', 'aircraft-reliability', query],
+    queryFn: async () => {
+      const { data } = await api.get('/aog-events/analytics/aircraft-reliability', { params: query });
+      return data;
+    },
+  });
+}
+
+/**
+ * Hook for fetching monthly trend analytics
+ * Requirements: 8.5, 16.5, FR-2.2
+ */
+export function useMonthlyTrend(query: AnalyticsFilters, options?: { enabled?: boolean }) {
+  return useQuery<MonthlyTrendResponseDto>({
+    queryKey: ['aog-events', 'analytics', 'monthly-trend', query],
+    queryFn: async () => {
+      const { data } = await api.get<MonthlyTrendResponseDto>('/aog-events/analytics/monthly-trend', { params: query });
+      return data;
+    },
+    ...options,
+  });
+}
+
+/**
+ * Hook for fetching forecast data with linear regression
+ * 
+ * Fetches predictive analytics showing:
+ * - Historical downtime data (last 12 months)
+ * - 3-month forecast with confidence intervals
+ * - Linear regression trend line
+ * 
+ * Requirements: FR-2.6
+ */
+export function useForecast(query: AnalyticsFilters, options?: { enabled?: boolean }) {
+  return useQuery<ForecastData>({
+    queryKey: ['aog-events', 'analytics', 'forecast', query],
+    queryFn: async () => {
+      const { data } = await api.get<ForecastData>('/aog-events/analytics/forecast', { params: query });
+      return data;
+    },
+    ...options,
+  });
+}
+
+/**
+ * Hook for fetching auto-generated insights
+ * 
+ * Fetches automated insights including:
+ * - Procurement bottleneck detection
+ * - Recurring issue identification
+ * - Cost spike alerts
+ * - Improving trend recognition
+ * - Data quality assessment
+ * - High-risk aircraft identification
+ * 
+ * Requirements: 16.1, 16.2, 16.3, 16.4, 16.5, 16.6, 16.7, 16.8, FR-2.6
+ */
+export function useInsights(query: AnalyticsFilters, options?: { enabled?: boolean }) {
+  return useQuery<InsightsResponseDto>({
+    queryKey: ['aog-events', 'analytics', 'insights', query],
+    queryFn: async () => {
+      const { data } = await api.get<InsightsResponseDto>('/aog-events/analytics/insights', { params: query });
+      return data;
+    },
+    ...options,
+  });
+}
+
+/**
+ * Hook for fetching data quality metrics
+ * 
+ * Extracts data quality information from insights response:
+ * - Total events count
+ * - Events with milestone timestamps
+ * - Completeness percentage
+ * - Legacy event count
+ * 
+ * Requirements: FR-1.3
+ */
+export function useDataQuality(query: AnalyticsFilters) {
+  return useQuery<DataQualityMetrics>({
+    queryKey: ['aog-events', 'analytics', 'data-quality', query],
+    queryFn: async () => {
+      const { data } = await api.get<InsightsResponseDto>('/aog-events/analytics/insights', { params: query });
+      return data.dataQuality;
     },
   });
 }

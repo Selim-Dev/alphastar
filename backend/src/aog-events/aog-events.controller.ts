@@ -122,6 +122,134 @@ export class AOGEventsController {
     });
   }
 
+  @Get('analytics/category-breakdown')
+  @ApiOperation({ summary: 'Get event count and percentage by category' })
+  @ApiResponse({ status: 200, description: 'Returns category breakdown with count, percentage, and total hours' })
+  async getCategoryBreakdown(@Query() query: AnalyticsQueryDto) {
+    // Adjust endDate to end of day
+    let endDate: Date | undefined;
+    if (query.endDate) {
+      endDate = new Date(query.endDate);
+      endDate.setHours(23, 59, 59, 999);
+    }
+
+    return this.aogEventsService.getCategoryBreakdown(
+      query.startDate ? new Date(query.startDate) : undefined,
+      endDate,
+      query.aircraftId,
+    );
+  }
+
+  @Get('analytics/location-heatmap')
+  @ApiOperation({ summary: 'Get top locations by event count' })
+  @ApiResponse({ status: 200, description: 'Returns location heatmap with count and percentage' })
+  async getLocationHeatmap(
+    @Query() query: AnalyticsQueryDto,
+    @Query('limit') limit?: number,
+  ) {
+    // Adjust endDate to end of day
+    let endDate: Date | undefined;
+    if (query.endDate) {
+      endDate = new Date(query.endDate);
+      endDate.setHours(23, 59, 59, 999);
+    }
+
+    return this.aogEventsService.getLocationHeatmap(
+      query.startDate ? new Date(query.startDate) : undefined,
+      endDate,
+      query.aircraftId,
+      limit || 5,
+    );
+  }
+
+  @Get('analytics/duration-distribution')
+  @ApiOperation({ summary: 'Get event count by duration ranges' })
+  @ApiResponse({ status: 200, description: 'Returns duration distribution with count and percentage' })
+  async getDurationDistribution(@Query() query: AnalyticsQueryDto) {
+    // Adjust endDate to end of day
+    let endDate: Date | undefined;
+    if (query.endDate) {
+      endDate = new Date(query.endDate);
+      endDate.setHours(23, 59, 59, 999);
+    }
+
+    return this.aogEventsService.getDurationDistribution(
+      query.startDate ? new Date(query.startDate) : undefined,
+      endDate,
+      query.aircraftId,
+    );
+  }
+
+  @Get('analytics/aircraft-reliability')
+  @ApiOperation({ summary: 'Get aircraft ranked by reliability' })
+  @ApiResponse({ status: 200, description: 'Returns top 3 most reliable and top 3 needing attention' })
+  async getAircraftReliability(@Query() query: AnalyticsQueryDto) {
+    // Adjust endDate to end of day
+    let endDate: Date | undefined;
+    if (query.endDate) {
+      endDate = new Date(query.endDate);
+      endDate.setHours(23, 59, 59, 999);
+    }
+
+    return this.aogEventsService.getAircraftReliability(
+      query.startDate ? new Date(query.startDate) : undefined,
+      endDate,
+    );
+  }
+
+  @Get('analytics/monthly-trend')
+  @ApiOperation({ summary: 'Get event count and total hours by month' })
+  @ApiResponse({ status: 200, description: 'Returns monthly trend data' })
+  async getMonthlyTrend(@Query() query: AnalyticsQueryDto) {
+    // Adjust endDate to end of day
+    let endDate: Date | undefined;
+    if (query.endDate) {
+      endDate = new Date(query.endDate);
+      endDate.setHours(23, 59, 59, 999);
+    }
+
+    return this.aogEventsService.getMonthlyTrend(
+      query.startDate ? new Date(query.startDate) : undefined,
+      endDate,
+      query.aircraftId,
+    );
+  }
+
+  @Get('analytics/insights')
+  @ApiOperation({ summary: 'Get auto-generated insights from AOG data' })
+  @ApiResponse({ status: 200, description: 'Returns insights including top problem aircraft, common issues, and fleet health score' })
+  async getInsights(@Query() query: AnalyticsQueryDto) {
+    // Adjust endDate to end of day
+    let endDate: Date | undefined;
+    if (query.endDate) {
+      endDate = new Date(query.endDate);
+      endDate.setHours(23, 59, 59, 999);
+    }
+
+    return this.aogEventsService.getInsights(
+      query.startDate ? new Date(query.startDate) : undefined,
+      endDate,
+    );
+  }
+
+  @Get('analytics/forecast')
+  @ApiOperation({ summary: 'Get 3-month downtime forecast using linear regression' })
+  @ApiResponse({ status: 200, description: 'Returns historical data and 3-month forecast with confidence intervals' })
+  async getForecast(@Query() query: AnalyticsQueryDto) {
+    // Adjust endDate to end of day
+    let endDate: Date | undefined;
+    if (query.endDate) {
+      endDate = new Date(query.endDate);
+      endDate.setHours(23, 59, 59, 999);
+    }
+
+    return this.aogEventsService.generateForecast(
+      query.startDate ? new Date(query.startDate) : undefined,
+      endDate,
+      query.aircraftId,
+    );
+  }
+
   @Get('active')
   @ApiOperation({ summary: 'Get active AOG events (not yet cleared)' })
   @ApiResponse({ status: 200, description: 'Returns list of active AOG events' })

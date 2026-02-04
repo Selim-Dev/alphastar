@@ -1,22 +1,35 @@
 import { motion } from 'framer-motion';
 import { BarChartWrapper, PieChartWrapper } from '@/components/ui/Charts';
+import { LegacyDataBadge } from '@/components/ui/LegacyDataBadge';
 import type { ThreeBucketBreakdown } from '@/types';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
+import { Info } from 'lucide-react';
 
 /**
  * Color palette for the three buckets
  * - Technical: Blue (troubleshooting and installation work)
  * - Procurement: Amber (waiting for parts)
  * - Ops: Green (operational testing)
+ * - Legacy: Gray (events without milestone data)
  */
 const BUCKET_COLORS = {
   technical: '#3b82f6',    // Blue
   procurement: '#f59e0b',  // Amber
   ops: '#10b981',          // Green
+  legacy: '#6b7280',       // Gray
 };
 
 interface ThreeBucketChartProps {
   data: ThreeBucketBreakdown;
   isLoading?: boolean;
+  legacyEventCount?: number;
+  totalEventCount?: number;
+  legacyDowntimeHours?: number;
 }
 
 /**
@@ -29,9 +42,23 @@ interface ThreeBucketChartProps {
  * 
  * Shows both a bar chart (hours comparison) and pie chart (percentage distribution)
  * 
- * Requirements: 5.3, 6.2
+ * Handles legacy events gracefully:
+ * - Shows "Limited Analytics" badge when legacy events are present
+ * - Displays legacy downtime in separate category (optional)
+ * - Provides tooltips explaining data limitations
+ * 
+ * Requirements: 5.3, 6.2, FR-1.1, FR-1.2
  */
-export function ThreeBucketChart({ data, isLoading }: ThreeBucketChartProps) {
+export function ThreeBucketChart({ 
+  data, 
+  isLoading,
+  legacyEventCount = 0,
+  totalEventCount = 0,
+  legacyDowntimeHours = 0,
+}: ThreeBucketChartProps) {
+  const hasLegacyData = legacyEventCount > 0;
+  const showLegacyCategory = hasLegacyData && legacyDowntimeHours > 0;
+
   // Transform data for bar chart
   const barChartData = [
     {
@@ -51,6 +78,15 @@ export function ThreeBucketChart({ data, isLoading }: ThreeBucketChartProps) {
     },
   ];
 
+  // Add legacy category if applicable
+  if (showLegacyCategory) {
+    barChartData.push({
+      name: 'Legacy',
+      hours: legacyDowntimeHours,
+      average: legacyEventCount > 0 ? legacyDowntimeHours / legacyEventCount : 0,
+    });
+  }
+
   // Transform data for pie chart
   const pieChartData = [
     {
@@ -68,36 +104,85 @@ export function ThreeBucketChart({ data, isLoading }: ThreeBucketChartProps) {
       value: data.ops.totalHours,
       color: BUCKET_COLORS.ops,
     },
-  ].filter(item => item.value > 0); // Only show buckets with data
+  ];
 
-  const hasData = barChartData.some(item => item.hours > 0);
+  // Add legacy to pie chart if applicable
+  if (showLegacyCategory) {
+    pieChartData.push({
+      name: 'Legacy',
+      value: legacyDowntimeHours,
+      color: BUCKET_COLORS.legacy,
+    });
+  }
+
+  // Filter out zero values for pie chart
+  const filteredPieData = pieChartData.filter(item => item.value > 0);
+
+  // Calculate total hours including legacy
+  const totalHours = data.technical.totalHours + 
+                     data.procurement.totalHours + 
+                     data.ops.totalHours + 
+                     legacyDowntimeHours;
+
+  const hasData = totalHours > 0;
 
   if (isLoading) {
     return (
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="bg-card border border-border rounded-lg p-4 animate-pulse">
-          <div className="h-6 bg-muted rounded w-48 mb-4" />
-          <div className="h-[300px] bg-muted rounded" />
-        </div>
-        <div className="bg-card border border-border rounded-lg p-4 animate-pulse">
-          <div className="h-6 bg-muted rounded w-48 mb-4" />
-          <div className="h-[300px] bg-muted rounded" />
+      <div className="space-y-4">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div className="bg-card border border-border rounded-lg p-4 animate-pulse">
+            <div className="h-6 bg-muted rounded w-48 mb-4" />
+            <div className="h-[300px] bg-muted rounded" />
+          </div>
+          <div className="bg-card border border-border rounded-lg p-4 animate-pulse">
+            <div className="h-6 bg-muted rounded w-48 mb-4" />
+            <div className="h-[300px] bg-muted rounded" />
+          </div>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+    <div className="space-y-4">
+      {/* Legacy Data Warning Badge */}
+      {hasLegacyData && totalEventCount > 0 && (
+        <LegacyDataBadge 
+          legacyCount={legacyEventCount} 
+          totalCount={totalEventCount}
+        />
+      )}
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
       {/* Bar Chart - Hours Comparison */}
       <motion.div
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         className="bg-card border border-border rounded-lg p-4"
       >
-        <h3 className="text-lg font-semibold text-foreground mb-4">
-          Downtime by Category (Hours)
-        </h3>
+        <div className="flex items-center gap-2 mb-4">
+          <h3 className="text-lg font-semibold text-foreground">
+            Downtime by Category (Hours)
+          </h3>
+          {showLegacyCategory && (
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button>
+                    <Info className="w-4 h-4 text-muted-foreground cursor-help" />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent className="max-w-xs">
+                  <p className="text-sm">
+                    <strong>Legacy category:</strong> Represents {legacyEventCount} event{legacyEventCount !== 1 ? 's' : ''} 
+                    without milestone timestamps. Total downtime is shown, but cannot be broken down 
+                    into Technical, Procurement, and Ops time.
+                  </p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          )}
+        </div>
         {hasData ? (
           <div className="h-[300px]">
             <BarChartWrapper
@@ -123,13 +208,32 @@ export function ThreeBucketChart({ data, isLoading }: ThreeBucketChartProps) {
         transition={{ delay: 0.1 }}
         className="bg-card border border-border rounded-lg p-4"
       >
-        <h3 className="text-lg font-semibold text-foreground mb-4">
-          Downtime Distribution
-        </h3>
-        {pieChartData.length > 0 ? (
+        <div className="flex items-center gap-2 mb-4">
+          <h3 className="text-lg font-semibold text-foreground">
+            Downtime Distribution
+          </h3>
+          {showLegacyCategory && (
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button>
+                    <Info className="w-4 h-4 text-muted-foreground cursor-help" />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent className="max-w-xs">
+                  <p className="text-sm">
+                    Legacy events show total downtime only. For detailed three-bucket breakdown, 
+                    update events with milestone timestamps (Reported At, Installation Complete At, etc.).
+                  </p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          )}
+        </div>
+        {filteredPieData.length > 0 ? (
           <div className="h-[300px]">
             <PieChartWrapper 
-              data={pieChartData} 
+              data={filteredPieData} 
               innerRadius={50} 
               outerRadius={90} 
             />
@@ -149,7 +253,7 @@ export function ThreeBucketChart({ data, isLoading }: ThreeBucketChartProps) {
                 style={{ backgroundColor: BUCKET_COLORS.technical }} 
               />
               <span className="text-sm text-muted-foreground">
-                Technical: {data.technical.percentage.toFixed(1)}%
+                Technical: {totalHours > 0 ? ((data.technical.totalHours / totalHours) * 100).toFixed(1) : '0.0'}%
               </span>
             </div>
             <div className="flex items-center gap-2">
@@ -158,7 +262,7 @@ export function ThreeBucketChart({ data, isLoading }: ThreeBucketChartProps) {
                 style={{ backgroundColor: BUCKET_COLORS.procurement }} 
               />
               <span className="text-sm text-muted-foreground">
-                Procurement: {data.procurement.percentage.toFixed(1)}%
+                Procurement: {totalHours > 0 ? ((data.procurement.totalHours / totalHours) * 100).toFixed(1) : '0.0'}%
               </span>
             </div>
             <div className="flex items-center gap-2">
@@ -167,13 +271,25 @@ export function ThreeBucketChart({ data, isLoading }: ThreeBucketChartProps) {
                 style={{ backgroundColor: BUCKET_COLORS.ops }} 
               />
               <span className="text-sm text-muted-foreground">
-                Ops: {data.ops.percentage.toFixed(1)}%
+                Ops: {totalHours > 0 ? ((data.ops.totalHours / totalHours) * 100).toFixed(1) : '0.0'}%
               </span>
             </div>
+            {showLegacyCategory && (
+              <div className="flex items-center gap-2">
+                <div 
+                  className="w-3 h-3 rounded-full" 
+                  style={{ backgroundColor: BUCKET_COLORS.legacy }} 
+                />
+                <span className="text-sm text-muted-foreground">
+                  Legacy: {totalHours > 0 ? ((legacyDowntimeHours / totalHours) * 100).toFixed(1) : '0.0'}%
+                </span>
+              </div>
+            )}
           </div>
         )}
       </motion.div>
     </div>
+  </div>
   );
 }
 

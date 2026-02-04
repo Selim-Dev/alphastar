@@ -339,10 +339,16 @@ export function AircraftDetailPage() {
       <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="bg-card border border-border rounded-lg p-6">
         <h3 className="text-lg font-semibold text-foreground mb-4">Aircraft Information</h3>
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-          <div><p className="text-sm text-muted-foreground">MSN</p><p className="font-medium">{aircraft.msn}</p></div>
+          <div><p className="text-sm text-muted-foreground">MSN</p><p className="font-medium">{aircraft.msn || 'N/A'}</p></div>
           <div><p className="text-sm text-muted-foreground">Owner</p><p className="font-medium">{aircraft.owner}</p></div>
-          <div><p className="text-sm text-muted-foreground">Manufacture Date</p><p className="font-medium">{format(new Date(aircraft.manufactureDate), 'MMM dd, yyyy')}</p></div>
+          <div><p className="text-sm text-muted-foreground">Manufacture Date</p><p className="font-medium">{aircraft.manufactureDate ? format(new Date(aircraft.manufactureDate), 'MMM dd, yyyy') : 'N/A'}</p></div>
           <div><p className="text-sm text-muted-foreground">Engines</p><p className="font-medium">{aircraft.enginesCount}</p></div>
+          {aircraft.certificationDate && (
+            <div><p className="text-sm text-muted-foreground">Certification Date</p><p className="font-medium">{format(new Date(aircraft.certificationDate), 'MMM dd, yyyy')}</p></div>
+          )}
+          {aircraft.inServiceDate && (
+            <div><p className="text-sm text-muted-foreground">In-Service Date</p><p className="font-medium">{format(new Date(aircraft.inServiceDate), 'MMM dd, yyyy')}</p></div>
+          )}
         </div>
         {latestCounter && (
           <div className="mt-4 pt-4 border-t border-border">

@@ -38,6 +38,11 @@ export class CreateAOGEventDto {
   @IsNotEmpty()
   reasonCode: string;
 
+  @ApiPropertyOptional({ description: 'Location (ICAO airport code)', example: 'OERK' })
+  @IsString()
+  @IsOptional()
+  location?: string;
+
   @ApiProperty({ description: 'Party responsible for the AOG', enum: ResponsibleParty, example: 'Internal' })
   @IsEnum(ResponsibleParty)
   @IsNotEmpty()
@@ -45,18 +50,20 @@ export class CreateAOGEventDto {
 
   @ApiProperty({ description: 'Action taken to resolve the AOG', example: 'Replaced faulty component' })
   @IsString()
-  @IsNotEmpty()
-  actionTaken: string;
+  @IsOptional() // Made optional - defaults to "See defect description"
+  actionTaken?: string;
 
   @ApiProperty({ description: 'Number of personnel involved', example: 3 })
   @IsNumber()
   @Min(0)
-  manpowerCount: number;
+  @IsOptional() // Made optional - defaults to 0
+  manpowerCount?: number;
 
   @ApiProperty({ description: 'Total man-hours spent', example: 12.5 })
   @IsNumber()
   @Min(0)
-  manHours: number;
+  @IsOptional() // Made optional - defaults to 0
+  manHours?: number;
 
   @ApiPropertyOptional({ description: 'Labor cost', example: 1500.00 })
   @IsNumber()

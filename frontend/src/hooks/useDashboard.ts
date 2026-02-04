@@ -9,6 +9,35 @@ export interface DashboardQueryParams extends DateRangeFilter {
   period?: 'day' | 'month' | 'year';
 }
 
+export interface AOGSummaryEvent {
+  id: string;
+  aircraftId: string;
+  registration: string;
+  reasonCode: string;
+  location: string | null;
+  durationHours: number;
+  detectedAt: string;
+}
+
+export interface AOGSummaryTrendPoint {
+  month: string;
+  count: number;
+}
+
+export interface AOGSummary {
+  activeCount: number;
+  totalThisMonth: number;
+  avgDurationHours: number;
+  totalDowntimeHours: number;
+  activeEvents: AOGSummaryEvent[];
+  unavailableAircraft: {
+    registration: string;
+    reason: string;
+    durationDays: number;
+  }[];
+  trendData: AOGSummaryTrendPoint[];
+}
+
 export function useDashboardKPIs(query?: DateRangeFilter) {
   return useQuery({
     queryKey: ['dashboard', 'kpis', query],
@@ -29,6 +58,18 @@ export function useDashboardTrends(query: DashboardQueryParams) {
       return data;
     },
     enabled: !!query.startDate && !!query.endDate,
+    refetchInterval: DASHBOARD_REFETCH_INTERVAL,
+    refetchOnWindowFocus: true,
+  });
+}
+
+export function useAOGSummary() {
+  return useQuery({
+    queryKey: ['dashboard', 'aog-summary'],
+    queryFn: async () => {
+      const { data } = await api.get<AOGSummary>('/dashboard/aog-summary');
+      return data;
+    },
     refetchInterval: DASHBOARD_REFETCH_INTERVAL,
     refetchOnWindowFocus: true,
   });

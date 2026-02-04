@@ -64,51 +64,17 @@ const RESPONSIBILITY_COLORS: Record<string, string> = {
   OEM: '#ef4444',
   Customs: '#f59e0b',
   Finance: '#10b981',
+  AOG: '#ec4899',
   Other: '#8b5cf6',
 };
 
-// Common ATA chapters for aviation maintenance
-const COMMON_ATA_CHAPTERS = [
-  { value: '21', label: '21 - Air Conditioning' },
-  { value: '22', label: '22 - Auto Flight' },
-  { value: '23', label: '23 - Communications' },
-  { value: '24', label: '24 - Electrical Power' },
-  { value: '25', label: '25 - Equipment/Furnishings' },
-  { value: '26', label: '26 - Fire Protection' },
-  { value: '27', label: '27 - Flight Controls' },
-  { value: '28', label: '28 - Fuel' },
-  { value: '29', label: '29 - Hydraulic Power' },
-  { value: '30', label: '30 - Ice and Rain Protection' },
-  { value: '31', label: '31 - Instruments' },
-  { value: '32', label: '32 - Landing Gear' },
-  { value: '33', label: '33 - Lights' },
-  { value: '34', label: '34 - Navigation' },
-  { value: '35', label: '35 - Oxygen' },
-  { value: '36', label: '36 - Pneumatic' },
-  { value: '38', label: '38 - Water/Waste' },
-  { value: '49', label: '49 - Airborne Auxiliary Power' },
-  { value: '52', label: '52 - Doors' },
-  { value: '53', label: '53 - Fuselage' },
-  { value: '55', label: '55 - Stabilizers' },
-  { value: '56', label: '56 - Windows' },
-  { value: '57', label: '57 - Wings' },
-  { value: '71', label: '71 - Power Plant' },
-  { value: '72', label: '72 - Engine' },
-  { value: '73', label: '73 - Engine Fuel and Control' },
-  { value: '74', label: '74 - Ignition' },
-  { value: '75', label: '75 - Air' },
-  { value: '76', label: '76 - Engine Controls' },
-  { value: '77', label: '77 - Engine Indicating' },
-  { value: '78', label: '78 - Exhaust' },
-  { value: '79', label: '79 - Oil' },
-  { value: '80', label: '80 - Starting' },
-];
+import { getATAChapterOptions, getATAChapterDescription } from '../../lib/ataChapters';
 
-// ATA Chapter Description Helper
-function getATAChapterDescription(chapter: string): string {
-  const found = COMMON_ATA_CHAPTERS.find((c) => c.value === chapter);
-  return found ? found.label : `ATA ${chapter}`;
-}
+// ATA chapters for filter dropdown (includes "All" option)
+const ATA_FILTER_OPTIONS = [
+  { value: '', label: 'All ATA Chapters' },
+  ...getATAChapterOptions(),
+];
 
 // Summary Statistics Cards
 function SummaryCards({
@@ -243,7 +209,7 @@ export function DiscrepanciesListPage() {
     
     // Get top ATA chapter from analytics
     const topATAChapter = analyticsData && analyticsData.length > 0
-      ? (analyticsData as { _id: string }[])[0]._id
+      ? (analyticsData as { _id: string }[]).find(item => item._id && item._id !== 'undefined')?._id || ''
       : '';
     
     return { totalDiscrepancies, uncorrectedCount, totalDowntimeHours, topATAChapter };
@@ -271,6 +237,18 @@ export function DiscrepanciesListPage() {
             {getATAChapterDescription(row.original.ataChapter)}
           </span>
         ),
+      },
+      {
+        accessorKey: 'type',
+        header: 'Type',
+        cell: ({ row }) =>
+          row.original.type ? (
+            <span className="px-2 py-0.5 text-xs rounded-full bg-purple-500/10 text-purple-600">
+              {row.original.type}
+            </span>
+          ) : (
+            <span className="text-muted-foreground">-</span>
+          ),
       },
       {
         accessorKey: 'discrepancyText',
@@ -460,7 +438,7 @@ export function DiscrepanciesListPage() {
               className="px-2 py-1.5 text-sm border border-border rounded-md bg-background text-foreground min-w-[180px]"
             >
               <option value="">All ATA Chapters</option>
-              {COMMON_ATA_CHAPTERS.map((opt) => (
+              {ATA_FILTER_OPTIONS.map((opt) => (
                 <option key={opt.value} value={opt.value}>
                   {opt.label}
                 </option>

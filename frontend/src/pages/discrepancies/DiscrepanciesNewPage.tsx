@@ -26,7 +26,8 @@ const discrepancySchema = z.object({
   discrepancyText: z.string().min(1, 'Discrepancy description is required'),
   dateCorrected: z.string().optional(),
   correctiveAction: z.string().optional(),
-  responsibility: z.enum(['Internal', 'OEM', 'Customs', 'Finance', 'Other']).optional(),
+  responsibility: z.enum(['Internal', 'OEM', 'Customs', 'Finance', 'AOG', 'Other']).optional(),
+  type: z.enum(['AD', 'ADDR', 'AOG', 'CADD', 'CDL', 'CORR', 'DMI']).optional(),
   downtimeHours: z.coerce.number().min(0, 'Must be 0 or greater').optional(),
 });
 
@@ -38,45 +39,27 @@ const RESPONSIBILITY_OPTIONS = [
   { value: 'OEM', label: 'OEM' },
   { value: 'Customs', label: 'Customs' },
   { value: 'Finance', label: 'Finance' },
+  { value: 'AOG', label: 'AOG' },
   { value: 'Other', label: 'Other' },
 ];
 
-// Common ATA chapters for aviation maintenance
-const COMMON_ATA_CHAPTERS = [
+const TYPE_OPTIONS = [
+  { value: '', label: 'Select...' },
+  { value: 'AD', label: 'AD' },
+  { value: 'ADDR', label: 'ADDR' },
+  { value: 'AOG', label: 'AOG' },
+  { value: 'CADD', label: 'CADD' },
+  { value: 'CDL', label: 'CDL' },
+  { value: 'CORR', label: 'CORR' },
+  { value: 'DMI', label: 'DMI' },
+];
+
+import { getATAChapterOptions } from '../../lib/ataChapters';
+
+// ATA chapters for form dropdown (includes "Select" option)
+const ATA_FORM_OPTIONS = [
   { value: '', label: 'Select ATA Chapter...' },
-  { value: '21', label: '21 - Air Conditioning' },
-  { value: '22', label: '22 - Auto Flight' },
-  { value: '23', label: '23 - Communications' },
-  { value: '24', label: '24 - Electrical Power' },
-  { value: '25', label: '25 - Equipment/Furnishings' },
-  { value: '26', label: '26 - Fire Protection' },
-  { value: '27', label: '27 - Flight Controls' },
-  { value: '28', label: '28 - Fuel' },
-  { value: '29', label: '29 - Hydraulic Power' },
-  { value: '30', label: '30 - Ice and Rain Protection' },
-  { value: '31', label: '31 - Instruments' },
-  { value: '32', label: '32 - Landing Gear' },
-  { value: '33', label: '33 - Lights' },
-  { value: '34', label: '34 - Navigation' },
-  { value: '35', label: '35 - Oxygen' },
-  { value: '36', label: '36 - Pneumatic' },
-  { value: '38', label: '38 - Water/Waste' },
-  { value: '49', label: '49 - Airborne Auxiliary Power' },
-  { value: '52', label: '52 - Doors' },
-  { value: '53', label: '53 - Fuselage' },
-  { value: '55', label: '55 - Stabilizers' },
-  { value: '56', label: '56 - Windows' },
-  { value: '57', label: '57 - Wings' },
-  { value: '71', label: '71 - Power Plant' },
-  { value: '72', label: '72 - Engine' },
-  { value: '73', label: '73 - Engine Fuel and Control' },
-  { value: '74', label: '74 - Ignition' },
-  { value: '75', label: '75 - Air' },
-  { value: '76', label: '76 - Engine Controls' },
-  { value: '77', label: '77 - Engine Indicating' },
-  { value: '78', label: '78 - Exhaust' },
-  { value: '79', label: '79 - Oil' },
-  { value: '80', label: '80 - Starting' },
+  ...getATAChapterOptions(),
 ];
 
 export function DiscrepanciesNewPage() {
@@ -130,6 +113,7 @@ export function DiscrepanciesNewPage() {
           : '',
         correctiveAction: editingDiscrepancy.correctiveAction || '',
         responsibility: editingDiscrepancy.responsibility,
+        type: editingDiscrepancy.type,
         downtimeHours: editingDiscrepancy.downtimeHours || 0,
       });
     }
@@ -219,7 +203,7 @@ export function DiscrepanciesNewPage() {
             <FormField label="ATA Chapter" error={errors.ataChapter} required>
               <Select
                 {...register('ataChapter')}
-                options={COMMON_ATA_CHAPTERS}
+                options={ATA_FORM_OPTIONS}
                 error={!!errors.ataChapter}
               />
             </FormField>
@@ -235,6 +219,15 @@ export function DiscrepanciesNewPage() {
                 {...register('responsibility')}
                 options={RESPONSIBILITY_OPTIONS}
                 error={!!errors.responsibility}
+              />
+            </FormField>
+
+            {/* Type */}
+            <FormField label="Type" error={errors.type}>
+              <Select
+                {...register('type')}
+                options={TYPE_OPTIONS}
+                error={!!errors.type}
               />
             </FormField>
 

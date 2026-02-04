@@ -1,0 +1,6 @@
+﻿Aircraft,Defect Description,Location,Category,Start Date,Start Time,Finish Date,Finish Time
+HZ-A42,Engine hydraulic leak,OERK,AOG,2024-01-15,08:30,2024-01-17,14:45
+HZ-SKY2,Scheduled A-check,LFSB,S-MX,2024-02-01,09:00,2024-02-05,17:00
+HZ-A10,Engine replacement,OERK,U-MX,2025-01-03,07:00,,
+HZ-SKY4,APU malfunction,OERK,AOG,2024-03-10,14:20,2024-03-12,09:15
+HZ-A2,Landing gear inspection,LFSB,S-MX,2024-04-05,08:00,2024-04-08,16:00

@@ -29,6 +29,7 @@ const aircraftSchema = z.object({
   msn: z.string().min(1, 'MSN is required'),
   owner: z.string().min(1, 'Owner is required'),
   manufactureDate: z.string().min(1, 'Manufacture date is required'),
+  inServiceDate: z.string().optional(),
   enginesCount: z.number().min(1, 'Engines count must be at least 1').max(4, 'Engines count must be at most 4'),
   status: z.enum(['active', 'parked', 'leased']),
 });
@@ -318,6 +319,9 @@ function AircraftManagement() {
     setValue('msn', aircraft.msn);
     setValue('owner', aircraft.owner);
     setValue('manufactureDate', aircraft.manufactureDate.split('T')[0]);
+    if (aircraft.inServiceDate) {
+      setValue('inServiceDate', aircraft.inServiceDate.split('T')[0]);
+    }
     setValue('enginesCount', aircraft.enginesCount);
     setValue('status', aircraft.status);
     setShowForm(true);
@@ -376,6 +380,22 @@ function AircraftManagement() {
     {
       accessorKey: 'owner',
       header: 'Owner',
+    },
+    {
+      accessorKey: 'manufactureDate',
+      header: 'Manufacture Date',
+      cell: ({ row }) => {
+        if (!row.original.manufactureDate) return '-';
+        return new Date(row.original.manufactureDate).toLocaleDateString();
+      },
+    },
+    {
+      accessorKey: 'inServiceDate',
+      header: 'In Service Date',
+      cell: ({ row }) => {
+        if (!row.original.inServiceDate) return '-';
+        return new Date(row.original.inServiceDate).toLocaleDateString();
+      },
     },
     {
       accessorKey: 'enginesCount',
@@ -469,6 +489,9 @@ function AircraftManagement() {
               </FormField>
               <FormField label="Manufacture Date" error={errors.manufactureDate} required>
                 <Input {...register('manufactureDate')} type="date" error={!!errors.manufactureDate} />
+              </FormField>
+              <FormField label="In Service Date" error={errors.inServiceDate}>
+                <Input {...register('inServiceDate')} type="date" error={!!errors.inServiceDate} />
               </FormField>
               <FormField label="Engines Count" error={errors.enginesCount} required>
                 <Input {...register('enginesCount')} type="number" min={1} max={4} error={!!errors.enginesCount} />

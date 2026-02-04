@@ -6,7 +6,7 @@ import { ChartContainer, TrendChart, BarChartWrapper } from '@/components/ui/Cha
 import { ExportButton } from '@/components/ui/ExportButton';
 import { FilterBar, FilterGroup, FilterInput } from '@/components/ui/FilterBar';
 import { GlossaryTerm } from '@/components/ui/GlossaryTooltip';
-import { useDashboardKPIs, useDashboardTrends } from '@/hooks/useDashboard';
+import { useDashboardKPIs, useDashboardTrends, useAOGSummary } from '@/hooks/useDashboard';
 import {
   useFleetHealthScore,
   useExecutiveAlerts,
@@ -31,6 +31,9 @@ import { RecentActivityFeed } from '@/components/ui/RecentActivityFeed';
 import { YoYComparison } from '@/components/ui/YoYComparison';
 import { DefectPatterns } from '@/components/ui/DefectPatterns';
 import { DataQualityIndicator } from '@/components/ui/DataQualityIndicator';
+import { ActiveAOGEventsWidget } from '@/components/ui/ActiveAOGEventsWidget';
+import { FleetAvailabilityImpactWidget } from '@/components/ui/FleetAvailabilityImpactWidget';
+import { AOGMiniTrendChart } from '@/components/ui/AOGMiniTrendChart';
 import { ExecutivePDFExport } from '@/components/ui/ExecutivePDFExport';
 import { CollapsibleSection } from '@/components/ui/CollapsibleSection';
 import { ComingSoonSection } from '@/components/ui/ComingSoonSection';
@@ -109,6 +112,7 @@ export function DashboardPage() {
     ...dateRange,
     period: trendPeriod,
   });
+  const { data: aogSummary, isLoading: aogSummaryLoading } = useAOGSummary();
 
   // Executive dashboard hooks
   const { data: healthScore, isLoading: healthScoreLoading } = useFleetHealthScore(dateRange);
@@ -315,6 +319,57 @@ export function DashboardPage() {
           className={kpis && kpis.activeAOGCount > 0 ? 'border-red-500/50 bg-red-500/5' : ''}
         />
       </div>
+
+      {/* AOG Metric Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        <KPICardEnhanced
+          title="Total AOG This Month"
+          value={aogSummaryLoading ? '...' : aogSummary?.totalThisMonth ?? 0}
+          subtitle="Events detected"
+          icon={<AlertIcon />}
+          onClick={() => navigate('/aog/list')}
+          isLoading={aogSummaryLoading}
+        />
+
+        <KPICardEnhanced
+          title="Average AOG Duration"
+          value={aogSummaryLoading ? '...' : `${aogSummary?.avgDurationHours?.toFixed(1) ?? 0}h`}
+          subtitle="Mean time to resolve"
+          icon={<ClockIcon />}
+          onClick={() => navigate('/aog/analytics')}
+          isLoading={aogSummaryLoading}
+        />
+
+        <KPICardEnhanced
+          title="Total Downtime Hours"
+          value={aogSummaryLoading ? '...' : aogSummary?.totalDowntimeHours?.toFixed(0) ?? 0}
+          subtitle="Cumulative this month"
+          icon={<ClockIcon />}
+          onClick={() => navigate('/aog/analytics')}
+          isLoading={aogSummaryLoading}
+        />
+      </div>
+
+      {/* Active AOG Events Widget */}
+      {aogSummary && aogSummary.activeCount > 0 && (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <ActiveAOGEventsWidget 
+            events={aogSummary.activeEvents} 
+            isLoading={aogSummaryLoading} 
+          />
+          <FleetAvailabilityImpactWidget
+            unavailableAircraft={aogSummary.unavailableAircraft}
+            totalAircraft={statusSummary.total}
+            isLoading={aogSummaryLoading}
+          />
+        </div>
+      )}
+
+      {/* AOG Trend Chart */}
+      <AOGMiniTrendChart 
+        trendData={aogSummary?.trendData} 
+        isLoading={aogSummaryLoading} 
+      />
 
       {/* Trends Section */}
       <CollapsibleSection title="Performance Trends" storageKey="trends" defaultExpanded={true}>

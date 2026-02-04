@@ -14,7 +14,9 @@ export interface CreateAircraftData {
   aircraftType: string;
   msn: string;
   owner: string;
-  manufactureDate: Date;
+  manufactureDate?: Date;
+  certificationDate?: Date;
+  inServiceDate?: Date;
   enginesCount: number;
   status?: AircraftStatus;
 }
@@ -25,6 +27,8 @@ export interface UpdateAircraftData {
   msn?: string;
   owner?: string;
   manufactureDate?: Date;
+  certificationDate?: Date;
+  inServiceDate?: Date;
   enginesCount?: number;
   status?: AircraftStatus;
 }

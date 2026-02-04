@@ -41,7 +41,15 @@ export class AircraftController {
   async create(@Body() createAircraftDto: CreateAircraftDto) {
     return this.aircraftService.create({
       ...createAircraftDto,
-      manufactureDate: new Date(createAircraftDto.manufactureDate),
+      manufactureDate: createAircraftDto.manufactureDate
+        ? new Date(createAircraftDto.manufactureDate)
+        : undefined,
+      certificationDate: createAircraftDto.certificationDate
+        ? new Date(createAircraftDto.certificationDate)
+        : undefined,
+      inServiceDate: createAircraftDto.inServiceDate
+        ? new Date(createAircraftDto.inServiceDate)
+        : undefined,
     });
   }
 
@@ -85,6 +93,12 @@ export class AircraftController {
       ...updateAircraftDto,
       manufactureDate: updateAircraftDto.manufactureDate
         ? new Date(updateAircraftDto.manufactureDate)
+        : undefined,
+      certificationDate: updateAircraftDto.certificationDate
+        ? new Date(updateAircraftDto.certificationDate)
+        : undefined,
+      inServiceDate: updateAircraftDto.inServiceDate
+        ? new Date(updateAircraftDto.inServiceDate)
         : undefined,
     };
     return this.aircraftService.update(id, updateData);

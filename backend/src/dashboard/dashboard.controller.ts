@@ -18,6 +18,7 @@ import {
   DefectPatternsResponse,
   DataQualityResponse,
   WorkOrderCountTrendResponse,
+  AOGSummaryResponse,
 } from './services/dashboard.service';
 import { HealthCheckService } from './services/health-check.service';
 import { DashboardQueryDto, TrendQueryDto } from './dto/dashboard-query.dto';
@@ -244,6 +245,20 @@ export class DashboardController {
     const startDate = query.startDate ? new Date(query.startDate) : undefined;
     const endDate = query.endDate ? new Date(query.endDate) : undefined;
     return this.dashboardService.getWorkOrderCountTrend(startDate, endDate);
+  }
+
+  /**
+   * Get AOG Summary for Dashboard
+   * Requirements: 12.1, 12.2, 12.3, 12.4, 12.5, 12.6, 12.7, 12.8
+   */
+  @Get('aog-summary')
+  @ApiOperation({
+    summary: 'Get AOG Summary',
+    description: 'Returns AOG summary with active count, monthly total, average duration, active events list, unavailable aircraft, and 6-month trend',
+  })
+  @ApiResponse({ status: 200, description: 'AOG summary retrieved successfully' })
+  async getAOGSummary(): Promise<AOGSummaryResponse> {
+    return this.dashboardService.getAOGSummary();
   }
 
   /**

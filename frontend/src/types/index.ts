@@ -26,6 +26,8 @@ export interface Aircraft {
   msn: string;
   owner: string;
   manufactureDate: string;
+  certificationDate?: string;
+  inServiceDate?: string;
   enginesCount: number;
   status: 'active' | 'parked' | 'leased';
   createdAt: string;
@@ -174,8 +176,9 @@ export interface AOGEvent {
   aircraftId: string;
   detectedAt: string;
   clearedAt?: string;
-  category: 'scheduled' | 'unscheduled' | 'aog';
+  category: 'scheduled' | 'unscheduled' | 'aog' | 'mro' | 'cleaning';
   reasonCode: string;
+  location?: string; // ICAO airport code (e.g., OERK, LFSB)
   responsibleParty: 'Internal' | 'OEM' | 'Customs' | 'Finance' | 'Other';
   actionTaken: string;
   manpowerCount: number;
@@ -334,7 +337,8 @@ export interface Discrepancy {
   discrepancyText: string;
   dateCorrected?: string;
   correctiveAction?: string;
-  responsibility?: 'Internal' | 'OEM' | 'Customs' | 'Finance' | 'Other';
+  responsibility?: 'Internal' | 'OEM' | 'Customs' | 'Finance' | 'AOG' | 'Other';
+  type?: 'AD' | 'ADDR' | 'AOG' | 'CADD' | 'CDL' | 'CORR' | 'DMI';
   downtimeHours?: number;
   createdAt: string;
 }
@@ -815,6 +819,222 @@ export interface AOGBottlenecksAnalyticsResponse {
   overallAverageResolutionHours: number;
 }
 
+// Category Breakdown Types (Requirements: 8.1, 16.4)
+export interface CategoryBreakdownItem {
+  category: string;
+  count: number;
+  percentage: number;
+  totalHours: number;
+}
+
+export interface CategoryBreakdownResponse {
+  categories: CategoryBreakdownItem[];
+}
+
+// Location Heatmap Types (Requirements: 8.2, 16.3)
+export interface LocationHeatmapItem {
+  location: string;
+  count: number;
+  percentage: number;
+}
+
+export interface LocationHeatmapResponse {
+  locations: LocationHeatmapItem[];
+}
+
+// Duration Distribution Types (Requirements: 8.3, 6.5)
+export interface DurationDistributionItem {
+  range: string;
+  count: number;
+  percentage: number;
+}
+
+export interface DurationDistributionResponse {
+  ranges: DurationDistributionItem[];
+}
+
+// Aircraft Reliability Types (Requirements: 8.4, 16.1)
+export interface AircraftReliabilityItem {
+  aircraftId: string;
+  registration: string;
+  eventCount: number;
+  totalHours: number;
+}
+
+export interface AircraftReliabilityResponse {
+  mostReliable: AircraftReliabilityItem[];
+  needsAttention: AircraftReliabilityItem[];
+}
+
+// Monthly Trend Types (Requirements: 8.5, 16.5)
+export interface MonthlyTrendItem {
+  month: string;
+  count: number;
+  totalHours: number;
+}
+
+export interface MonthlyTrendResponse {
+  months: MonthlyTrendItem[];
+}
+
+// Insights Types (Requirements: 16.1-16.8)
+export interface AOGInsightsResponse {
+  topProblemAircraft: Array<{
+    registration: string;
+    eventCount: number;
+    totalHours: number;
+  }>;
+  mostCommonIssues: Array<{
+    issue: string;
+    count: number;
+  }>;
+  busiestLocations: Array<{
+    location: string;
+    count: number;
+  }>;
+  averageResolutionTime: {
+    aog: number;
+    scheduled: number;
+    unscheduled: number;
+    mro: number;
+    cleaning: number;
+  };
+  fleetHealthScore: number;
+}
+
+// ============================================
+// AOG Analytics Enhancement Types (FR-2.2, FR-2.6, FR-1.3)
+// ============================================
+
+/**
+ * Monthly Trend Data Point
+ * Requirements: FR-2.2
+ */
+export interface MonthlyTrendDataPoint {
+  month: string; // YYYY-MM format
+  eventCount: number;
+  totalDowntimeHours: number;
+  averageDowntimeHours: number;
+}
+
+/**
+ * Monthly Trend Response with Moving Average
+ * Requirements: FR-2.2
+ */
+export interface MonthlyTrendResponseDto {
+  trends: MonthlyTrendDataPoint[];
+  movingAverage: Array<{
+    month: string;
+    value: number;
+  }>;
+}
+
+/**
+ * Forecast Data Point
+ * Requirements: FR-2.6
+ */
+export interface ForecastDataPoint {
+  month: string;
+  predicted: number;
+  confidenceInterval: {
+    lower: number;
+    upper: number;
+  };
+}
+
+/**
+ * Forecast Response with Historical and Predicted Data
+ * Requirements: FR-2.6
+ */
+export interface ForecastData {
+  historical: Array<{
+    month: string;
+    actual: number;
+  }>;
+  forecast: ForecastDataPoint[];
+}
+
+/**
+ * Automated Insight
+ * Requirements: FR-2.6
+ */
+export interface AutomatedInsight {
+  id: string;
+  type: 'warning' | 'info' | 'success';
+  title: string;
+  description: string;
+  metric?: number;
+  recommendation?: string;
+}
+
+/**
+ * Data Quality Metrics
+ * Requirements: FR-1.3
+ */
+export interface DataQualityMetrics {
+  completenessPercentage: number;
+  legacyEventCount: number;
+  totalEvents: number;
+  eventsWithMilestones?: number;
+}
+
+/**
+ * Insights Response with Data Quality
+ * Requirements: FR-2.6, FR-1.3
+ */
+export interface InsightsResponseDto {
+  insights: AutomatedInsight[];
+  dataQuality: DataQualityMetrics;
+}
+
+/**
+ * Analytics Filter Interface
+ * Used across all analytics endpoints
+ * Requirements: FR-2.2, FR-2.6, FR-1.3
+ */
+export interface AnalyticsFilters {
+  aircraftId?: string;
+  fleetGroup?: string;
+  startDate?: string;
+  endDate?: string;
+}
+
+// AOG Analytics Types
+export interface AOGStageBreakdown {
+  status: AOGWorkflowStatus;
+  count: number;
+  percentage: number;
+}
+
+export interface AOGBlockingBreakdown {
+  reason: BlockingReason;
+  count: number;
+  percentage: number;
+}
+
+export interface AOGStagesAnalyticsResponse {
+  byStatus: AOGStageBreakdown[];
+  byBlockingReason: AOGBlockingBreakdown[];
+  totalActive: number;
+  totalBlocked: number;
+}
+
+export interface AOGBottleneckMetric {
+  status: AOGWorkflowStatus;
+  averageTimeHours: number;
+  count: number;
+}
+
+export interface AOGBottlenecksAnalyticsResponse {
+  byStatus: AOGBottleneckMetric[];
+  byBlockingReason: {
+    reason: BlockingReason;
+    averageTimeHours: number;
+    count: number;
+  }[];
+  overallAverageResolutionHours: number;
+}
+
 // Three-Bucket Analytics Types (AOG Analytics Simplification)
 // Requirements: 5.2, 5.3, 5.4
 
@@ -826,6 +1046,23 @@ export interface ThreeBucketSummary {
   activeEvents: number;
   totalDowntimeHours: number;
   averageDowntimeHours: number;
+}
+
+/**
+ * AOG Data Quality Metrics
+ * Requirements: FR-1.3
+ * 
+ * Tracks completeness of milestone data for AOG events.
+ * An event is "complete" if it has:
+ * - reportedAt (or detectedAt as fallback)
+ * - installationCompleteAt
+ * - upAndRunningAt (or clearedAt as fallback)
+ */
+export interface AOGDataQualityMetrics {
+  totalEvents: number;
+  eventsWithMilestones: number;
+  completenessPercentage: number;
+  legacyEventCount: number;
 }
 
 /**
@@ -860,12 +1097,15 @@ export interface AircraftBucketBreakdown {
 
 /**
  * Complete three-bucket analytics response
- * Requirements: 5.2, 5.3, 5.4
+ * Requirements: 5.2, 5.3, 5.4, FR-1.1, FR-1.3
  */
 export interface ThreeBucketAnalytics {
   summary: ThreeBucketSummary;
   buckets: ThreeBucketBreakdown;
   byAircraft: AircraftBucketBreakdown[];
+  // Legacy data handling (FR-1.1, FR-1.3)
+  legacyEventCount?: number;
+  legacyDowntimeHours?: number;
 }
 
 /**

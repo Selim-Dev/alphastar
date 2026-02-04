@@ -10,8 +10,7 @@ import { DailyCounterRepository } from '../../utilization/repositories/daily-cou
 import { MaintenanceTaskRepository } from '../../maintenance-tasks/repositories/maintenance-task.repository';
 import { Shift } from '../../maintenance-tasks/schemas/maintenance-task.schema';
 import { AOGEventRepository } from '../../aog-events/repositories/aog-event.repository';
-import { AOGEventsService, MilestoneTimestamps } from '../../aog-events/services/aog-events.service';
-import { AOGCategory, ResponsibleParty, AOGWorkflowStatus, BlockingReason } from '../../aog-events/schemas/aog-event.schema';
+import { AOGCategory, ResponsibleParty } from '../../aog-events/schemas/aog-event.schema';
 import { BudgetPlanRepository } from '../../budget/repositories/budget-plan.repository';
 import { DailyStatusRepository } from '../../daily-status/repositories/daily-status.repository';
 import { WorkOrderSummaryRepository } from '../../work-order-summaries/repositories/work-order-summary.repository';
@@ -48,7 +47,6 @@ export class ImportService {
     private readonly dailyCounterRepository: DailyCounterRepository,
     private readonly maintenanceTaskRepository: MaintenanceTaskRepository,
     private readonly aogEventRepository: AOGEventRepository,
-    private readonly aogEventsService: AOGEventsService,
     private readonly budgetPlanRepository: BudgetPlanRepository,
     private readonly dailyStatusRepository: DailyStatusRepository,
     private readonly workOrderSummaryRepository: WorkOrderSummaryRepository,
@@ -64,7 +62,7 @@ export class ImportService {
     filename: string,
     importType: ImportType,
   ): Promise<ImportPreview> {
-    const parseResult = this.excelParserService.parseExcelFile(buffer, importType);
+    const parseResult = await this.excelParserService.parseExcelFile(buffer, importType);
     const summary = this.excelParserService.getValidationSummary(parseResult);
 
     // Generate session ID and store for later confirmation
@@ -279,130 +277,104 @@ export class ImportService {
     data: Record<string, unknown>,
     userId: string,
   ): Promise<void> {
-    const registration = String(data.aircraftRegistration).toUpperCase();
-    const aircraft = await this.aircraftRepository.findByRegistration(registration);
-    if (!aircraft) {
-      throw new BadRequestException(`Aircraft ${registration} not found`);
+    // Aircraft lookup already done by parser - use aircraftId
+    const aircraftId = data.aircraftId as string;
+    if (!aircraftId) {
+      throw new BadRequestException('Aircraft ID not found in parsed data');
     }
 
+    // Dates already parsed and validated by parser
     const detectedAt = data.detectedAt as Date;
-    const clearedAt = data.clearedAt as Date | undefined;
-
-    // Validate timestamps - clearedAt must be >= detectedAt (Requirement 9.4)
-    if (clearedAt && clearedAt < detectedAt) {
-      throw new BadRequestException('cleared_at cannot be earlier than detected_at');
+    
+    // Handle clearedAt: create a fresh Date object if valid, otherwise undefined
+    let clearedAt: Date | undefined;
+    if (data.clearedAt && data.clearedAt instanceof Date) {
+      // Create a fresh Date object to ensure proper Mongoose serialization
+      clearedAt = new Date(data.clearedAt.getTime());
+    } else {
+      clearedAt = undefined;
     }
 
-    // Map category string to enum
+    // Category already mapped by parser
+    const categoryMapped = data.categoryMapped as string;
     const categoryMap: Record<string, AOGCategory> = {
       scheduled: AOGCategory.Scheduled,
       unscheduled: AOGCategory.Unscheduled,
       aog: AOGCategory.AOG,
+      mro: AOGCategory.MRO,
+      cleaning: AOGCategory.Cleaning,
     };
+    const category = categoryMap[categoryMapped] || AOGCategory.Unscheduled;
 
-    // Map responsible party string to enum
-    const responsiblePartyMap: Record<string, ResponsibleParty> = {
-      Internal: ResponsibleParty.Internal,
-      OEM: ResponsibleParty.OEM,
-      Customs: ResponsibleParty.Customs,
-      Finance: ResponsibleParty.Finance,
-      Other: ResponsibleParty.Other,
-    };
+    // Location already validated by parser (ICAO code or null)
+    const location = data.location ? String(data.location) : undefined;
 
-    // NEW: Always set currentStatus to REPORTED on import (Requirement 9.1)
-    // Ignore any currentStatus value from the import file
-    const currentStatus = AOGWorkflowStatus.REPORTED;
+    // Defect Description → reasonCode (Requirement 2.1)
+    const reasonCode = data.defectDescription 
+      ? String(data.defectDescription) 
+      : 'Historical AOG Event'; // Default per Requirement 4.1
 
-    // NEW: Map blocking reason if provided (optional field)
-    const blockingReasonMap: Record<string, BlockingReason> = {
-      Finance: BlockingReason.Finance,
-      Port: BlockingReason.Port,
-      Customs: BlockingReason.Customs,
-      Vendor: BlockingReason.Vendor,
-      Ops: BlockingReason.Ops,
-      Other: BlockingReason.Other,
-    };
-    const blockingReason = data.blockingReason
-      ? blockingReasonMap[String(data.blockingReason)]
-      : undefined;
+    // Apply default values (Requirements 4.3, 4.4, 4.5, 4.6)
+    const responsibleParty = ResponsibleParty.Other; // Default per Requirement 4.3
+    const actionTaken = 'See defect description'; // Default per Requirement 4.4
+    const manpowerCount = 1; // Default per Requirement 4.5
 
-    // NEW: Parse milestone timestamps (Requirement 9.1)
-    const reportedAt = data.reportedAt ? (data.reportedAt as Date) : detectedAt;
-    const procurementRequestedAt = data.procurementRequestedAt as Date | undefined;
-    const availableAtStoreAt = data.availableAtStoreAt as Date | undefined;
-    const issuedBackAt = data.issuedBackAt as Date | undefined;
-    const installationCompleteAt = data.installationCompleteAt as Date | undefined;
-    const testStartAt = data.testStartAt as Date | undefined;
-    const upAndRunningAt = data.upAndRunningAt ? (data.upAndRunningAt as Date) : clearedAt;
+    // Calculate manHours from duration or default to 0 (Requirement 4.6)
+    let manHours = 0;
+    if (clearedAt) {
+      const durationMs = clearedAt.getTime() - detectedAt.getTime();
+      const durationHours = durationMs / (1000 * 60 * 60);
+      manHours = Math.max(0, Math.round(durationHours)); // Round to nearest hour
+    }
 
-    // NEW: Validate milestone timestamp ordering (Requirement 9.4)
-    const milestoneTimestamps: MilestoneTimestamps = {
-      reportedAt,
-      procurementRequestedAt,
-      availableAtStoreAt,
-      issuedBackAt,
-      installationCompleteAt,
-      testStartAt,
-      upAndRunningAt,
-    };
-    this.aogEventsService.validateMilestoneOrder(milestoneTimestamps);
+    // Calculate status (Requirement 5.1, 5.2)
+    // Status is a virtual field, but we don't need to store it
 
-    // NEW: Parse simplified cost fields (Requirement 9.1)
-    const internalCost = data.internalCost !== undefined && data.internalCost !== ''
-      ? Number(data.internalCost)
-      : 0;
-    const externalCost = data.externalCost !== undefined && data.externalCost !== ''
-      ? Number(data.externalCost)
-      : 0;
+    // Calculate durationHours (Requirement 6.1, 6.2)
+    let durationHours = 0;
+    if (clearedAt) {
+      const durationMs = clearedAt.getTime() - detectedAt.getTime();
+      durationHours = Math.max(0, durationMs / (1000 * 60 * 60));
+    } else {
+      // Active event - duration from start to now
+      const durationMs = new Date().getTime() - detectedAt.getTime();
+      durationHours = Math.max(0, durationMs / (1000 * 60 * 60));
+    }
 
-    // Build event data for metric computation
-    const eventData = {
-      detectedAt,
-      clearedAt,
-      reportedAt,
-      procurementRequestedAt,
-      availableAtStoreAt,
-      issuedBackAt,
-      installationCompleteAt,
-      testStartAt,
-      upAndRunningAt,
-    };
+    // Set reportedAt and upAndRunningAt defaults (Requirement 4.8)
+    const reportedAt = detectedAt;
+    const upAndRunningAt = clearedAt;
 
-    // NEW: Compute downtime metrics (Requirement 9.2)
-    const computedMetrics = this.aogEventsService.computeDowntimeMetrics(eventData as any);
+    // For imported events, set installationCompleteAt to clearedAt if event is resolved
+    // This allows basic three-bucket analytics even for imported data
+    const installationCompleteAt = clearedAt;
 
+    // Create AOG event with isImported flag (Requirement 4.7)
     await this.aogEventRepository.create({
-      aircraftId: aircraft._id as Types.ObjectId,
+      aircraftId: new Types.ObjectId(aircraftId),
       detectedAt,
       clearedAt,
-      category: categoryMap[String(data.category)] || AOGCategory.Unscheduled,
-      reasonCode: String(data.reasonCode),
-      responsibleParty: responsiblePartyMap[String(data.responsibleParty)] || ResponsibleParty.Other,
-      actionTaken: String(data.actionTaken),
-      manpowerCount: Number(data.manpowerCount),
-      manHours: Number(data.manHours),
-      // Legacy cost fields (preserved for backward compatibility)
-      costLabor: data.costLabor ? Number(data.costLabor) : undefined,
-      costParts: data.costParts ? Number(data.costParts) : undefined,
-      costExternal: data.costExternal ? Number(data.costExternal) : undefined,
-      // NEW: Simplified cost fields
-      internalCost,
-      externalCost,
-      // NEW: Milestone timestamps
+      category,
+      reasonCode,
+      location,
+      responsibleParty,
+      actionTaken,
+      manpowerCount,
+      manHours,
+      // Set isImported flag (Requirement 2.5)
+      isImported: true,
+      // Set reportedAt and upAndRunningAt for consistency (Requirement 4.8)
       reportedAt,
-      procurementRequestedAt,
-      availableAtStoreAt,
-      issuedBackAt,
-      installationCompleteAt,
-      testStartAt,
       upAndRunningAt,
-      // NEW: Computed downtime metrics
-      technicalTimeHours: computedMetrics.technicalTimeHours,
-      procurementTimeHours: computedMetrics.procurementTimeHours,
-      opsTimeHours: computedMetrics.opsTimeHours,
-      totalDowntimeHours: computedMetrics.totalDowntimeHours,
-      currentStatus,
-      blockingReason,
+      installationCompleteAt,
+      // Computed metrics - will be computed by pre-save hook if milestones are set
+      technicalTimeHours: 0,
+      procurementTimeHours: 0,
+      opsTimeHours: 0,
+      totalDowntimeHours: durationHours,
+      // Simplified cost fields (default to 0)
+      internalCost: 0,
+      externalCost: 0,
       attachments: [],
       updatedBy: new Types.ObjectId(userId),
     });

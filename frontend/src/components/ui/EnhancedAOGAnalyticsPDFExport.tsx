@@ -97,37 +97,76 @@ export function EnhancedAOGAnalyticsPDFExport({
     const pageWidth = pdf.internal.pageSize.getWidth();
     const pageHeight = pdf.internal.pageSize.getHeight();
 
-    // Title
-    pdf.setFontSize(24);
+    // Modern gradient background (simulated with rectangles)
+    pdf.setFillColor(37, 99, 235); // Blue-600
+    pdf.rect(0, 0, pageWidth, 80, 'F');
+    
+    pdf.setFillColor(59, 130, 246); // Blue-500
+    pdf.rect(0, 80, pageWidth, 40, 'F');
+
+    // White content area
+    pdf.setFillColor(255, 255, 255);
+    pdf.roundedRect(15, 100, pageWidth - 30, pageHeight - 130, 3, 3, 'F');
+
+    // Title with white text on blue background
+    pdf.setTextColor(255, 255, 255);
+    pdf.setFontSize(32);
     pdf.setFont('helvetica', 'bold');
-    pdf.text('AOG Analytics Report', pageWidth / 2, 60, { align: 'center' });
-
-    // Subtitle
-    pdf.setFontSize(16);
+    pdf.text('AOG Analytics', pageWidth / 2, 45, { align: 'center' });
+    
+    pdf.setFontSize(20);
     pdf.setFont('helvetica', 'normal');
-    pdf.text('Alpha Star Aviation', pageWidth / 2, 75, { align: 'center' });
+    pdf.text('Performance Report', pageWidth / 2, 60, { align: 'center' });
 
-    // Date range
+    // Company name
+    pdf.setFontSize(14);
+    pdf.setFont('helvetica', 'bold');
+    pdf.text('ALPHA STAR AVIATION', pageWidth / 2, 90, { align: 'center' });
+
+    // Content in white box
+    pdf.setTextColor(0, 0, 0);
+    
+    // Date range with icon-like bullet
+    pdf.setFontSize(14);
+    pdf.setFont('helvetica', 'bold');
+    pdf.text('Report Period', pageWidth / 2, 125, { align: 'center' });
+    
     pdf.setFontSize(12);
+    pdf.setFont('helvetica', 'normal');
     const dateRange = filters.dateRange.startDate && filters.dateRange.endDate
       ? `${format(new Date(filters.dateRange.startDate), 'MMM dd, yyyy')} - ${format(new Date(filters.dateRange.endDate), 'MMM dd, yyyy')}`
       : 'All Time';
-    pdf.text(`Period: ${dateRange}`, pageWidth / 2, 100, { align: 'center' });
+    pdf.text(dateRange, pageWidth / 2, 138, { align: 'center' });
 
-    // Generation timestamp
-    pdf.setFontSize(10);
-    pdf.text(`Generated: ${format(new Date(), 'MMM dd, yyyy HH:mm')}`, pageWidth / 2, 110, { align: 'center' });
-
-    // Filters applied
+    // Filters section
     if (filters.fleetFilter || filters.aircraftFilter) {
-      const filterText = `Filters: ${filters.fleetFilter || 'All Fleets'}, ${filters.aircraftFilter || 'All Aircraft'}`;
-      pdf.text(filterText, pageWidth / 2, 120, { align: 'center' });
+      pdf.setFontSize(11);
+      pdf.setFont('helvetica', 'bold');
+      pdf.text('Applied Filters', pageWidth / 2, 160, { align: 'center' });
+      
+      pdf.setFontSize(10);
+      pdf.setFont('helvetica', 'normal');
+      pdf.setTextColor(75, 85, 99); // Gray-600
+      
+      let filterY = 172;
+      if (filters.fleetFilter) {
+        pdf.text(`Fleet: ${filters.fleetFilter}`, pageWidth / 2, filterY, { align: 'center' });
+        filterY += 10;
+      }
+      if (filters.aircraftFilter) {
+        pdf.text(`Aircraft: ${filters.aircraftFilter}`, pageWidth / 2, filterY, { align: 'center' });
+      }
     }
 
-    // Company branding placeholder
+    // Generation info at bottom
+    pdf.setFontSize(9);
+    pdf.setTextColor(107, 114, 128); // Gray-500
+    pdf.text(`Generated: ${format(new Date(), 'MMM dd, yyyy • HH:mm')}`, pageWidth / 2, pageHeight - 25, { align: 'center' });
+    
+    // Footer branding
     pdf.setFontSize(8);
-    pdf.setTextColor(128, 128, 128);
-    pdf.text('Alpha Star Aviation KPI Dashboard', pageWidth / 2, pageHeight - 20, { align: 'center' });
+    pdf.setTextColor(156, 163, 175); // Gray-400
+    pdf.text('Alpha Star Aviation KPI Dashboard', pageWidth / 2, pageHeight - 15, { align: 'center' });
   };
 
   /**

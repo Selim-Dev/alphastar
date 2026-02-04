@@ -400,7 +400,7 @@ AOGEventSchema.set('toJSON', { virtuals: true });
 AOGEventSchema.set('toObject', { virtuals: true });
 
 // Pre-save hook to compute downtime metrics from milestone timestamps
-AOGEventSchema.pre('save', function (next) {
+AOGEventSchema.pre('save', function () {
   const doc = this as AOGEventDocument;
   
   // Compute metrics if milestone timestamps are present
@@ -458,8 +458,6 @@ AOGEventSchema.pre('save', function (next) {
   if (!doc.upAndRunningAt && doc.clearedAt) {
     doc.upAndRunningAt = doc.clearedAt;
   }
-  
-  next();
 });
 
 // Index on aircraftId for efficient queries

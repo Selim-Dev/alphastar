@@ -1,11 +1,10 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Document, Types } from 'mongoose';
-import { BaseSchema } from '../../database/base.schema';
 
 export type BudgetProjectDocument = BudgetProject & Document;
 
 @Schema({ timestamps: true, collection: 'budgetprojects' })
-export class BudgetProject extends BaseSchema {
+export class BudgetProject {
   @Prop({ required: true, unique: true })
   name: string;
 

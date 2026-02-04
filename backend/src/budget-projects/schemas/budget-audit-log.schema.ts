@@ -1,5 +1,5 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
-import { Document, Types } from 'mongoose';
+import { Document, Types, Schema as MongooseSchema } from 'mongoose';
 
 export type BudgetAuditLogDocument = BudgetAuditLog & Document;
 
@@ -20,10 +20,10 @@ export class BudgetAuditLog {
   @Prop()
   fieldChanged?: string;
 
-  @Prop({ type: Types.Mixed })
+  @Prop({ type: MongooseSchema.Types.Mixed })
   oldValue?: any;
 
-  @Prop({ type: Types.Mixed })
+  @Prop({ type: MongooseSchema.Types.Mixed })
   newValue?: any;
 
   @Prop({ type: Types.ObjectId, ref: 'User', required: true })

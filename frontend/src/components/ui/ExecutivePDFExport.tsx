@@ -75,6 +75,40 @@ export function ExecutivePDFExport({
         font-family: system-ui, -apple-system, sans-serif;
         z-index: -1;
       `;
+      
+      // Add CSS for page break control
+      const style = document.createElement('style');
+      style.textContent = `
+        #pdf-export-wrapper * {
+          -webkit-print-color-adjust: exact;
+          print-color-adjust: exact;
+        }
+        
+        /* Prevent page breaks inside these elements */
+        #pdf-export-wrapper .recharts-wrapper,
+        #pdf-export-wrapper [class*="Chart"],
+        #pdf-export-wrapper .grid,
+        #pdf-export-wrapper section,
+        #pdf-export-wrapper [class*="card"] {
+          page-break-inside: avoid !important;
+          break-inside: avoid !important;
+        }
+        
+        /* Add spacing to help with page breaks */
+        #pdf-export-wrapper > * {
+          margin-bottom: 16px;
+        }
+        
+        /* Specific handling for trend charts */
+        #pdf-export-wrapper [class*="trend"],
+        #pdf-export-wrapper [class*="performance"] {
+          page-break-before: auto;
+          page-break-inside: avoid !important;
+          break-inside: avoid !important;
+          margin-top: 24px;
+        }
+      `;
+      wrapper.appendChild(style);
 
       // Add header with logo and title
       const header = document.createElement('div');
@@ -99,6 +133,9 @@ export function ExecutivePDFExport({
       // Apply PDF-friendly styles to the clone
       applyPDFStyles(clone);
       
+      // Add page break hints to prevent content splitting
+      addPageBreakHints(clone);
+      
       wrapper.appendChild(clone);
 
       // Add footer
@@ -114,15 +151,22 @@ export function ExecutivePDFExport({
 
       document.body.appendChild(wrapper);
 
-      // Wait for rendering
-      await new Promise(resolve => setTimeout(resolve, 800));
+      // Wait for rendering and ensure all charts are loaded
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      // Force reflow to ensure all styles are computed
+      wrapper.offsetHeight;
 
       // Generate canvas from the wrapper with type assertion for extended options
       const canvas = await html2canvas(wrapper, {
         useCORS: true,
+        allowTaint: true,
         logging: false,
         width: 1100,
         backgroundColor: '#ffffff',
+        scale: 2, // Higher quality
+        removeContainer: false,
+        imageTimeout: 0,
         onclone: (clonedDoc: Document) => {
           // Strip all CSS custom properties and modern color functions from stylesheets
           stripModernColorsFromDocument(clonedDoc);
@@ -133,8 +177,29 @@ export function ExecutivePDFExport({
             clonedWrapper.style.left = '0';
             clonedWrapper.style.position = 'relative';
             clonedWrapper.style.backgroundColor = '#ffffff';
+            clonedWrapper.style.color = '#1f2937';
+            
             // Apply PDF-safe styles to the cloned content
             applyPDFStyles(clonedWrapper);
+            
+            // Force all text to be visible
+            const allText = clonedWrapper.querySelectorAll('*');
+            allText.forEach(el => {
+              const htmlEl = el as HTMLElement;
+              const computed = clonedDoc.defaultView?.getComputedStyle(htmlEl);
+              if (computed) {
+                // Ensure text is visible
+                if (computed.color && computed.color.includes('rgb')) {
+                  const rgb = computed.color.match(/\d+/g);
+                  if (rgb && rgb.length >= 3) {
+                    const avg = (parseInt(rgb[0]) + parseInt(rgb[1]) + parseInt(rgb[2])) / 3;
+                    if (avg > 200) {
+                      htmlEl.style.color = '#1f2937';
+                    }
+                  }
+                }
+              }
+            });
           }
         },
       } as Parameters<typeof html2canvas>[1]);
@@ -221,64 +286,251 @@ export function ExecutivePDFExport({
 }
 
 /**
+ * Add page break hints to prevent content from being split across pages
+ * This ensures charts and sections stay together
+ */
+function addPageBreakHints(element: HTMLElement): void {
+  // A4 page height in pixels at 96 DPI (approximate)
+  const pageHeightPx = 1123; // 297mm at 96 DPI
+  const marginPx = 113; // 30mm margins
+  const usablePageHeight = pageHeightPx - (marginPx * 2);
+  
+  // Find all major sections that should not be split
+  const sectionsToKeepTogether = [
+    // Chart containers
+    '.recharts-wrapper',
+    '[class*="Chart"]',
+    // Card groups
+    '.grid',
+    // Specific sections
+    '[class*="trend"]',
+    '[class*="performance"]',
+    '[class*="comparison"]',
+    '[class*="forecast"]',
+    '[class*="efficiency"]',
+    // Any section with a title
+    'section',
+    // Collapsible sections
+    '[class*="collapsible"]',
+  ];
+  
+  // Process each major section
+  const allSections = element.querySelectorAll(sectionsToKeepTogether.join(', '));
+  allSections.forEach((section, index) => {
+    const htmlSection = section as HTMLElement;
+    
+    // Skip if already processed or nested
+    if (htmlSection.dataset.pageBreakProcessed) return;
+    htmlSection.dataset.pageBreakProcessed = 'true';
+    
+    // Get section height
+    const sectionHeight = htmlSection.offsetHeight;
+    const sectionTop = htmlSection.offsetTop;
+    
+    // Calculate position in current page
+    const positionInPage = sectionTop % usablePageHeight;
+    
+    // If section would be split across pages, push it to next page
+    if (positionInPage + sectionHeight > usablePageHeight && sectionHeight < usablePageHeight) {
+      const spacingNeeded = usablePageHeight - positionInPage;
+      
+      // Add margin to push to next page
+      const currentMarginTop = parseInt(window.getComputedStyle(htmlSection).marginTop) || 0;
+      htmlSection.style.marginTop = `${currentMarginTop + spacingNeeded + 20}px`;
+      
+      console.log(`[PDF] Pushing section ${index} to next page (height: ${sectionHeight}px, would split at: ${positionInPage}px)`);
+    }
+    
+    // Add CSS properties to keep content together
+    htmlSection.style.pageBreakInside = 'avoid';
+    htmlSection.style.breakInside = 'avoid';
+    
+    // For very tall sections, allow breaks but try to avoid
+    if (sectionHeight > usablePageHeight * 0.8) {
+      htmlSection.style.pageBreakInside = 'auto';
+    }
+  });
+  
+  // Specifically handle chart containers with titles
+  const chartContainers = element.querySelectorAll('.recharts-wrapper, [class*="Chart"]');
+  chartContainers.forEach(chart => {
+    const htmlChart = chart as HTMLElement;
+    const parent = htmlChart.parentElement;
+    
+    if (parent) {
+      // Ensure the parent container also stays together
+      parent.style.pageBreakInside = 'avoid';
+      parent.style.breakInside = 'avoid';
+      
+      // Look for a title element before the chart
+      const prevSibling = parent.previousElementSibling;
+      if (prevSibling && (prevSibling.tagName === 'H2' || prevSibling.tagName === 'H3')) {
+        // Keep title with chart
+        (prevSibling as HTMLElement).style.pageBreakAfter = 'avoid';
+        (prevSibling as HTMLElement).style.breakAfter = 'avoid';
+      }
+    }
+  });
+  
+  // Handle grid layouts - keep rows together
+  const grids = element.querySelectorAll('.grid, [class*="grid"]');
+  grids.forEach(grid => {
+    const htmlGrid = grid as HTMLElement;
+    htmlGrid.style.pageBreakInside = 'avoid';
+    htmlGrid.style.breakInside = 'avoid';
+    
+    // Add spacing between grid items
+    const gridItems = htmlGrid.children;
+    Array.from(gridItems).forEach((item) => {
+      const htmlItem = item as HTMLElement;
+      htmlItem.style.pageBreakInside = 'avoid';
+      htmlItem.style.breakInside = 'avoid';
+    });
+  });
+}
+
+/**
  * Strip modern color functions from all stylesheets in the document
  * This must be done before html2canvas parses the styles
  */
 function stripModernColorsFromDocument(doc: Document): void {
-  // Remove all stylesheets that might contain modern color functions
-  const styleSheets = doc.querySelectorAll('style, link[rel="stylesheet"]');
+  // Create a comprehensive color mapping for safe PDF colors
+  const colorMap: Record<string, string> = {
+    // Primary colors
+    'primary': '#0f172a',
+    'primary-foreground': '#f8fafc',
+    // Background colors
+    'background': '#fafafa',
+    'foreground': '#0f172a',
+    // Card colors
+    'card': '#ffffff',
+    'card-foreground': '#0f172a',
+    // Muted colors
+    'muted': '#f1f5f9',
+    'muted-foreground': '#64748b',
+    // Border colors
+    'border': '#e2e8f0',
+    'input': '#e2e8f0',
+    // Aviation colors
+    'aviation': '#0891b2',
+    'aviation-foreground': '#ffffff',
+    // Semantic colors
+    'destructive': '#dc2626',
+    'destructive-foreground': '#ffffff',
+    'success': '#16a34a',
+    'warning': '#ea580c',
+    'info': '#0284c7',
+  };
+
+  // Process all style elements
+  const styleSheets = doc.querySelectorAll('style');
   styleSheets.forEach(sheet => {
-    if (sheet.tagName === 'STYLE') {
-      // Replace modern color functions in inline styles
-      let css = sheet.textContent || '';
-      css = css.replace(/oklab\([^)]+\)/gi, '#64748b');
-      css = css.replace(/oklch\([^)]+\)/gi, '#64748b');
-      css = css.replace(/lab\([^)]+\)/gi, '#64748b');
-      css = css.replace(/lch\([^)]+\)/gi, '#64748b');
-      css = css.replace(/color-mix\([^)]+\)/gi, '#64748b');
-      css = css.replace(/color\([^)]+\)/gi, '#64748b');
-      sheet.textContent = css;
-    }
+    let css = sheet.textContent || '';
+    
+    // Replace modern color functions with safe fallbacks
+    css = css.replace(/oklab\([^)]+\)/gi, '#64748b');
+    css = css.replace(/oklch\([^)]+\)/gi, '#64748b');
+    css = css.replace(/lab\([^)]+\)/gi, '#64748b');
+    css = css.replace(/lch\([^)]+\)/gi, '#64748b');
+    css = css.replace(/color-mix\([^)]+\)/gi, '#64748b');
+    css = css.replace(/color\(display-p3[^)]+\)/gi, '#64748b');
+    
+    // Replace CSS custom properties with actual colors
+    Object.entries(colorMap).forEach(([key, value]) => {
+      const regex = new RegExp(`var\\(--${key}[^)]*\\)`, 'gi');
+      css = css.replace(regex, value);
+    });
+    
+    // Replace hsl() with rgb() for better compatibility
+    css = css.replace(/hsl\(([^)]+)\)/gi, (_match, hslValues) => {
+      try {
+        const values = hslValues.split(/[\s,/]+/).map((v: string) => parseFloat(v));
+        if (values.length >= 3) {
+          const [h, s, l] = values;
+          const rgb = hslToRgb(h, s, l);
+          return `rgb(${rgb.r}, ${rgb.g}, ${rgb.b})`;
+        }
+      } catch {
+        // Fallback
+      }
+      return '#64748b';
+    });
+    
+    sheet.textContent = css;
   });
 
-  // Apply inline styles to all elements to override CSS variables
+  // Apply inline styles to all elements
   const allElements = doc.querySelectorAll('*');
   allElements.forEach(el => {
     const htmlEl = el as HTMLElement;
     
-    // Force safe colors on all elements
-    const computed = doc.defaultView?.getComputedStyle(htmlEl);
-    if (computed) {
-      const bgColor = computed.backgroundColor;
-      const textColor = computed.color;
-      const borderColor = computed.borderColor;
-      
-      // Check for modern color functions and replace
-      if (bgColor && hasModernColorFunction(bgColor)) {
-        htmlEl.style.setProperty('background-color', '#ffffff', 'important');
-      }
-      if (textColor && hasModernColorFunction(textColor)) {
-        htmlEl.style.setProperty('color', '#1f2937', 'important');
-      }
-      if (borderColor && hasModernColorFunction(borderColor)) {
-        htmlEl.style.setProperty('border-color', '#e2e8f0', 'important');
-      }
+    // Get inline style
+    const inlineStyle = htmlEl.getAttribute('style') || '';
+    
+    // Replace CSS custom properties in inline styles
+    if (inlineStyle.includes('var(--')) {
+      let cleanedStyle = inlineStyle;
+      Object.entries(colorMap).forEach(([key, value]) => {
+        const regex = new RegExp(`var\\(--${key}[^)]*\\)`, 'gi');
+        cleanedStyle = cleanedStyle.replace(regex, value);
+      });
+      htmlEl.setAttribute('style', cleanedStyle);
     }
     
-    // Remove CSS custom properties that might reference modern colors
-    const inlineStyle = htmlEl.getAttribute('style') || '';
-    if (inlineStyle.includes('var(--')) {
-      const cleanedStyle = inlineStyle.replace(/var\(--[^)]+\)/g, '#64748b');
+    // Replace modern color functions in inline styles
+    if (hasModernColorFunction(inlineStyle)) {
+      let cleanedStyle = inlineStyle;
+      cleanedStyle = cleanedStyle.replace(/oklab\([^)]+\)/gi, '#64748b');
+      cleanedStyle = cleanedStyle.replace(/oklch\([^)]+\)/gi, '#64748b');
+      cleanedStyle = cleanedStyle.replace(/lab\([^)]+\)/gi, '#64748b');
+      cleanedStyle = cleanedStyle.replace(/lch\([^)]+\)/gi, '#64748b');
+      cleanedStyle = cleanedStyle.replace(/color-mix\([^)]+\)/gi, '#64748b');
       htmlEl.setAttribute('style', cleanedStyle);
     }
   });
 }
 
 /**
+ * Convert HSL to RGB
+ */
+function hslToRgb(h: number, s: number, l: number): { r: number; g: number; b: number } {
+  h = h / 360;
+  s = s / 100;
+  l = l / 100;
+  
+  let r, g, b;
+  
+  if (s === 0) {
+    r = g = b = l;
+  } else {
+    const hue2rgb = (p: number, q: number, t: number) => {
+      if (t < 0) t += 1;
+      if (t > 1) t -= 1;
+      if (t < 1/6) return p + (q - p) * 6 * t;
+      if (t < 1/2) return q;
+      if (t < 2/3) return p + (q - p) * (2/3 - t) * 6;
+      return p;
+    };
+    
+    const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+    const p = 2 * l - q;
+    r = hue2rgb(p, q, h + 1/3);
+    g = hue2rgb(p, q, h);
+    b = hue2rgb(p, q, h - 1/3);
+  }
+  
+  return {
+    r: Math.round(r * 255),
+    g: Math.round(g * 255),
+    b: Math.round(b * 255),
+  };
+}
+
+/**
  * Check if a color value contains modern color functions
  */
 function hasModernColorFunction(value: string): boolean {
-  return /oklab|oklch|lab\(|lch\(|color-mix|color\(/i.test(value);
+  return /oklab|oklch|lab\(|lch\(|color-mix|color\(display-p3|var\(--/i.test(value);
 }
 
 /**
@@ -288,12 +540,16 @@ function convertModernColorToRgb(colorValue: string): string | null {
   // Handle oklab, oklch, lab, lch color functions that html2canvas doesn't support
   if (colorValue.includes('oklab') || colorValue.includes('oklch') || 
       colorValue.includes('lab(') || colorValue.includes('lch(')) {
-    // Return a safe fallback - we'll determine light/dark based on context
     return null;
   }
   
   // Handle color-mix function
-  if (colorValue.includes('color-mix')) {
+  if (colorValue.includes('color-mix') || colorValue.includes('color(display-p3')) {
+    return null;
+  }
+  
+  // Handle CSS custom properties
+  if (colorValue.includes('var(--')) {
     return null;
   }
   
@@ -304,9 +560,24 @@ function convertModernColorToRgb(colorValue: string): string | null {
  * Apply PDF-friendly styles to the cloned element
  */
 function applyPDFStyles(element: HTMLElement): void {
+  // Define safe PDF color palette
+  const pdfColors = {
+    white: '#ffffff',
+    lightGray: '#f8fafc',
+    gray: '#e2e8f0',
+    darkGray: '#64748b',
+    text: '#1f2937',
+    textLight: '#64748b',
+    primary: '#0f172a',
+    aviation: '#0891b2',
+    success: '#16a34a',
+    warning: '#ea580c',
+    danger: '#dc2626',
+  };
+  
   // Set base styles for the container
-  element.style.backgroundColor = '#ffffff';
-  element.style.color = '#1f2937';
+  element.style.backgroundColor = pdfColors.white;
+  element.style.color = pdfColors.text;
   
   // Process all child elements
   const allElements = element.querySelectorAll('*');
@@ -330,101 +601,145 @@ function applyPDFStyles(element: HTMLElement): void {
       }
     }
     
-    // Fix background colors - handle modern color functions and convert dark to light
+    // Fix background colors
     const bgColor = computedStyle.backgroundColor;
     if (bgColor) {
       const convertedBg = convertModernColorToRgb(bgColor);
       if (convertedBg === null) {
-        // Modern color function detected - use safe fallback
-        htmlEl.style.backgroundColor = '#ffffff';
-      } else {
+        // Modern color function or CSS var detected - use safe fallback
+        htmlEl.style.backgroundColor = pdfColors.white;
+      } else if (bgColor !== 'rgba(0, 0, 0, 0)' && bgColor !== 'transparent') {
         const rgb = bgColor.match(/\d+/g);
         if (rgb && rgb.length >= 3) {
           const r = parseInt(rgb[0]);
           const g = parseInt(rgb[1]);
           const b = parseInt(rgb[2]);
-          // If it's a dark background (average < 50), make it light
-          if ((r + g + b) / 3 < 50) {
-            htmlEl.style.backgroundColor = '#ffffff';
-          }
-          // If it's a very dark gray, lighten it
-          if (r < 30 && g < 30 && b < 30) {
-            htmlEl.style.backgroundColor = '#f8fafc';
+          const avg = (r + g + b) / 3;
+          
+          // If it's a dark background, make it light
+          if (avg < 50) {
+            htmlEl.style.backgroundColor = pdfColors.white;
+          } else if (avg < 100) {
+            htmlEl.style.backgroundColor = pdfColors.lightGray;
           }
         }
       }
     }
     
-    // Fix text colors - handle modern color functions and convert light to dark
+    // Fix text colors
     const textColor = computedStyle.color;
     if (textColor) {
       const convertedText = convertModernColorToRgb(textColor);
       if (convertedText === null) {
-        // Modern color function detected - use safe fallback
-        htmlEl.style.color = '#1f2937';
+        // Modern color function or CSS var detected - use safe fallback
+        htmlEl.style.color = pdfColors.text;
       } else {
         const rgb = textColor.match(/\d+/g);
         if (rgb && rgb.length >= 3) {
           const r = parseInt(rgb[0]);
           const g = parseInt(rgb[1]);
           const b = parseInt(rgb[2]);
-          // If it's light text (average > 200), make it dark
-          if ((r + g + b) / 3 > 200) {
-            htmlEl.style.color = '#1f2937';
+          const avg = (r + g + b) / 3;
+          
+          // If it's light text, make it dark
+          if (avg > 200) {
+            htmlEl.style.color = pdfColors.text;
           }
         }
       }
     }
     
-    // Fix border colors - handle modern color functions
+    // Fix border colors
     const borderColor = computedStyle.borderColor;
     if (borderColor) {
       const convertedBorder = convertModernColorToRgb(borderColor);
       if (convertedBorder === null) {
-        // Modern color function detected - use safe fallback
-        htmlEl.style.borderColor = '#e2e8f0';
+        // Modern color function or CSS var detected - use safe fallback
+        htmlEl.style.borderColor = pdfColors.gray;
       } else if (borderColor.includes('rgb')) {
         const rgb = borderColor.match(/\d+/g);
         if (rgb && rgb.length >= 3) {
           const r = parseInt(rgb[0]);
           const g = parseInt(rgb[1]);
           const b = parseInt(rgb[2]);
+          const avg = (r + g + b) / 3;
+          
           // If it's a dark border, lighten it
-          if ((r + g + b) / 3 < 50) {
-            htmlEl.style.borderColor = '#e2e8f0';
+          if (avg < 50) {
+            htmlEl.style.borderColor = pdfColors.gray;
           }
         }
       }
     }
     
-    // Ensure cards have visible borders
-    if (htmlEl.classList.contains('rounded-lg') || htmlEl.classList.contains('rounded-xl')) {
+    // Ensure cards have visible borders and backgrounds
+    if (htmlEl.classList.contains('rounded-lg') || 
+        htmlEl.classList.contains('rounded-xl') ||
+        htmlEl.classList.contains('border')) {
       if (!htmlEl.style.border || htmlEl.style.border === 'none') {
-        htmlEl.style.border = '1px solid #e2e8f0';
+        htmlEl.style.border = `1px solid ${pdfColors.gray}`;
       }
-      htmlEl.style.backgroundColor = '#ffffff';
+      if (!htmlEl.style.backgroundColor || htmlEl.style.backgroundColor === 'transparent') {
+        htmlEl.style.backgroundColor = pdfColors.white;
+      }
     }
     
     // Fix SVG colors
-    if (htmlEl.tagName === 'svg' || htmlEl.closest('svg')) {
+    if (htmlEl.tagName === 'svg') {
       const stroke = htmlEl.getAttribute('stroke');
+      const fill = htmlEl.getAttribute('fill');
+      
       if (stroke === 'currentColor' || stroke === '#fff' || stroke === 'white') {
-        htmlEl.setAttribute('stroke', '#64748b');
+        htmlEl.setAttribute('stroke', pdfColors.darkGray);
+      }
+      if (fill === 'currentColor' || fill === '#fff' || fill === 'white') {
+        htmlEl.setAttribute('fill', pdfColors.darkGray);
       }
     }
     
-    // Clear any CSS custom properties that might use modern color functions
+    // Fix SVG path elements
+    if (htmlEl.tagName === 'path' || htmlEl.tagName === 'circle' || htmlEl.tagName === 'rect') {
+      const stroke = htmlEl.getAttribute('stroke');
+      const fill = htmlEl.getAttribute('fill');
+      
+      if (stroke === 'currentColor') {
+        htmlEl.setAttribute('stroke', pdfColors.darkGray);
+      }
+      if (fill === 'currentColor') {
+        htmlEl.setAttribute('fill', pdfColors.darkGray);
+      }
+    }
+    
+    // Clear any CSS custom properties and modern color functions
     const style = htmlEl.style;
-    for (let i = 0; i < style.length; i++) {
+    for (let i = style.length - 1; i >= 0; i--) {
       const prop = style[i];
       const value = style.getPropertyValue(prop);
-      if (value && (value.includes('oklab') || value.includes('oklch') || 
-          value.includes('color-mix') || value.includes('var(--'))) {
-        // Remove problematic custom property values
-        if (prop.includes('color') || prop.includes('background') || prop.includes('border')) {
+      
+      if (value && hasModernColorFunction(value)) {
+        // Replace with safe fallback based on property type
+        if (prop.includes('background')) {
+          style.setProperty(prop, pdfColors.white, 'important');
+        } else if (prop.includes('color') && !prop.includes('background')) {
+          style.setProperty(prop, pdfColors.text, 'important');
+        } else if (prop.includes('border')) {
+          style.setProperty(prop, pdfColors.gray, 'important');
+        } else {
           style.removeProperty(prop);
         }
       }
+    }
+    
+    // Force specific chart colors for Recharts
+    if (htmlEl.classList.contains('recharts-wrapper') || 
+        htmlEl.closest('.recharts-wrapper')) {
+      htmlEl.style.backgroundColor = pdfColors.white;
+    }
+    
+    // Fix chart text elements
+    if (htmlEl.tagName === 'text' || htmlEl.classList.contains('recharts-text')) {
+      htmlEl.style.fill = pdfColors.text;
+      htmlEl.setAttribute('fill', pdfColors.text);
     }
   });
   
@@ -434,6 +749,8 @@ function applyPDFStyles(element: HTMLElement): void {
     '.animate-spin',
     '[role="tooltip"]',
     '.tooltip',
+    'button[title*="Export"]',
+    'button[title*="PDF"]',
   ];
   
   hideSelectors.forEach(selector => {

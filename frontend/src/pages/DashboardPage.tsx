@@ -371,6 +371,9 @@ export function DashboardPage() {
         isLoading={aogSummaryLoading} 
       />
 
+      {/* Spacer for PDF page break - helps prevent Performance Trends from splitting */}
+      <div className="h-12" aria-hidden="true" />
+
       {/* Trends Section */}
       <CollapsibleSection title="Performance Trends" storageKey="trends" defaultExpanded={true}>
         <FilterBar className="w-fit mb-4">

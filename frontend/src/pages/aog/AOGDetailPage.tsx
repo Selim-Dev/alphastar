@@ -22,6 +22,7 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/Form';
 import { Breadcrumb } from '@/components/ui/Breadcrumb';
+import { Tabs, TabPanel } from '@/components/ui/Tabs';
 import { MilestoneTimeline, MilestoneEditForm, MilestoneHistory, NextStepActionPanel, PartsTab, CostsTab, AttachmentsTab, EventTimeline, RelatedEvents, AOGEventEditForm } from '@/components/aog';
 import { useAOGEventById, useAOGEvents } from '@/hooks/useAOGEvents';
 import { useAircraft } from '@/hooks/useAircraft';
@@ -91,15 +92,7 @@ function DetailPageSkeleton() {
   );
 }
 
-function TabButton({ id, label, icon: Icon, isActive, onClick, badge }: { id: TabId; label: string; icon: React.ElementType; isActive: boolean; onClick: () => void; badge?: number; }) {
-  void id;
-  return (
-    <button onClick={onClick} className={`flex items-center gap-2 px-4 py-2.5 rounded-lg font-medium transition-colors ${isActive ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-muted hover:text-foreground'}`}>
-      <Icon className="w-4 h-4" /><span>{label}</span>
-      {badge !== undefined && badge > 0 && (<span className={`px-1.5 py-0.5 text-xs rounded-full ${isActive ? 'bg-primary-foreground/20 text-primary-foreground' : 'bg-muted-foreground/20 text-muted-foreground'}`}>{badge}</span>)}
-    </button>
-  );
-}
+
 
 /** Simplified cost summary component */
 function SimplifiedCostSummary({ event }: { event: AOGEvent }) {
@@ -574,15 +567,18 @@ export function AOGDetailPage() {
       </motion.div>
 
       {/* Tabs Navigation */}
-      <div className="bg-card border border-border rounded-xl p-2">
-        <div className="flex flex-wrap gap-1">
-          <TabButton id="milestones" label="Milestones" icon={Clock} isActive={activeTab === 'milestones'} onClick={() => setActiveTab('milestones')} />
-          <TabButton id="history" label="History" icon={History} isActive={activeTab === 'history'} onClick={() => setActiveTab('history')} badge={event.milestoneHistory?.length} />
-          <TabButton id="parts" label="Parts" icon={Package} isActive={activeTab === 'parts'} onClick={() => setActiveTab('parts')} badge={event.partRequests?.length} />
-          <TabButton id="costs" label="Costs" icon={Wallet} isActive={activeTab === 'costs'} onClick={() => setActiveTab('costs')} />
-          <TabButton id="attachments" label="Attachments" icon={Paperclip} isActive={activeTab === 'attachments'} onClick={() => setActiveTab('attachments')} badge={event.attachments?.length} />
-        </div>
-      </div>
+      <Tabs
+        tabs={[
+          { id: 'milestones', label: 'Milestones', icon: Clock },
+          { id: 'history', label: 'History', icon: History, badge: event.milestoneHistory?.length },
+          { id: 'parts', label: 'Parts', icon: Package, badge: event.partRequests?.length },
+          { id: 'costs', label: 'Costs', icon: Wallet },
+          { id: 'attachments', label: 'Attachments', icon: Paperclip, badge: event.attachments?.length },
+        ]}
+        activeTab={activeTab}
+        onChange={(tabId) => setActiveTab(tabId as TabId)}
+        variant="pills"
+      />
 
       {/* Tab Content */}
       <motion.div

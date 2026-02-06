@@ -596,7 +596,7 @@ export function AOGAnalyticsPage() {
     { enabled: loadPriority2 }
   );
 
-  const { data: categoryBreakdownData, isLoading: isLoadingCategoryBreakdown } = useCategoryBreakdown(
+  const { data: categoryBreakdownData, isLoading: isLoadingCategoryBreakdown, error: categoryBreakdownError } = useCategoryBreakdown(
     {
       ...dateRange,
       aircraftId: aircraftFilter || undefined,
@@ -604,6 +604,20 @@ export function AOGAnalyticsPage() {
     },
     { enabled: loadPriority2 }
   );
+
+  // Debug logging for category breakdown
+  useEffect(() => {
+    if (loadPriority2) {
+      console.log('📊 Category Breakdown Debug:', {
+        isLoading: isLoadingCategoryBreakdown,
+        hasData: !!categoryBreakdownData,
+        dataLength: categoryBreakdownData?.length,
+        data: categoryBreakdownData,
+        error: categoryBreakdownError,
+        filters: { dateRange, aircraftFilter, fleetFilter },
+      });
+    }
+  }, [categoryBreakdownData, isLoadingCategoryBreakdown, categoryBreakdownError, loadPriority2, dateRange, aircraftFilter, fleetFilter]);
 
   // Priority 3: Nice-to-have analytics (loads after 1000ms)
   // These will be used by predictive analytics components in future tasks (9.x)
@@ -1275,8 +1289,20 @@ export function AOGAnalyticsPage() {
                 isLoading={false}
               />
             ) : (
-              <div className="h-80 flex items-center justify-center bg-muted/20 rounded-lg border border-border">
+              <div className="h-80 flex flex-col items-center justify-center bg-muted/20 rounded-lg border border-border gap-2">
                 <p className="text-sm text-muted-foreground">No category data available for the selected period</p>
+                {categoryBreakdownError && (
+                  <p className="text-xs text-destructive">Error: {String(categoryBreakdownError)}</p>
+                )}
+                {!isLoadingCategoryBreakdown && !categoryBreakdownData && (
+                  <p className="text-xs text-muted-foreground">Data is undefined - check console for details</p>
+                )}
+                {categoryBreakdownData && !Array.isArray(categoryBreakdownData) && (
+                  <p className="text-xs text-muted-foreground">Data format error - expected array, got {typeof categoryBreakdownData}</p>
+                )}
+                {categoryBreakdownData && Array.isArray(categoryBreakdownData) && categoryBreakdownData.length === 0 && (
+                  <p className="text-xs text-muted-foreground">API returned empty array - no events match the filters</p>
+                )}
               </div>
             )}
           </motion.div>

@@ -114,66 +114,41 @@ export function ExecutivePDFExport({
       // Force reflow
       wrapper.offsetHeight;
 
-      // CRITICAL: Strip OKLAB/OKLCH from stylesheets AND inline styles BEFORE html2canvas
-      // Step 1: Process all <style> tags in the document to remove OKLAB/OKLCH
-      const styleElements = document.querySelectorAll('style');
-      const originalStyles: Array<{ element: HTMLStyleElement; content: string }> = [];
+      // CRITICAL FIX: Inject CSS to override any oklab/oklch colors
+      // Create a temporary style element that forces all colors to their computed RGB values
+      const tempStyleId = 'pdf-export-color-fix-dashboard';
+      const tempStyle = document.createElement('style');
+      tempStyle.id = tempStyleId;
       
-      styleElements.forEach((styleEl) => {
-        const originalContent = styleEl.textContent || '';
-        originalStyles.push({ element: styleEl, content: originalContent });
-        
-        // Replace OKLAB/OKLCH with safe RGB fallbacks
-        let cleanedContent = originalContent;
-        cleanedContent = cleanedContent.replace(/oklab\([^)]+\)/gi, '#64748b');
-        cleanedContent = cleanedContent.replace(/oklch\([^)]+\)/gi, '#64748b');
-        cleanedContent = cleanedContent.replace(/color\(display-p3[^)]+\)/gi, '#64748b');
-        
-        styleEl.textContent = cleanedContent;
-      });
-
-      // Step 2: Set inline styles on wrapper elements to override any remaining OKLAB
+      // Build CSS rules for all elements with oklab/oklch colors
+      let cssRules = '';
       const allElements = wrapper.querySelectorAll('*');
-      allElements.forEach((el: Element) => {
-        const htmlEl = el as HTMLElement;
-        const computedStyle = window.getComputedStyle(htmlEl);
+      allElements.forEach((el, index) => {
+        const computedStyle = window.getComputedStyle(el);
+        const colorProps = ['color', 'background-color', 'border-color', 'fill', 'stroke'];
         
-        // Check and fix color properties that might use oklab/oklch
-        const colorProps = [
-          'color', 
-          'backgroundColor', 
-          'borderColor', 
-          'borderTopColor', 
-          'borderRightColor', 
-          'borderBottomColor', 
-          'borderLeftColor',
-        ];
+        let hasModernColor = false;
+        let rules = '';
         
         colorProps.forEach(prop => {
           const value = computedStyle.getPropertyValue(prop);
-          if (value && (value.includes('oklab') || value.includes('oklch') || value.includes('color(display-p3'))) {
-            // Set inline style with safe fallback to override computed style
-            const fallbackColor = prop.includes('background') ? '#ffffff' : 
-                                prop.includes('border') ? '#e2e8f0' : '#1f2937';
-            htmlEl.style.setProperty(prop, fallbackColor, 'important');
+          if (value && value !== 'rgba(0, 0, 0, 0)' && value !== 'transparent' && value !== 'none') {
+            rules += `${prop}: ${value} !important; `;
+            hasModernColor = true;
           }
         });
         
-        // Handle SVG elements separately
-        if (htmlEl.tagName === 'svg' || htmlEl.tagName === 'path' || htmlEl.tagName === 'circle' || htmlEl.tagName === 'rect') {
-          const fill = htmlEl.getAttribute('fill');
-          const stroke = htmlEl.getAttribute('stroke');
-          
-          if (fill && (fill.includes('oklab') || fill.includes('oklch'))) {
-            htmlEl.setAttribute('fill', '#64748b');
-          }
-          if (stroke && (stroke.includes('oklab') || stroke.includes('oklch'))) {
-            htmlEl.setAttribute('stroke', '#64748b');
-          }
+        if (hasModernColor) {
+          // Add a unique class to this element
+          el.classList.add(`pdf-color-fix-${index}`);
+          cssRules += `.pdf-color-fix-${index} { ${rules} }\n`;
         }
       });
+      
+      tempStyle.textContent = cssRules;
+      document.head.appendChild(tempStyle);
 
-      // Generate canvas - simplified approach matching AOG Analytics
+      // Generate canvas with proper color handling - matching AOG Analytics approach
       const canvas = await html2canvas(wrapper, {
         useCORS: true,
         logging: false,
@@ -183,6 +158,8 @@ export function ExecutivePDFExport({
         foreignObjectRendering: false, // Critical: prevents gradient and OKLCH issues
         imageTimeout: 15000,
         removeContainer: true,
+        windowWidth: wrapper.scrollWidth,
+        windowHeight: wrapper.scrollHeight,
         onclone: (clonedDoc: Document) => {
           const clonedWrapper = clonedDoc.getElementById('pdf-export-wrapper');
           if (clonedWrapper) {
@@ -195,15 +172,6 @@ export function ExecutivePDFExport({
             svgElements.forEach((svg: SVGElement) => {
               svg.style.visibility = 'visible';
               svg.style.display = 'block';
-              // Ensure SVG has explicit dimensions
-              if (!svg.getAttribute('width')) {
-                const rect = svg.getBoundingClientRect();
-                if (rect.width) svg.setAttribute('width', rect.width.toString());
-              }
-              if (!svg.getAttribute('height')) {
-                const rect = svg.getBoundingClientRect();
-                if (rect.height) svg.setAttribute('height', rect.height.toString());
-              }
             });
             
             // Force visibility on Recharts containers
@@ -213,45 +181,55 @@ export function ExecutivePDFExport({
               (container as HTMLElement).style.display = 'block';
             });
             
-            // FIX: Convert modern CSS color functions (oklab, oklch) to RGB
-            // html2canvas doesn't support these modern color spaces
-            const allElements = clonedWrapper.querySelectorAll('*');
-            allElements.forEach((el: Element) => {
-              const htmlEl = el as HTMLElement;
-              const computedStyle = window.getComputedStyle(el);
+            // CRITICAL FIX: Apply computed RGB colors as inline styles
+            // This overrides any oklab/oklch colors from stylesheets
+            const allClonedElements = clonedWrapper.querySelectorAll('*');
+            const allOriginalElements = wrapper.querySelectorAll('*');
+            
+            // Map cloned elements to original elements by index
+            allClonedElements.forEach((clonedEl, index) => {
+              if (index >= allOriginalElements.length) return;
               
-              // Convert color properties that might use oklab/oklch
+              const originalEl = allOriginalElements[index];
+              const clonedHtmlEl = clonedEl as HTMLElement;
+              const computedStyle = window.getComputedStyle(originalEl);
+              
+              // Apply ONLY color properties as inline styles with !important
+              // This overrides stylesheet colors while preserving other styles
               const colorProps = [
-                'color', 
-                'backgroundColor', 
-                'borderColor', 
-                'borderTopColor', 
-                'borderRightColor', 
-                'borderBottomColor', 
-                'borderLeftColor',
-                'fill',
-                'stroke'
+                'color',
+                'background-color',
+                'border-color',
+                'border-top-color',
+                'border-right-color',
+                'border-bottom-color',
+                'border-left-color',
               ];
               
               colorProps.forEach(prop => {
                 const value = computedStyle.getPropertyValue(prop);
-                if (value && (value.includes('oklab') || value.includes('oklch') || value.includes('color(display-p3'))) {
-                  // For SVG attributes, set directly
-                  if (prop === 'fill' || prop === 'stroke') {
-                    htmlEl.setAttribute(prop, '#64748b'); // Safe fallback color
-                  } else {
-                    // For CSS properties, set inline style with safe fallback
-                    const fallbackColor = prop.includes('background') ? '#ffffff' : 
-                                        prop.includes('border') ? '#e2e8f0' : '#1f2937';
-                    htmlEl.style.setProperty(prop, fallbackColor, 'important');
-                  }
+                if (value && value !== 'rgba(0, 0, 0, 0)' && value !== 'transparent' && value !== 'none') {
+                  clonedHtmlEl.style.setProperty(prop, value, 'important');
                 }
               });
+              
+              // Special handling for SVG elements (fill and stroke)
+              if (clonedEl.tagName.toLowerCase() === 'svg' || 
+                  clonedEl.tagName.toLowerCase() === 'path' ||
+                  clonedEl.tagName.toLowerCase() === 'circle' ||
+                  clonedEl.tagName.toLowerCase() === 'rect' ||
+                  clonedEl.tagName.toLowerCase() === 'line') {
+                const fill = computedStyle.getPropertyValue('fill');
+                const stroke = computedStyle.getPropertyValue('stroke');
+                
+                if (fill && fill !== 'none') {
+                  clonedHtmlEl.style.setProperty('fill', fill, 'important');
+                }
+                if (stroke && stroke !== 'none') {
+                  clonedHtmlEl.style.setProperty('stroke', stroke, 'important');
+                }
+              }
             });
-            
-            // Remove any elements marked as no-pdf
-            const noPdfElements = clonedWrapper.querySelectorAll('[data-no-pdf="true"]');
-            noPdfElements.forEach((el: Element) => el.remove());
             
             // Ensure all text is visible
             clonedWrapper.style.color = '#1f2937';
@@ -260,13 +238,19 @@ export function ExecutivePDFExport({
         },
       } as any);
 
+      if (!canvas || canvas.width === 0 || canvas.height === 0) {
+        throw new Error('Failed to capture dashboard content');
+      }
+
+      // Clean up temporary style and classes
+      const tempStyleEl = document.getElementById(tempStyleId);
+      if (tempStyleEl) tempStyleEl.remove();
+      allElements.forEach((el, index) => {
+        el.classList.remove(`pdf-color-fix-${index}`);
+      });
+
       // Remove the wrapper from DOM
       document.body.removeChild(wrapper);
-
-      // Restore original stylesheets
-      originalStyles.forEach(({ element, content }) => {
-        element.textContent = content;
-      });
 
       // Calculate PDF dimensions (A4 format)
       const imgWidth = 210; // A4 width in mm

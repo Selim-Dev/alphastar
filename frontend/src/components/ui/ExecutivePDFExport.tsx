@@ -167,6 +167,30 @@ export function ExecutivePDFExport({
         scale: 2, // Higher quality
         removeContainer: false,
         imageTimeout: 0,
+        ignoreElements: (element) => {
+          // Skip elements that might cause gradient issues
+          const tagName = element.tagName?.toLowerCase();
+          const classList = element.classList;
+          
+          // Skip problematic elements
+          if (tagName === 'canvas') return true;
+          if (classList?.contains('recharts-surface')) return false; // Keep Recharts
+          if (element.getAttribute('data-no-pdf')) return true;
+          
+          // Check for gradient usage in styles
+          const style = (element as HTMLElement).style;
+          if (style) {
+            const bgImage = style.backgroundImage;
+            if (bgImage && bgImage.includes('gradient')) {
+              // Check if gradient has valid values
+              if (bgImage.includes('NaN') || bgImage.includes('Infinity') || bgImage.includes('undefined')) {
+                return true; // Skip this element
+              }
+            }
+          }
+          
+          return false;
+        },
         onclone: (clonedDoc: Document) => {
           // Strip all CSS custom properties and modern color functions from stylesheets
           stripModernColorsFromDocument(clonedDoc);
@@ -184,6 +208,9 @@ export function ExecutivePDFExport({
             
             // Sanitize SVG gradients to prevent non-finite values
             sanitizeSVGGradients(clonedWrapper);
+            
+            // Remove all CSS gradients that might have NaN values
+            removeProblematicGradients(clonedWrapper);
             
             // Force all text to be visible
             const allText = clonedWrapper.querySelectorAll('*');
@@ -940,6 +967,65 @@ function sanitizeSVGGradients(element: HTMLElement): void {
         // If parsing fails, use solid color
         style.backgroundImage = 'none';
         style.backgroundColor = '#f1f5f9';
+      }
+    }
+  });
+}
+
+/**
+ * Remove all CSS gradients that might contain non-finite values
+ * This is a more aggressive approach to prevent gradient errors
+ */
+function removeProblematicGradients(element: HTMLElement): void {
+  const allElements = element.querySelectorAll('*');
+  
+  allElements.forEach(el => {
+    const htmlEl = el as HTMLElement;
+    const computed = window.getComputedStyle(htmlEl);
+    
+    // Check background-image
+    const bgImage = computed.backgroundImage;
+    if (bgImage && bgImage !== 'none' && (bgImage.includes('gradient'))) {
+      // Parse gradient to check for NaN/Infinity
+      const hasInvalidValue = /NaN|Infinity|undefined/.test(bgImage);
+      
+      if (hasInvalidValue) {
+        // Remove gradient, use solid color
+        htmlEl.style.backgroundImage = 'none !important';
+        htmlEl.style.backgroundColor = '#f1f5f9';
+      } else {
+        // Try to extract color stops and validate them
+        const colorStopPattern = /rgba?\([^)]+\)|#[0-9a-fA-F]{3,8}|[a-z]+/gi;
+        const stops = bgImage.match(colorStopPattern);
+        
+        if (stops) {
+          // Check if any stops have invalid percentages
+          const percentPattern = /(\d+\.?\d*|\.\d+)%/g;
+          const percentages = bgImage.match(percentPattern);
+          
+          if (percentages) {
+            const hasInvalidPercent = percentages.some(p => {
+              const num = parseFloat(p);
+              return !isFinite(num) || isNaN(num);
+            });
+            
+            if (hasInvalidPercent) {
+              htmlEl.style.backgroundImage = 'none !important';
+              htmlEl.style.backgroundColor = '#f1f5f9';
+            }
+          }
+        }
+      }
+    }
+    
+    // Also check inline style
+    const inlineStyle = htmlEl.getAttribute('style') || '';
+    if (inlineStyle.includes('gradient')) {
+      const hasInvalidValue = /NaN|Infinity|undefined/.test(inlineStyle);
+      if (hasInvalidValue) {
+        // Remove the gradient from inline style
+        const cleanedStyle = inlineStyle.replace(/background-image:[^;]+;?/gi, '');
+        htmlEl.setAttribute('style', cleanedStyle + '; background-color: #f1f5f9;');
       }
     }
   });

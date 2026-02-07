@@ -134,7 +134,12 @@ export function DataQualityIndicator({
       {/* Badge button */}
       <button
         onClick={() => setIsExpanded(!isExpanded)}
-        className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full transition-all shadow-sm ${badgeConfig.bgColor} ${badgeConfig.textColor} hover:opacity-90`}
+        className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full transition-all shadow-sm ${badgeConfig.bgColor} ${badgeConfig.textColor} hover:opacity-90 pdf-badge`}
+        style={{ 
+          // Ensure solid colors for PDF export
+          backgroundColor: data.isStale ? '#ef4444' : hasWarnings ? '#f59e0b' : '#22c55e',
+          color: '#ffffff'
+        }}
       >
         <StatusIcon className="w-4 h-4" />
         <span className="text-xs font-medium">{badgeConfig.label}</span>
@@ -149,7 +154,7 @@ export function DataQualityIndicator({
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -10, scale: 0.95 }}
             transition={{ duration: 0.15 }}
-            className="absolute right-0 top-full mt-2 w-72 bg-card border border-border rounded-xl shadow-lg z-50 overflow-hidden"
+            className="absolute right-0 top-full mt-2 w-72 bg-white dark:bg-gray-800 border border-border rounded-xl shadow-lg z-50 overflow-hidden"
           >
             <div className="p-4">
               <div className="flex items-center justify-between mb-3">

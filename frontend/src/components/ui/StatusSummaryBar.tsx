@@ -38,7 +38,7 @@ export function StatusSummaryBar({ active, inMaintenance, aog, total, isLoading 
       </div>
       
       {/* Status Bar */}
-      <div className="h-8 flex rounded-full overflow-hidden bg-muted/30">
+      <div className="h-8 flex rounded-full overflow-hidden bg-muted/30" style={{ backgroundColor: '#f3f4f6' }}>
         {segments.map((segment, index) => (
           segment.percentage > 0 && (
             <motion.div
@@ -47,7 +47,11 @@ export function StatusSummaryBar({ active, inMaintenance, aog, total, isLoading 
               animate={{ width: `${segment.percentage}%` }}
               transition={{ duration: 0.8, delay: index * 0.1, ease: 'easeOut' }}
               onClick={() => navigate('/availability')}
-              className={`${segment.color} ${segment.hoverColor} cursor-pointer transition-colors relative group`}
+              className={`${segment.color} ${segment.hoverColor} cursor-pointer transition-colors relative group pdf-status-segment`}
+              style={{
+                // Ensure solid colors for PDF export
+                backgroundColor: segment.label === 'Active' ? '#22c55e' : segment.label === 'Maintenance' ? '#f59e0b' : '#ef4444'
+              }}
               title={`${segment.label}: ${segment.count} (${segment.percentage.toFixed(1)}%)`}
             >
               {/* Tooltip */}
@@ -63,7 +67,12 @@ export function StatusSummaryBar({ active, inMaintenance, aog, total, isLoading 
       <div className="flex items-center justify-center gap-6 mt-3">
         {segments.map((segment) => (
           <div key={segment.label} className="flex items-center gap-2">
-            <div className={`w-3 h-3 rounded-full ${segment.color}`} />
+            <div 
+              className={`w-3 h-3 rounded-full ${segment.color}`}
+              style={{
+                backgroundColor: segment.label === 'Active' ? '#22c55e' : segment.label === 'Maintenance' ? '#f59e0b' : '#ef4444'
+              }}
+            />
             <span className="text-xs text-muted-foreground">
               {segment.label} ({segment.count})
             </span>

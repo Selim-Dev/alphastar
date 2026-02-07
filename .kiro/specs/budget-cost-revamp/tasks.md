@@ -392,6 +392,13 @@ This implementation plan breaks down the Budget & Cost Revamp feature into discr
     - Mark old "Budget & Cost" as deprecated (comment out or hide)
     - _Requirements: 9.3_
 
+  - [ ] 19.3 Comment out budget plan section on data import page
+    - Locate the budget plan import section in the Data Import page (frontend)
+    - Comment out or hide the budget plan import UI components
+    - Add a note directing users to the new Budget Projects module
+    - Ensure no broken links or references remain
+    - _Requirements: 9.3_
+
 - [ ] 20. Implement security and authorization
   - [ ]* 20.1 Write property test for authentication requirement
     - **Property 27: Authentication Requirement**

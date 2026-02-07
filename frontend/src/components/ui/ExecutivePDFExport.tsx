@@ -114,6 +114,48 @@ export function ExecutivePDFExport({
       // Force reflow
       wrapper.offsetHeight;
 
+      // CRITICAL: Strip OKLAB/OKLCH from all stylesheets BEFORE html2canvas processes them
+      // This must happen on the wrapper element before html2canvas clones it
+      const allElements = wrapper.querySelectorAll('*');
+      allElements.forEach((el: Element) => {
+        const htmlEl = el as HTMLElement;
+        const computedStyle = window.getComputedStyle(htmlEl);
+        
+        // Check and fix color properties that might use oklab/oklch
+        const colorProps = [
+          'color', 
+          'backgroundColor', 
+          'borderColor', 
+          'borderTopColor', 
+          'borderRightColor', 
+          'borderBottomColor', 
+          'borderLeftColor',
+        ];
+        
+        colorProps.forEach(prop => {
+          const value = computedStyle.getPropertyValue(prop);
+          if (value && (value.includes('oklab') || value.includes('oklch') || value.includes('color(display-p3'))) {
+            // Set inline style with safe fallback to override computed style
+            const fallbackColor = prop.includes('background') ? '#ffffff' : 
+                                prop.includes('border') ? '#e2e8f0' : '#1f2937';
+            htmlEl.style.setProperty(prop, fallbackColor, 'important');
+          }
+        });
+        
+        // Handle SVG elements separately
+        if (htmlEl.tagName === 'svg' || htmlEl.tagName === 'path' || htmlEl.tagName === 'circle' || htmlEl.tagName === 'rect') {
+          const fill = htmlEl.getAttribute('fill');
+          const stroke = htmlEl.getAttribute('stroke');
+          
+          if (fill && (fill.includes('oklab') || fill.includes('oklch'))) {
+            htmlEl.setAttribute('fill', '#64748b');
+          }
+          if (stroke && (stroke.includes('oklab') || stroke.includes('oklch'))) {
+            htmlEl.setAttribute('stroke', '#64748b');
+          }
+        }
+      });
+
       // Generate canvas - simplified approach matching AOG Analytics
       const canvas = await html2canvas(wrapper, {
         useCORS: true,

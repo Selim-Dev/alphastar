@@ -376,14 +376,51 @@ export function EnhancedAOGAnalyticsPDFExport({
       console.log(`Capturing section: ${sectionId} (${element.offsetWidth}x${element.offsetHeight})`);
       await waitForChartsToRender(element, 8000);
 
+      // FIX: Pre-convert modern CSS colors (oklab, oklch) to RGB before cloning
+      // html2canvas doesn't support these modern color spaces
+      const elementsWithModernColors: Array<{element: HTMLElement, prop: string, originalValue: string, rgbValue: string}> = [];
+      const allElements = element.querySelectorAll('*');
+      
+      allElements.forEach((el: Element) => {
+        const htmlEl = el as HTMLElement;
+        const computedStyle = window.getComputedStyle(el);
+        
+        // Check color properties that might use oklab/oklch
+        const colorProps = [
+          'color', 
+          'backgroundColor', 
+          'borderColor', 
+          'borderTopColor', 
+          'borderRightColor', 
+          'borderBottomColor', 
+          'borderLeftColor',
+        ];
+        
+        colorProps.forEach(prop => {
+          const value = computedStyle.getPropertyValue(prop);
+          if (value && (value.includes('oklab') || value.includes('oklch'))) {
+            // Store the RGB equivalent
+            const rgbValue = computedStyle.getPropertyValue(prop); // Browser already computed it to RGB
+            elementsWithModernColors.push({
+              element: htmlEl,
+              prop,
+              originalValue: value,
+              rgbValue: rgbValue
+            });
+          }
+        });
+      });
+
+      console.log(`Found ${elementsWithModernColors.length} elements with modern color functions`);
+
       // Capture as canvas with high resolution and SVG support
       const canvas = await html2canvas(element, {
         useCORS: true,
-        logging: true, // Enable logging to see what's happening
+        logging: false, // Disable logging to reduce noise
         backgroundColor: '#ffffff',
         scale: 2, // Higher resolution
         allowTaint: false,
-        foreignObjectRendering: false, // Disable for better SVG support
+        foreignObjectRendering: true, // Enable for better modern CSS support
         imageTimeout: 15000,
         removeContainer: true,
         windowWidth: element.scrollWidth,
@@ -416,45 +453,46 @@ export function EnhancedAOGAnalyticsPDFExport({
               (container as HTMLElement).style.display = 'block';
             });
             
-            // FIX: Convert modern CSS color functions (oklab, oklch) to RGB
-            // html2canvas doesn't support these modern color spaces
-            const allElements = clonedElement.querySelectorAll('*');
-            allElements.forEach((el: Element) => {
-              const htmlEl = el as HTMLElement;
-              const computedStyle = window.getComputedStyle(el);
+            // Apply RGB color conversions to cloned elements
+            // We need to traverse the cloned DOM and apply inline styles
+            const clonedAllElements = clonedElement.querySelectorAll('*');
+            let colorConversionCount = 0;
+            
+            clonedAllElements.forEach((clonedEl: Element) => {
+              const clonedHtmlEl = clonedEl as HTMLElement;
               
-              // Convert color properties that might use oklab/oklch
+              // Get the original element to read computed styles
+              const originalEl = document.getElementById(clonedEl.id) || 
+                                Array.from(element.querySelectorAll('*')).find(el => 
+                                  el.className === clonedEl.className && 
+                                  el.tagName === clonedEl.tagName
+                                );
+              
+              if (!originalEl) return;
+              
+              // Force all color properties to use standard RGB/hex values from computed style
+              const computedStyle = window.getComputedStyle(originalEl);
               const colorProps = [
-                'color', 
-                'backgroundColor', 
-                'borderColor', 
-                'borderTopColor', 
-                'borderRightColor', 
-                'borderBottomColor', 
-                'borderLeftColor',
-                'fill',
-                'stroke'
+                { css: 'color', style: 'color' },
+                { css: 'background-color', style: 'backgroundColor' },
+                { css: 'border-color', style: 'borderColor' },
+                { css: 'border-top-color', style: 'borderTopColor' },
+                { css: 'border-right-color', style: 'borderRightColor' },
+                { css: 'border-bottom-color', style: 'borderBottomColor' },
+                { css: 'border-left-color', style: 'borderLeftColor' },
               ];
               
-              colorProps.forEach(prop => {
-                const value = computedStyle.getPropertyValue(prop);
-                if (value && (value.includes('oklab') || value.includes('oklch'))) {
-                  // Get the computed RGB value
-                  const tempDiv = clonedDoc.createElement('div');
-                  tempDiv.style.color = value;
-                  clonedDoc.body.appendChild(tempDiv);
-                  const rgbValue = window.getComputedStyle(tempDiv).color;
-                  clonedDoc.body.removeChild(tempDiv);
-                  
-                  // Apply the RGB value
-                  if (prop === 'fill' || prop === 'stroke') {
-                    htmlEl.setAttribute(prop, rgbValue);
-                  } else {
-                    htmlEl.style.setProperty(prop, rgbValue, 'important');
-                  }
+              colorProps.forEach(({ css }) => {
+                const value = computedStyle.getPropertyValue(css);
+                // If it's a valid color, set it as inline style to override any oklab/oklch
+                if (value && value !== 'rgba(0, 0, 0, 0)' && value !== 'transparent' && value !== 'none') {
+                  clonedHtmlEl.style.setProperty(css, value, 'important');
+                  colorConversionCount++;
                 }
               });
             });
+            
+            console.log(`Applied ${colorConversionCount} color conversions in ${sectionId}`);
           }
         },
       } as any);

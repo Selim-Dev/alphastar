@@ -154,6 +154,42 @@ export function ExecutivePDFExport({
               (container as HTMLElement).style.display = 'block';
             });
             
+            // FIX: Convert modern CSS color functions (oklab, oklch) to RGB
+            // html2canvas doesn't support these modern color spaces
+            const allElements = clonedWrapper.querySelectorAll('*');
+            allElements.forEach((el: Element) => {
+              const htmlEl = el as HTMLElement;
+              const computedStyle = window.getComputedStyle(el);
+              
+              // Convert color properties that might use oklab/oklch
+              const colorProps = [
+                'color', 
+                'backgroundColor', 
+                'borderColor', 
+                'borderTopColor', 
+                'borderRightColor', 
+                'borderBottomColor', 
+                'borderLeftColor',
+                'fill',
+                'stroke'
+              ];
+              
+              colorProps.forEach(prop => {
+                const value = computedStyle.getPropertyValue(prop);
+                if (value && (value.includes('oklab') || value.includes('oklch') || value.includes('color(display-p3'))) {
+                  // For SVG attributes, set directly
+                  if (prop === 'fill' || prop === 'stroke') {
+                    htmlEl.setAttribute(prop, '#64748b'); // Safe fallback color
+                  } else {
+                    // For CSS properties, set inline style with safe fallback
+                    const fallbackColor = prop.includes('background') ? '#ffffff' : 
+                                        prop.includes('border') ? '#e2e8f0' : '#1f2937';
+                    htmlEl.style.setProperty(prop, fallbackColor, 'important');
+                  }
+                }
+              });
+            });
+            
             // Remove any elements marked as no-pdf
             const noPdfElements = clonedWrapper.querySelectorAll('[data-no-pdf="true"]');
             noPdfElements.forEach((el: Element) => el.remove());

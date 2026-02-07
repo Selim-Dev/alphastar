@@ -415,6 +415,46 @@ export function EnhancedAOGAnalyticsPDFExport({
               (container as HTMLElement).style.visibility = 'visible';
               (container as HTMLElement).style.display = 'block';
             });
+            
+            // FIX: Convert modern CSS color functions (oklab, oklch) to RGB
+            // html2canvas doesn't support these modern color spaces
+            const allElements = clonedElement.querySelectorAll('*');
+            allElements.forEach((el: Element) => {
+              const htmlEl = el as HTMLElement;
+              const computedStyle = window.getComputedStyle(el);
+              
+              // Convert color properties that might use oklab/oklch
+              const colorProps = [
+                'color', 
+                'backgroundColor', 
+                'borderColor', 
+                'borderTopColor', 
+                'borderRightColor', 
+                'borderBottomColor', 
+                'borderLeftColor',
+                'fill',
+                'stroke'
+              ];
+              
+              colorProps.forEach(prop => {
+                const value = computedStyle.getPropertyValue(prop);
+                if (value && (value.includes('oklab') || value.includes('oklch'))) {
+                  // Get the computed RGB value
+                  const tempDiv = clonedDoc.createElement('div');
+                  tempDiv.style.color = value;
+                  clonedDoc.body.appendChild(tempDiv);
+                  const rgbValue = window.getComputedStyle(tempDiv).color;
+                  clonedDoc.body.removeChild(tempDiv);
+                  
+                  // Apply the RGB value
+                  if (prop === 'fill' || prop === 'stroke') {
+                    htmlEl.setAttribute(prop, rgbValue);
+                  } else {
+                    htmlEl.style.setProperty(prop, rgbValue, 'important');
+                  }
+                }
+              });
+            });
           }
         },
       } as any);
@@ -512,11 +552,6 @@ export function EnhancedAOGAnalyticsPDFExport({
     setProgress(0);
 
     try {
-      // Pre-check: Ensure we have data to export
-      if (summary.totalEvents === 0) {
-        throw new Error('No data available to export. Please adjust your filters or date range.');
-      }
-
       // Pre-check: Wait for all sections to be present in DOM
       const requiredSections = [
         'bucket-summary-cards-section',

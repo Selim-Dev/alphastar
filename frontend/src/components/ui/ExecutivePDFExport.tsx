@@ -182,6 +182,9 @@ export function ExecutivePDFExport({
             // Apply PDF-safe styles to the cloned content
             applyPDFStyles(clonedWrapper);
             
+            // Sanitize SVG gradients to prevent non-finite values
+            sanitizeSVGGradients(clonedWrapper);
+            
             // Force all text to be visible
             const allText = clonedWrapper.querySelectorAll('*');
             allText.forEach(el => {
@@ -826,6 +829,119 @@ function applyPDFStyles(element: HTMLElement): void {
     element.querySelectorAll(selector).forEach(el => {
       (el as HTMLElement).style.display = 'none';
     });
+  });
+}
+
+/**
+ * Sanitize SVG gradients to prevent non-finite values
+ * This fixes the "addColorStop: non-finite value" error
+ */
+function sanitizeSVGGradients(element: HTMLElement): void {
+  // Find all SVG elements
+  const svgs = element.querySelectorAll('svg');
+  
+  svgs.forEach(svg => {
+    // Find all gradient elements (linearGradient, radialGradient)
+    const gradients = svg.querySelectorAll('linearGradient, radialGradient');
+    
+    gradients.forEach(gradient => {
+      // Check gradient attributes for non-finite values
+      ['x1', 'y1', 'x2', 'y2', 'cx', 'cy', 'r', 'fx', 'fy'].forEach(attr => {
+        const value = gradient.getAttribute(attr);
+        if (value) {
+          const numValue = parseFloat(value);
+          if (!isFinite(numValue) || isNaN(numValue)) {
+            // Set to safe default based on attribute
+            const defaultValue = ['x2', 'r'].includes(attr) ? '100%' : '0%';
+            gradient.setAttribute(attr, defaultValue);
+          }
+        }
+      });
+      
+      // Check all stop elements within the gradient
+      const stops = gradient.querySelectorAll('stop');
+      stops.forEach(stop => {
+        const offset = stop.getAttribute('offset');
+        if (offset) {
+          const numValue = parseFloat(offset);
+          if (!isFinite(numValue) || isNaN(numValue)) {
+            // Set to safe default (0% or 100%)
+            stop.setAttribute('offset', '0%');
+          } else if (numValue < 0) {
+            stop.setAttribute('offset', '0%');
+          } else if (numValue > 1 && !offset.includes('%')) {
+            stop.setAttribute('offset', '100%');
+          }
+        }
+        
+        // Check stop-opacity
+        const opacity = stop.getAttribute('stop-opacity');
+        if (opacity) {
+          const numValue = parseFloat(opacity);
+          if (!isFinite(numValue) || isNaN(numValue)) {
+            stop.setAttribute('stop-opacity', '1');
+          } else if (numValue < 0) {
+            stop.setAttribute('stop-opacity', '0');
+          } else if (numValue > 1) {
+            stop.setAttribute('stop-opacity', '1');
+          }
+        }
+      });
+    });
+    
+    // Also check for any elements with gradient fills/strokes
+    const elementsWithGradients = svg.querySelectorAll('[fill^="url("], [stroke^="url("]');
+    elementsWithGradients.forEach(el => {
+      const fill = el.getAttribute('fill');
+      const stroke = el.getAttribute('stroke');
+      
+      // If gradient reference is broken, replace with solid color
+      if (fill && fill.startsWith('url(')) {
+        const gradientId = fill.match(/#([^)]+)/)?.[1];
+        if (gradientId) {
+          const gradientEl = svg.querySelector(`#${gradientId}`);
+          if (!gradientEl) {
+            // Gradient doesn't exist, use solid color
+            el.setAttribute('fill', '#64748b');
+          }
+        }
+      }
+      
+      if (stroke && stroke.startsWith('url(')) {
+        const gradientId = stroke.match(/#([^)]+)/)?.[1];
+        if (gradientId) {
+          const gradientEl = svg.querySelector(`#${gradientId}`);
+          if (!gradientEl) {
+            // Gradient doesn't exist, use solid color
+            el.setAttribute('stroke', '#64748b');
+          }
+        }
+      }
+    });
+  });
+  
+  // Also check for CSS gradients in styles
+  const allElements = element.querySelectorAll('*');
+  allElements.forEach(el => {
+    const htmlEl = el as HTMLElement;
+    const style = htmlEl.style;
+    
+    // Check background-image for gradients
+    const bgImage = style.backgroundImage;
+    if (bgImage && (bgImage.includes('gradient') || bgImage.includes('linear-gradient') || bgImage.includes('radial-gradient'))) {
+      // Try to parse and validate gradient
+      try {
+        // If gradient has NaN or Infinity, replace with solid color
+        if (bgImage.includes('NaN') || bgImage.includes('Infinity')) {
+          style.backgroundImage = 'none';
+          style.backgroundColor = '#f1f5f9';
+        }
+      } catch {
+        // If parsing fails, use solid color
+        style.backgroundImage = 'none';
+        style.backgroundColor = '#f1f5f9';
+      }
+    }
   });
 }
 

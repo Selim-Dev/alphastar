@@ -1230,9 +1230,9 @@ export function AOGAnalyticsPage() {
         </AnalyticsSectionErrorBoundary>
       </motion.div>
 
-      {/* Root Cause Analysis Section */}
+      {/* Root Cause Analysis Section - Part 1 (Pareto and Category) */}
       <motion.div
-        id="root-cause-section"
+        id="root-cause-section-part1"
         className="space-y-6 mt-12"
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -1307,7 +1307,16 @@ export function AOGAnalyticsPage() {
             )}
           </motion.div>
         </AnalyticsSectionErrorBoundary>
+      </motion.div>
 
+      {/* Root Cause Analysis Section - Part 2 (Responsibility Distribution) */}
+      <motion.div
+        id="root-cause-section-part2"
+        className="space-y-6 mt-6"
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.3, delay: 0.65 }}
+      >
         {/* Responsibility Distribution Chart */}
         <AnalyticsSectionErrorBoundary sectionName="Responsibility Distribution">
           <motion.div

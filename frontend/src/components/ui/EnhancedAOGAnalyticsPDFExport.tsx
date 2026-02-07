@@ -265,7 +265,7 @@ export function EnhancedAOGAnalyticsPDFExport({
         { label: 'Active AOG', value: summary.activeEvents.toLocaleString() },
         { label: 'Total Downtime', value: `${summary.totalDowntimeHours.toFixed(1)} hrs` },
         { label: 'Avg Downtime', value: `${summary.averageDowntimeHours.toFixed(1)} hrs` },
-        { label: 'Total Cost', value: summary.totalCost !== undefined ? `$${(summary.totalCost / 1000).toFixed(0)}K` : 'N/A' },
+        { label: 'Total Cost', value: summary.totalCost !== undefined ? `${(summary.totalCost / 1000).toFixed(0)}K` : 'N/A' },
       ];
 
       stats.forEach((stat, index) => {
@@ -312,7 +312,7 @@ export function EnhancedAOGAnalyticsPDFExport({
       const emptyStates = element.querySelectorAll('[class*="empty-state"]');
       
       // Check if there are actual chart elements (SVG or canvas)
-      const chartElements = element.querySelectorAll('svg, canvas, [class*="recharts"]');
+      // const chartElements = element.querySelectorAll('svg, canvas, [class*="recharts"]');
       
       // Check if SVG elements have actual content (paths, rects, etc.)
       const svgWithContent = Array.from(element.querySelectorAll('svg')).filter(svg => {
@@ -320,19 +320,15 @@ export function EnhancedAOGAnalyticsPDFExport({
         return hasContent !== null;
       });
       
-      console.log(`Waiting for charts in ${element.id}: loading=${loadingElements.length}, charts=${chartElements.length}, svgWithContent=${svgWithContent.length}`);
-      
       // If no loading elements and we have chart elements with content, we're good
       if (loadingElements.length === 0 && svgWithContent.length > 0) {
         // Wait a bit more for animations to complete
-        console.log(`Charts ready in ${element.id}, waiting for animations...`);
         await new Promise(resolve => setTimeout(resolve, 1000));
         return true;
       }
       
       // If we only have empty states and no loading, the section is empty but ready
       if (loadingElements.length === 0 && emptyStates.length > 0) {
-        console.log(`Section ${element.id} has empty state, proceeding`);
         return true;
       }
       
@@ -341,13 +337,14 @@ export function EnhancedAOGAnalyticsPDFExport({
     }
     
     // Timeout reached, but proceed anyway
-    console.warn(`Timeout waiting for charts in ${element.id}, proceeding with capture`);
     return false;
   };
 
   /**
    * Capture a section as canvas and add to PDF
    * Requirements: FR-4.2, FR-4.3
+   * 
+   * CRITICAL FIX: Handles oklab/oklch colors by applying computed RGB values as inline styles
    */
   const captureSection = async (
     pdf: jsPDF,
@@ -363,146 +360,152 @@ export function EnhancedAOGAnalyticsPDFExport({
 
       // Scroll the element into view to ensure it's rendered
       element.scrollIntoView({ behavior: 'instant', block: 'start' });
-      await new Promise(resolve => setTimeout(resolve, 500)); // Wait for scroll and render
+      await new Promise(resolve => setTimeout(resolve, 500));
 
       // Check if element has content
       const hasContent = element.offsetHeight > 0 && element.offsetWidth > 0;
       if (!hasContent) {
-        console.warn(`Section ${sectionId} has no content (height: ${element.offsetHeight}, width: ${element.offsetWidth}), skipping`);
+        console.warn(`Section ${sectionId} has no content`);
         return false;
       }
 
-      // Wait for charts to render (with timeout)
-      console.log(`Capturing section: ${sectionId} (${element.offsetWidth}x${element.offsetHeight})`);
+      // Wait for charts to render
       await waitForChartsToRender(element, 8000);
 
-      // FIX: Pre-convert modern CSS colors (oklab, oklch) to RGB before cloning
-      // html2canvas doesn't support these modern color spaces
-      const elementsWithModernColors: Array<{element: HTMLElement, prop: string, originalValue: string, rgbValue: string}> = [];
-      const allElements = element.querySelectorAll('*');
+      // CRITICAL FIX: Inject CSS to override any oklab/oklch colors
+      // Create a temporary style element that forces all colors to their computed RGB values
+      const tempStyleId = `pdf-export-color-fix-${sectionId}`;
+      const tempStyle = document.createElement('style');
+      tempStyle.id = tempStyleId;
       
-      allElements.forEach((el: Element) => {
-        const htmlEl = el as HTMLElement;
+      // Build CSS rules for all elements with oklab/oklch colors
+      let cssRules = '';
+      const allElements = element.querySelectorAll('*');
+      allElements.forEach((el, index) => {
         const computedStyle = window.getComputedStyle(el);
+        const colorProps = ['color', 'background-color', 'border-color', 'fill', 'stroke'];
         
-        // Check color properties that might use oklab/oklch
-        const colorProps = [
-          'color', 
-          'backgroundColor', 
-          'borderColor', 
-          'borderTopColor', 
-          'borderRightColor', 
-          'borderBottomColor', 
-          'borderLeftColor',
-        ];
+        let hasModernColor = false;
+        let rules = '';
         
         colorProps.forEach(prop => {
           const value = computedStyle.getPropertyValue(prop);
-          if (value && (value.includes('oklab') || value.includes('oklch'))) {
-            // Store the RGB equivalent
-            const rgbValue = computedStyle.getPropertyValue(prop); // Browser already computed it to RGB
-            elementsWithModernColors.push({
-              element: htmlEl,
-              prop,
-              originalValue: value,
-              rgbValue: rgbValue
-            });
+          if (value && value !== 'rgba(0, 0, 0, 0)' && value !== 'transparent' && value !== 'none') {
+            rules += `${prop}: ${value} !important; `;
+            hasModernColor = true;
           }
         });
+        
+        if (hasModernColor) {
+          // Add a unique class to this element
+          el.classList.add(`pdf-color-fix-${index}`);
+          cssRules += `.pdf-color-fix-${index} { ${rules} }\n`;
+        }
       });
+      
+      tempStyle.textContent = cssRules;
+      document.head.appendChild(tempStyle);
 
-      console.log(`Found ${elementsWithModernColors.length} elements with modern color functions`);
-
-      // Capture as canvas with high resolution and SVG support
+      // Capture as canvas with proper color handling
       const canvas = await html2canvas(element, {
         useCORS: true,
-        logging: false, // Disable logging to reduce noise
+        logging: false,
         backgroundColor: '#ffffff',
-        scale: 2, // Higher resolution
+        scale: 2,
         allowTaint: false,
-        foreignObjectRendering: true, // Enable for better modern CSS support
+        foreignObjectRendering: false, // Keep false for SVG support
         imageTimeout: 15000,
         removeContainer: true,
         windowWidth: element.scrollWidth,
         windowHeight: element.scrollHeight,
         onclone: (clonedDoc: Document) => {
-          // Remove any loading skeletons from the cloned document
           const clonedElement = clonedDoc.getElementById(sectionId);
-          if (clonedElement) {
-            const loadingElements = clonedElement.querySelectorAll('[class*="skeleton"], [class*="loading"], [class*="spinner"]');
-            loadingElements.forEach((el: Element) => el.remove());
+          if (!clonedElement) return;
+
+          // Remove loading elements
+          const loadingElements = clonedElement.querySelectorAll('[class*="skeleton"], [class*="loading"], [class*="spinner"]');
+          loadingElements.forEach((el: Element) => el.remove());
+          
+          // Force visibility on SVG elements
+          const svgElements = clonedElement.querySelectorAll('svg');
+          svgElements.forEach((svg: SVGElement) => {
+            svg.style.visibility = 'visible';
+            svg.style.display = 'block';
+          });
+          
+          // Force visibility on Recharts containers
+          const rechartsContainers = clonedElement.querySelectorAll('[class*="recharts"]');
+          rechartsContainers.forEach((container: Element) => {
+            (container as HTMLElement).style.visibility = 'visible';
+            (container as HTMLElement).style.display = 'block';
+          });
+          
+          // CRITICAL FIX: Apply computed RGB colors as inline styles
+          // This overrides any oklab/oklch colors from stylesheets
+          const allClonedElements = clonedElement.querySelectorAll('*');
+          const allOriginalElements = element.querySelectorAll('*');
+          
+          // Map cloned elements to original elements by index
+          allClonedElements.forEach((clonedEl, index) => {
+            if (index >= allOriginalElements.length) return;
             
-            // Force visibility on all SVG elements
-            const svgElements = clonedElement.querySelectorAll('svg');
-            svgElements.forEach((svg: SVGElement) => {
-              svg.style.visibility = 'visible';
-              svg.style.display = 'block';
-              // Ensure SVG has explicit dimensions
-              if (!svg.getAttribute('width')) {
-                svg.setAttribute('width', svg.getBoundingClientRect().width.toString());
+            const originalEl = allOriginalElements[index];
+            const clonedHtmlEl = clonedEl as HTMLElement;
+            const computedStyle = window.getComputedStyle(originalEl);
+            
+            // Apply ONLY color properties as inline styles with !important
+            // This overrides stylesheet colors while preserving other styles
+            const colorProps = [
+              'color',
+              'background-color',
+              'border-color',
+              'border-top-color',
+              'border-right-color',
+              'border-bottom-color',
+              'border-left-color',
+            ];
+            
+            colorProps.forEach(prop => {
+              const value = computedStyle.getPropertyValue(prop);
+              if (value && value !== 'rgba(0, 0, 0, 0)' && value !== 'transparent' && value !== 'none') {
+                clonedHtmlEl.style.setProperty(prop, value, 'important');
               }
-              if (!svg.getAttribute('height')) {
-                svg.setAttribute('height', svg.getBoundingClientRect().height.toString());
+            });
+            
+            // Special handling for SVG elements (fill and stroke)
+            if (clonedEl.tagName.toLowerCase() === 'svg' || 
+                clonedEl.tagName.toLowerCase() === 'path' ||
+                clonedEl.tagName.toLowerCase() === 'circle' ||
+                clonedEl.tagName.toLowerCase() === 'rect' ||
+                clonedEl.tagName.toLowerCase() === 'line') {
+              const fill = computedStyle.getPropertyValue('fill');
+              const stroke = computedStyle.getPropertyValue('stroke');
+              
+              if (fill && fill !== 'none') {
+                clonedHtmlEl.style.setProperty('fill', fill, 'important');
               }
-            });
-            
-            // Force visibility on Recharts containers
-            const rechartsContainers = clonedElement.querySelectorAll('[class*="recharts"]');
-            rechartsContainers.forEach((container: Element) => {
-              (container as HTMLElement).style.visibility = 'visible';
-              (container as HTMLElement).style.display = 'block';
-            });
-            
-            // Apply RGB color conversions to cloned elements
-            // We need to traverse the cloned DOM and apply inline styles
-            const clonedAllElements = clonedElement.querySelectorAll('*');
-            let colorConversionCount = 0;
-            
-            clonedAllElements.forEach((clonedEl: Element) => {
-              const clonedHtmlEl = clonedEl as HTMLElement;
-              
-              // Get the original element to read computed styles
-              const originalEl = document.getElementById(clonedEl.id) || 
-                                Array.from(element.querySelectorAll('*')).find(el => 
-                                  el.className === clonedEl.className && 
-                                  el.tagName === clonedEl.tagName
-                                );
-              
-              if (!originalEl) return;
-              
-              // Force all color properties to use standard RGB/hex values from computed style
-              const computedStyle = window.getComputedStyle(originalEl);
-              const colorProps = [
-                { css: 'color', style: 'color' },
-                { css: 'background-color', style: 'backgroundColor' },
-                { css: 'border-color', style: 'borderColor' },
-                { css: 'border-top-color', style: 'borderTopColor' },
-                { css: 'border-right-color', style: 'borderRightColor' },
-                { css: 'border-bottom-color', style: 'borderBottomColor' },
-                { css: 'border-left-color', style: 'borderLeftColor' },
-              ];
-              
-              colorProps.forEach(({ css }) => {
-                const value = computedStyle.getPropertyValue(css);
-                // If it's a valid color, set it as inline style to override any oklab/oklch
-                if (value && value !== 'rgba(0, 0, 0, 0)' && value !== 'transparent' && value !== 'none') {
-                  clonedHtmlEl.style.setProperty(css, value, 'important');
-                  colorConversionCount++;
-                }
-              });
-            });
-            
-            console.log(`Applied ${colorConversionCount} color conversions in ${sectionId}`);
-          }
+              if (stroke && stroke !== 'none') {
+                clonedHtmlEl.style.setProperty('stroke', stroke, 'important');
+              }
+            }
+          });
         },
       } as any);
 
       if (!canvas || canvas.width === 0 || canvas.height === 0) {
-        console.warn(`Failed to capture ${sectionId}, canvas is empty (${canvas?.width}x${canvas?.height})`);
+        console.warn(`Failed to capture ${sectionId}`);
+        // Clean up temporary style
+        const tempStyleEl = document.getElementById(tempStyleId);
+        if (tempStyleEl) tempStyleEl.remove();
         return false;
       }
 
-      console.log(`Canvas captured for ${sectionId}: ${canvas.width}x${canvas.height}`);
+      // Clean up temporary style and classes
+      const tempStyleEl = document.getElementById(tempStyleId);
+      if (tempStyleEl) tempStyleEl.remove();
+      allElements.forEach((el, index) => {
+        el.classList.remove(`pdf-color-fix-${index}`);
+      });
 
       // Add new page
       pdf.addPage();
@@ -515,15 +518,15 @@ export function EnhancedAOGAnalyticsPDFExport({
 
       // Add chart image
       const imgData = canvas.toDataURL('image/png');
-      const imgWidth = 180; // A4 width minus margins
+      const imgWidth = 180;
       const imgHeight = (canvas.height * imgWidth) / canvas.width;
 
       // Handle multi-page sections if content is too tall
       let heightLeft = imgHeight;
-      let position = 25; // Below title
+      let position = 25;
 
       pdf.addImage(imgData, 'PNG', 15, position, imgWidth, imgHeight);
-      heightLeft -= (297 - position - 15); // A4 height minus margins
+      heightLeft -= (297 - position - 15);
 
       while (heightLeft > 0) {
         position = heightLeft - imgHeight + 15;
@@ -535,6 +538,9 @@ export function EnhancedAOGAnalyticsPDFExport({
       return true;
     } catch (err) {
       console.error(`Error capturing section ${sectionId}:`, err);
+      // Clean up on error
+      const tempStyleEl = document.getElementById(`pdf-export-color-fix-${sectionId}`);
+      if (tempStyleEl) tempStyleEl.remove();
       return false;
     }
   };
@@ -590,39 +596,9 @@ export function EnhancedAOGAnalyticsPDFExport({
     setProgress(0);
 
     try {
-      // Pre-check: Wait for all sections to be present in DOM
-      const requiredSections = [
-        'bucket-summary-cards-section',
-        'three-bucket-chart-section',
-        'three-bucket-section',
-        'aircraft-breakdown-section',
-        'trend-analysis-section',
-        'aircraft-performance-section',
-        'root-cause-section',
-        'cost-analysis-section',
-        'predictive-section-without-forecast',
-        'forecast-and-timeline-section',
-      ];
-
-      const missingSections = requiredSections.filter(id => !document.getElementById(id));
-      if (missingSections.length > 0) {
-        console.warn('Some sections are missing:', missingSections);
-        // Continue anyway, but warn user
-      }
-
-      // Wait longer for progressive loading to complete (Priority 2 at 500ms, Priority 3 at 1000ms, plus data loading)
+      // Wait for progressive loading to complete
       setProgress(5);
-      console.log('Waiting for progressive loading and data fetching to complete...');
-      await new Promise(resolve => setTimeout(resolve, 5000)); // Increased from 3000 to 5000ms
-
-      // Check again which sections are now available
-      const stillMissingSections = requiredSections.filter(id => !document.getElementById(id));
-      if (stillMissingSections.length > 0) {
-        console.error('Sections still missing after wait:', stillMissingSections);
-        console.log('Available sections:', requiredSections.filter(id => document.getElementById(id)));
-      } else {
-        console.log('All required sections are now available');
-      }
+      await new Promise(resolve => setTimeout(resolve, 5000));
 
       // Create PDF instance
       const pdf = new jsPDF({
@@ -641,28 +617,16 @@ export function EnhancedAOGAnalyticsPDFExport({
 
       // Step 3: Capture chart sections (30-90%)
       const sections = [
-        // Three-bucket analysis
         { id: 'bucket-summary-cards-section', title: 'Three-Bucket Summary' },
         { id: 'three-bucket-chart-section', title: 'Three-Bucket Breakdown' },
         { id: 'three-bucket-section', title: 'Three-Bucket Visualizations' },
         { id: 'aircraft-breakdown-section', title: 'Per-Aircraft Breakdown' },
-        
-        // Trend analysis
         { id: 'trend-analysis-section', title: 'Trend Analysis' },
-        
-        // Aircraft performance
         { id: 'aircraft-performance-section', title: 'Aircraft Performance' },
-        
-        // Root cause analysis
-        { id: 'root-cause-section', title: 'Root Cause Analysis' },
-        
-        // Cost analysis
+        { id: 'root-cause-section-part1', title: 'Root Cause Analysis - Part 1' },
+        { id: 'root-cause-section-part2', title: 'Root Cause Analysis - Part 2' },
         { id: 'cost-analysis-section', title: 'Cost Analysis' },
-        
-        // Predictive analytics (without forecast - will be combined with timeline)
         { id: 'predictive-section-without-forecast', title: 'Predictive Analytics' },
-        
-        // Combined: Forecast + Recent Events Timeline
         { id: 'forecast-and-timeline-section', title: 'Forecast & Recent Events' },
       ];
 
@@ -671,13 +635,9 @@ export function EnhancedAOGAnalyticsPDFExport({
       let capturedCount = 0;
 
       for (const section of sections) {
-        console.log(`Attempting to capture section: ${section.id}`);
         const captured = await captureSection(pdf, section.id, section.title);
         if (captured) {
           capturedCount++;
-          console.log(`✓ Successfully captured: ${section.id}`);
-        } else {
-          console.error(`✗ Failed to capture: ${section.id}`);
         }
         currentProgress += progressPerSection;
         setProgress(Math.round(currentProgress));

@@ -998,7 +998,7 @@ export function AOGAnalyticsPage() {
       </motion.div>
 
       {/* Summary Cards */}
-      <div className="mt-6">
+      <div id="summary-cards-section" className="mt-6">
         <SummaryCards
           totalEvents={summary.totalEvents}
           activeEvents={summary.activeEvents}
@@ -1009,12 +1009,12 @@ export function AOGAnalyticsPage() {
       </div>
 
       {/* Three-Bucket Summary Cards */}
-      <div className="mt-6">
+      <div id="bucket-summary-cards-section" className="mt-6">
         <BucketSummaryCards data={buckets} />
       </div>
 
       {/* Three-Bucket Charts with Legacy Data Handling */}
-      <div className="mt-6">
+      <div id="three-bucket-chart-section" className="mt-6">
         <ThreeBucketChart 
           data={buckets} 
           isLoading={isLoadingBuckets}
@@ -1051,7 +1051,7 @@ export function AOGAnalyticsPage() {
       </motion.div>
 
       {/* Per-Aircraft Breakdown with Export */}
-      <div className="mt-8">
+      <div id="aircraft-breakdown-section" className="mt-8">
         <AOGAircraftBreakdownTable 
           data={byAircraft} 
           filterInfo={{
@@ -1399,9 +1399,9 @@ export function AOGAnalyticsPage() {
         </AnalyticsSectionErrorBoundary>
       </motion.div>
 
-      {/* Predictive Analytics Section */}
+      {/* Predictive Analytics Section (without forecast) */}
       <motion.div
-        id="predictive-section"
+        id="predictive-section-without-forecast"
         className="space-y-6 mt-12"
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -1414,39 +1414,6 @@ export function AOGAnalyticsPage() {
         >
           Predictive Analytics
         </motion.h2>
-
-        {/* Forecast Chart */}
-        <AnalyticsSectionErrorBoundary sectionName="Forecast Chart">
-          <motion.div
-            className="bg-card border border-border rounded-lg p-6"
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ duration: 0.2 }}
-          >
-            <h3 className="text-lg font-semibold text-foreground mb-4">
-              3-Month Downtime Forecast
-            </h3>
-            <p className="text-sm text-muted-foreground mb-4">
-              Predictive forecast based on historical trends using linear regression. 
-              The shaded area represents the confidence interval (±20%).
-            </p>
-            {isLoadingForecast ? (
-              <ChartSkeleton />
-            ) : forecastData?.historical && forecastData.historical.length > 0 ? (
-              <ForecastChart 
-                historical={forecastData.historical}
-                forecast={forecastData.forecast}
-                isLoading={false}
-              />
-            ) : (
-              <div className="h-80 flex items-center justify-center bg-muted/20 rounded-lg border border-border">
-                <p className="text-sm text-muted-foreground">
-                  Insufficient historical data for forecast. Need at least 3 months of data.
-                </p>
-              </div>
-            )}
-          </motion.div>
-        </AnalyticsSectionErrorBoundary>
 
         {/* Risk Score Gauges - Top 3 High-Risk Aircraft */}
         {highRiskAircraft.length > 0 && (
@@ -1513,10 +1480,58 @@ export function AOGAnalyticsPage() {
         </AnalyticsSectionErrorBoundary>
       </motion.div>
 
-      {/* Event Timeline */}
-      <div className="mt-12">
+      {/* Combined: Forecast + Event Timeline Section */}
+      <motion.div
+        id="forecast-and-timeline-section"
+        className="space-y-6 mt-12"
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.3, delay: 0.9 }}
+      >
+        <motion.h2
+          initial={{ opacity: 0, x: -20 }}
+          animate={{ opacity: 1, x: 0 }}
+          className="text-xl font-bold text-foreground"
+        >
+          Forecast & Recent Events
+        </motion.h2>
+
+        {/* Forecast Chart */}
+        <AnalyticsSectionErrorBoundary sectionName="Forecast Chart">
+          <motion.div
+            className="bg-card border border-border rounded-lg p-6"
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 0.2 }}
+          >
+            <h3 className="text-lg font-semibold text-foreground mb-4">
+              3-Month Downtime Forecast
+            </h3>
+            <p className="text-sm text-muted-foreground mb-4">
+              Predictive forecast based on historical trends using linear regression. 
+              The shaded area represents the confidence interval (±20%).
+            </p>
+            {isLoadingForecast ? (
+              <ChartSkeleton />
+            ) : forecastData?.historical && forecastData.historical.length > 0 ? (
+              <ForecastChart 
+                historical={forecastData.historical}
+                forecast={forecastData.forecast}
+                isLoading={false}
+              />
+            ) : (
+              <div className="h-80 flex items-center justify-center bg-muted/20 rounded-lg border border-border">
+                <p className="text-sm text-muted-foreground">
+                  Insufficient historical data for forecast. Need at least 3 months of data.
+                </p>
+              </div>
+            )}
+          </motion.div>
+        </AnalyticsSectionErrorBoundary>
+
+        {/* Event Timeline */}
         <EventTimeline events={events} aircraftMap={aircraftMap} />
-      </div>
+      </motion.div>
       </div> {/* End of aog-analytics-content */}
     </div>
   );

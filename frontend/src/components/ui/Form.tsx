@@ -13,7 +13,7 @@ export function FormField({ label, error, children, required }: FormFieldProps) 
     <div className="space-y-1">
       <label className="block text-sm font-medium text-foreground">
         {label}
-        {required && <span className="text-destructive ml-1">*</span>}
+        {required && <span className="text-red-600 dark:text-red-500 ml-1 font-bold">*</span>}
       </label>
       {children}
       {error && <p className="text-sm text-destructive">{error.message}</p>}
@@ -131,22 +131,25 @@ export function Button({
   // Modern variant styles with gradient backgrounds, shadows, and smooth transitions
   const variants = {
     primary: [
-      'bg-gradient-to-r from-primary to-primary/90 text-primary-foreground',
-      'border border-primary/20',
-      'shadow-sm shadow-primary/10',
-      'hover:from-primary/95 hover:to-primary/85 hover:shadow-lg hover:shadow-primary/20 hover:-translate-y-0.5',
-      'active:from-primary/90 active:to-primary/80 active:scale-[0.98] active:shadow-sm active:translate-y-0',
-      'focus-visible:ring-2 focus-visible:ring-primary/50 focus-visible:ring-offset-2',
-      'disabled:from-primary/40 disabled:to-primary/30 disabled:cursor-not-allowed disabled:hover:shadow-sm disabled:hover:translate-y-0',
+      'bg-teal-600 text-white',
+      'border border-teal-700/20',
+      'shadow-sm shadow-teal-600/10',
+      'hover:bg-teal-700 hover:shadow-lg hover:shadow-teal-600/20 hover:-translate-y-0.5',
+      'active:bg-teal-800 active:scale-[0.98] active:shadow-sm active:translate-y-0',
+      'focus-visible:ring-2 focus-visible:ring-teal-500/50 focus-visible:ring-offset-2',
+      'disabled:bg-teal-400 disabled:cursor-not-allowed disabled:hover:shadow-sm disabled:hover:translate-y-0',
+      'dark:bg-teal-500 dark:hover:bg-teal-600 dark:active:bg-teal-700',
     ].join(' '),
     secondary: [
-      'bg-gradient-to-r from-secondary to-secondary/90 text-secondary-foreground',
-      'border border-secondary/30',
+      'bg-gray-100 text-gray-900',
+      'border border-gray-300',
       'shadow-sm',
-      'hover:from-secondary/95 hover:to-secondary/85 hover:shadow-md hover:-translate-y-0.5',
-      'active:from-secondary/90 active:to-secondary/80 active:scale-[0.98] active:translate-y-0',
-      'focus-visible:ring-2 focus-visible:ring-secondary/50 focus-visible:ring-offset-2',
-      'disabled:from-secondary/40 disabled:to-secondary/30 disabled:cursor-not-allowed',
+      'hover:bg-gray-200 hover:shadow-md hover:-translate-y-0.5',
+      'active:bg-gray-300 active:scale-[0.98] active:translate-y-0',
+      'focus-visible:ring-2 focus-visible:ring-gray-400/50 focus-visible:ring-offset-2',
+      'disabled:bg-gray-50 disabled:text-gray-400 disabled:cursor-not-allowed',
+      'dark:bg-gray-700 dark:text-gray-100 dark:border-gray-600',
+      'dark:hover:bg-gray-600 dark:active:bg-gray-800',
     ].join(' '),
     destructive: [
       'bg-gradient-to-r from-destructive to-destructive/90 text-destructive-foreground',
@@ -175,13 +178,14 @@ export function Button({
       'disabled:text-muted-foreground disabled:cursor-not-allowed disabled:hover:bg-transparent',
     ].join(' '),
     aviation: [
-      'bg-gradient-to-r from-aviation to-aviation/90 text-aviation-foreground',
-      'border border-aviation/20',
-      'shadow-sm shadow-aviation/10',
-      'hover:from-aviation/95 hover:to-aviation/85 hover:shadow-lg hover:shadow-aviation/25 hover:-translate-y-0.5',
-      'active:from-aviation/90 active:to-aviation/80 active:scale-[0.98] active:translate-y-0',
-      'focus-visible:ring-2 focus-visible:ring-aviation/50 focus-visible:ring-offset-2',
-      'disabled:from-aviation/40 disabled:to-aviation/30 disabled:cursor-not-allowed disabled:hover:shadow-sm',
+      'bg-teal-600 text-white',
+      'border border-teal-700/20',
+      'shadow-sm shadow-teal-600/10',
+      'hover:bg-teal-700 hover:shadow-lg hover:shadow-teal-600/25 hover:-translate-y-0.5',
+      'active:bg-teal-800 active:scale-[0.98] active:translate-y-0',
+      'focus-visible:ring-2 focus-visible:ring-teal-500/50 focus-visible:ring-offset-2',
+      'disabled:bg-teal-400 disabled:cursor-not-allowed disabled:hover:shadow-sm',
+      'dark:bg-teal-500 dark:hover:bg-teal-600 dark:active:bg-teal-700',
     ].join(' '),
   };
 

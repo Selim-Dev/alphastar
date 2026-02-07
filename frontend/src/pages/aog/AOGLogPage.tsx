@@ -387,14 +387,24 @@ export function AOGLogPage() {
           </div>
 
           {/* Submit Button */}
-          <div className="flex justify-end gap-2 pt-4 border-t border-border">
-            <Button type="button" variant="outline" onClick={() => {
-              reset();
-              setAttachments([]);
-            }}>
-              Clear
+          <div className="flex justify-end gap-3 pt-4 border-t border-border">
+            <Button 
+              type="button" 
+              variant="outline" 
+              onClick={() => {
+                reset();
+                setAttachments([]);
+              }}
+              className="min-w-[100px] bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100"
+            >
+              Cancel
             </Button>
-            <Button type="submit" isLoading={createEvent.isPending}>
+            <Button 
+              type="submit" 
+              variant="primary"
+              isLoading={createEvent.isPending}
+              className="min-w-[120px] bg-teal-600 hover:bg-teal-700 dark:bg-teal-500 dark:hover:bg-teal-600 text-white"
+            >
               Log Event
             </Button>
           </div>

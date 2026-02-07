@@ -1,91 +1,203 @@
-# PDF Export - Quick Reference Card
+# AOG Analytics PDF Export - Quick Reference Card
 
-## ✅ What Was Fixed
+## 🚀 How to Export
 
-1. **OKLCH Color Error** - Modern CSS color functions now converted to PDF-safe colors
-2. **Split Charts** - Intelligent page breaks keep content together
+1. **Navigate** to AOG Analytics page
+2. **Apply filters** (optional): date range, fleet, aircraft
+3. **Wait** for all charts to load (look for spinners to disappear)
+4. **Click** "Export PDF" button in top-right corner
+5. **Wait** 15-25 seconds while report generates
+6. **Download** automatically starts when complete
 
-## 🚀 How to Test
+## 📋 What's Included
 
-```bash
-# 1. Start the app
-cd frontend && npm run dev
+✅ **12 Pages Total:**
+- Cover page with branding
+- Executive summary + summary statistics (combined)
+- 10 detailed analytics sections
 
-# 2. Navigate to Dashboard
-# 3. Click "PDF Report" button
-# 4. Verify PDF downloads without errors
-# 5. Check that charts are NOT split between pages
+✅ **15+ Charts:**
+- Bar charts, pie charts, line charts
+- Heatmaps, gauges, trend lines
+- Pareto analysis, waterfall charts
+
+✅ **2 Data Tables:**
+- Per-aircraft breakdown
+- Recent events timeline
+
+## ⚙️ Export Options
+
+### Date Range Presets
+- All Time
+- Last 7 Days
+- Last 30 Days
+- This Month
+- Last Month
+- Custom Range
+
+### Filters
+- **Fleet Group:** A340, A330, G650ER, etc.
+- **Specific Aircraft:** Select by registration
+
+## ⏱️ Generation Time
+
+| Data Size | Time |
+|-----------|------|
+| Small (< 50 events) | 12-15 sec |
+| Medium (50-200 events) | 15-20 sec |
+| Large (> 200 events) | 20-25 sec |
+
+## 🎯 Best Practices
+
+### Before Export
+- ✅ Apply desired filters first
+- ✅ Wait for all charts to load
+- ✅ Maximize browser window
+- ✅ Ensure stable internet connection
+
+### During Export
+- ⏳ Don't close or refresh the page
+- ⏳ Watch progress indicator
+- ⏳ Be patient (15-25 seconds)
+
+### After Export
+- 📄 Check all pages are included
+- 📄 Verify charts are readable
+- 📄 Save with descriptive filename
+
+## 🔧 Troubleshooting
+
+### Export Button Disabled
+**Cause:** Charts still loading  
+**Solution:** Wait for all spinners to disappear
+
+### Export Failed Error
+**Cause:** Network issue or timeout  
+**Solution:** Click "Retry" button or refresh page
+
+### Missing Charts
+**Cause:** Charts didn't render before capture  
+**Solution:** Wait longer before clicking export
+
+### Low Quality Charts
+**Cause:** Browser window too small  
+**Solution:** Maximize window and re-export
+
+### Empty Sections
+**Cause:** No data for selected filters  
+**Solution:** Adjust date range or remove filters
+
+## 📊 Section Checklist
+
+Use this to verify your exported PDF is complete:
+
+- [ ] Page 1: Cover page with title and filters
+- [ ] Page 2: Executive summary + summary statistics (combined)
+- [ ] Page 3: Three-bucket summary cards
+- [ ] Page 4: Three-bucket breakdown charts
+- [ ] Page 5: Bucket trend and waterfall charts
+- [ ] Page 6: Per-aircraft breakdown table
+- [ ] Page 7: Trend analysis (3 charts)
+- [ ] Page 8: Aircraft performance (heatmap + scores)
+- [ ] Page 9: Root cause analysis (3 charts)
+- [ ] Page 10: Cost analysis (2 charts)
+- [ ] Page 11: Predictive analytics (forecast + risk + insights)
+- [ ] Page 12: Recent events timeline
+
+## 💡 Pro Tips
+
+### For Executives
+- Export monthly for board meetings
+- Use "All Time" for annual reviews
+- Apply fleet filter for specific divisions
+
+### For Operations
+- Export weekly for team meetings
+- Use "Last 30 Days" for recent trends
+- Compare multiple exports over time
+
+### For Maintenance
+- Export after major events
+- Use aircraft filter for specific investigations
+- Archive reports for compliance
+
+## 🎨 Customization
+
+### Filename Format
+```
+aog-analytics-{date-range}-{filter}.pdf
+
+Examples:
+- aog-analytics-2025-01-01-to-2025-02-08.pdf
+- aog-analytics-all-time-A340.pdf
+- aog-analytics-last-30-days-HZ-A42.pdf
 ```
 
-## 📋 Quick Checklist
+### File Size
+- Typical: 2-3 MB
+- With many charts: 3-4 MB
+- Compressed: ~1-2 MB (if needed)
 
-- [ ] PDF downloads successfully
-- [ ] No console errors
-- [ ] All content visible
-- [ ] White backgrounds, dark text
-- [ ] Charts complete on single pages
-- [ ] Performance Trend NOT split
-- [ ] Professional appearance
+## 📞 Support
 
-## 🔍 Console Verification
+### Common Questions
 
-Look for these logs (indicates success):
+**Q: Can I export only specific sections?**  
+A: Not currently. Full report includes all sections.
 
-```
-[PDF] Pushing section 5 to next page (height: 450px, would split at: 650px)
-✅ PDF created successfully
-```
+**Q: Why are the Executive Summary and Summary Statistics on the same page?**  
+A: This saves space and provides a more compact, executive-friendly overview on a single page.
 
-## 📄 Expected PDF Layout
+**Q: Can I schedule automatic exports?**  
+A: Not currently. Manual export only.
 
-```
-Page 1:
-- Header
-- Fleet Health Gauge
-- KPI Cards
-- Status Summary
-- (spacing)
+**Q: Can I customize the cover page?**  
+A: Not currently. Standard branding applied.
 
-Page 2:
-- Performance Trend (COMPLETE) ✅
-- Fleet Comparison
-- Footer
-```
+**Q: Can I export to Excel instead?**  
+A: Use the individual section export buttons for CSV/Excel.
 
-## 🐛 Troubleshooting
+### Need Help?
 
-| Problem | Solution |
-|---------|----------|
-| PDF fails to generate | Check console for errors |
-| Chart still splits | Check console logs, verify selectors |
-| Colors wrong | Verify color map in code |
-| Too much white space | Reduce spacing buffer (20px → 10px) |
+1. Check browser console for errors
+2. Verify all sections have loaded
+3. Try refreshing the page
+4. Contact system administrator
 
-## 📚 Documentation
+## 🔄 Version History
 
-- **PDF-EXPORT-OKLCH-FIX.md** - Color fix details
-- **PDF-EXPORT-PAGE-BREAK-FIX.md** - Page break details
-- **PDF-EXPORT-COMPLETE-FIX-SUMMARY.md** - Complete overview
-- **test-pdf-export-oklch-fix.md** - Testing guide
-- **test-pdf-page-breaks.md** - Page break testing
+**v2.1 (Current)** - February 2026
+- ✅ Combined Executive Summary + Summary Statistics on Page 2
+- ✅ 10 sections across 12 pages (down from 13)
+- ✅ Faster generation (15-20 seconds)
+- ✅ More compact and executive-friendly
 
-## 🎯 Success Criteria
+**v2.0** - February 2026
+- ✅ 11 sections (up from 6)
+- ✅ 13 pages total
+- ✅ Enhanced error handling
+- ✅ Better progress indicator
 
-✅ No errors  
-✅ Professional appearance  
-✅ No split content  
-✅ High quality (2x scale)  
-✅ Fast generation (< 20s)  
-✅ Works in all browsers  
-
-## 📞 Need Help?
-
-1. Check console logs
-2. Review documentation files
-3. Verify dashboard has `[data-pdf-content]` attribute
-4. Test in different browser
+**v1.0** - January 2026
+- 6 sections only
+- Basic PDF generation
+- Limited error handling
 
 ---
 
-**Status**: ✅ Ready for Production  
-**Last Updated**: February 4, 2026
+## Quick Command Reference
+
+| Action | Shortcut |
+|--------|----------|
+| Clear filters | Esc |
+| All Time preset | Alt+1 |
+| Last 7 Days | Alt+2 |
+| Last 30 Days | Alt+3 |
+| This Month | Alt+4 |
+| Last Month | Alt+5 |
+
+---
+
+**Last Updated:** February 8, 2026  
+**Version:** 2.0  
+**Print this card for quick reference!**

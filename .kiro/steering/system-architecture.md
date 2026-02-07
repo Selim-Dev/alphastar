@@ -1209,24 +1209,31 @@ else:
 
 ### PDF Export Enhancement
 
-The enhanced PDF export generates a professional multi-page report:
+The enhanced PDF export generates a professional multi-page report with comprehensive coverage:
 
 **Pages Included:**
-1. Cover Page - Title, date range, filters, timestamp
-2. Executive Summary - Key metrics and top 5 insights
-3. Three-Bucket Analysis - All charts and per-aircraft breakdown
-4. Trend Analysis - Monthly trends, moving averages, YoY comparison
-5. Aircraft Performance - Heatmap and reliability scores
-6. Root Cause Analysis - Pareto chart, category breakdown, responsibility
-7. Cost Analysis - Cost breakdown and efficiency metrics
-8. Predictive Analytics - Forecast chart, risk scores, insights
+1. Cover Page - Title, date range, filters, timestamp, branding
+2. Executive Summary + Summary Statistics - Key metrics, top 3 insights, and visual summary cards (combined on one page)
+3. Three-Bucket Summary - Technical, Procurement, Ops breakdown cards
+4. Three-Bucket Breakdown - Bar and pie charts showing bucket distribution
+5. Three-Bucket Visualizations - Trend chart and waterfall chart
+6. Per-Aircraft Breakdown - Detailed table with all aircraft metrics
+7. Trend Analysis - Monthly trends, 3-month moving average, year-over-year comparison
+8. Aircraft Performance - Downtime heatmap and reliability score cards
+9. Root Cause Analysis - Pareto chart, category breakdown pie, responsibility distribution
+10. Cost Analysis - Monthly cost breakdown and efficiency metrics
+11. Predictive Analytics - 3-month forecast, risk score gauges, automated insights
+12. Recent Events Timeline - Last 10 events with details
 
 **Technical Implementation:**
 - Uses jsPDF + html2canvas for generation
 - Captures charts at 2x scale for high resolution (300 DPI)
 - Handles multi-page sections with content overflow
 - Adds page numbers and footers to all pages
-- Generation time: 10-15 seconds for full report
+- Progressive loading ensures all charts are rendered before capture
+- Generation time: 15-20 seconds for full report (10 sections across 12 pages)
+- Automatic retry on failure with detailed error messages
+- Executive Summary and Summary Statistics combined on Page 2 for compact, executive-friendly overview
 
 ### Data Quality Handling
 

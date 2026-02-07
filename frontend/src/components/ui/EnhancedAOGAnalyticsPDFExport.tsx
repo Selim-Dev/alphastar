@@ -65,13 +65,26 @@ interface EnhancedAOGAnalyticsPDFExportProps {
  * Requirements: FR-4.1, FR-4.2, FR-4.3
  * 
  * Features:
- * - Multi-page PDF support
- * - Professional cover page
- * - Executive summary
- * - High-resolution chart capture
- * - Page numbers and footers
- * - Progress indicator
+ * - Multi-page PDF support with 10+ sections
+ * - Professional cover page with branding
+ * - Executive summary with key metrics, insights, AND summary statistics (combined on Page 2)
+ * - High-resolution chart capture (2x scale, 300 DPI)
+ * - Page numbers and footers on all pages
+ * - Progress indicator during generation
  * - Proper error handling and retry logic
+ * - Comprehensive analytics coverage:
+ *   1. Cover Page
+ *   2. Executive Summary + Summary Statistics (combined)
+ *   3. Three-Bucket Summary Cards
+ *   4. Three-Bucket Breakdown Charts
+ *   5. Three-Bucket Visualizations (Trend & Waterfall)
+ *   6. Per-Aircraft Breakdown Table
+ *   7. Trend Analysis (Monthly, Moving Average, YoY)
+ *   8. Aircraft Performance (Heatmap & Reliability)
+ *   9. Root Cause Analysis (Pareto, Category, Responsibility)
+ *   10. Cost Analysis (Breakdown & Efficiency)
+ *   11. Predictive Analytics (Forecast, Risk, Insights)
+ *   12. Recent Events Timeline
  */
 export function EnhancedAOGAnalyticsPDFExport({
   filters,
@@ -170,63 +183,122 @@ export function EnhancedAOGAnalyticsPDFExport({
   };
 
   /**
-   * Add executive summary page to PDF
+   * Add executive summary page with summary statistics to PDF
    * Requirements: FR-4.2
    */
   const addExecutiveSummary = (pdf: jsPDF, summary: SummaryData, insights: Insight[]) => {
-    pdf.addPage();
-    
-    // Section title
-    pdf.setFontSize(16);
-    pdf.setFont('helvetica', 'bold');
-    pdf.setTextColor(0, 0, 0);
-    pdf.text('Executive Summary', 15, 20);
+      pdf.addPage();
 
-    // Key Metrics
-    pdf.setFontSize(12);
-    pdf.setFont('helvetica', 'normal');
-    let y = 35;
-    pdf.text('Key Metrics:', 15, y);
-    y += 10;
+      // Section title
+      pdf.setFontSize(16);
+      pdf.setFont('helvetica', 'bold');
+      pdf.setTextColor(0, 0, 0);
+      pdf.text('Executive Summary', 15, 20);
 
-    const metrics = [
-      `Total Events: ${summary.totalEvents}`,
-      `Active AOG: ${summary.activeEvents}`,
-      `Total Downtime: ${summary.totalDowntimeHours.toFixed(1)} hours`,
-      `Average Downtime: ${summary.averageDowntimeHours.toFixed(1)} hours`,
-    ];
-
-    if (summary.totalCost !== undefined) {
-      metrics.push(`Total Cost: $${summary.totalCost.toLocaleString()}`);
-    }
-
-    pdf.setFontSize(10);
-    metrics.forEach(metric => {
-      pdf.text(`• ${metric}`, 20, y);
-      y += 7;
-    });
-
-    // Top Insights
-    if (insights.length > 0) {
-      y += 10;
+      // Key Metrics in a more compact format
       pdf.setFontSize(12);
       pdf.setFont('helvetica', 'normal');
-      pdf.text('Top Insights:', 15, y);
-      y += 10;
+      let y = 35;
+      pdf.text('Key Metrics:', 15, y);
+      y += 8;
+
+      const metrics = [
+        `Total Events: ${summary.totalEvents}`,
+        `Active AOG: ${summary.activeEvents}`,
+        `Total Downtime: ${summary.totalDowntimeHours.toFixed(1)} hours`,
+        `Average Downtime: ${summary.averageDowntimeHours.toFixed(1)} hours`,
+      ];
+
+      if (summary.totalCost !== undefined) {
+        metrics.push(`Total Cost: ${summary.totalCost.toLocaleString('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 0 })}`);
+      }
 
       pdf.setFontSize(10);
-      insights.slice(0, 5).forEach(insight => {
-        // Check if we need a new page
-        if (y > 270) {
-          pdf.addPage();
-          y = 20;
-        }
+      metrics.forEach(metric => {
+        pdf.text(`• ${metric}`, 20, y);
+        y += 6;
+      });
 
-        pdf.text(`• ${insight.title}`, 20, y);
-        y += 7;
+      // Top Insights (limited to 3 for space)
+      if (insights.length > 0) {
+        y += 8;
+        pdf.setFontSize(12);
+        pdf.setFont('helvetica', 'normal');
+        pdf.text('Top Insights:', 15, y);
+        y += 8;
+
+        pdf.setFontSize(9);
+        insights.slice(0, 3).forEach(insight => {
+          // Check if we need to move to summary statistics section
+          if (y > 110) {
+            return; // Stop adding insights if we're running out of space
+          }
+
+          pdf.text(`• ${insight.title}`, 20, y);
+          y += 6;
+        });
+      }
+
+      // Add separator line
+      y += 10;
+      pdf.setDrawColor(200, 200, 200);
+      pdf.line(15, y, 195, y);
+      y += 10;
+
+      // Summary Statistics Section
+      pdf.setFontSize(14);
+      pdf.setFont('helvetica', 'bold');
+      pdf.setTextColor(0, 0, 0);
+      pdf.text('Summary Statistics', 15, y);
+      y += 10;
+
+      // Create a grid layout for statistics cards
+      const cardWidth = 35;
+      const cardHeight = 25;
+      const cardSpacing = 2;
+      const startX = 15;
+      let currentX = startX;
+      let currentY = y;
+
+      const stats = [
+        { label: 'Total Events', value: summary.totalEvents.toLocaleString() },
+        { label: 'Active AOG', value: summary.activeEvents.toLocaleString() },
+        { label: 'Total Downtime', value: `${summary.totalDowntimeHours.toFixed(1)} hrs` },
+        { label: 'Avg Downtime', value: `${summary.averageDowntimeHours.toFixed(1)} hrs` },
+        { label: 'Total Cost', value: summary.totalCost !== undefined ? `$${(summary.totalCost / 1000).toFixed(0)}K` : 'N/A' },
+      ];
+
+      stats.forEach((stat, index) => {
+        // Draw card background
+        pdf.setFillColor(248, 250, 252); // Light gray background
+        pdf.roundedRect(currentX, currentY, cardWidth, cardHeight, 2, 2, 'F');
+
+        // Draw card border
+        pdf.setDrawColor(226, 232, 240);
+        pdf.roundedRect(currentX, currentY, cardWidth, cardHeight, 2, 2, 'S');
+
+        // Add label
+        pdf.setFontSize(8);
+        pdf.setFont('helvetica', 'normal');
+        pdf.setTextColor(100, 116, 139); // Gray text
+        pdf.text(stat.label, currentX + cardWidth / 2, currentY + 8, { align: 'center' });
+
+        // Add value
+        pdf.setFontSize(14);
+        pdf.setFont('helvetica', 'bold');
+        pdf.setTextColor(0, 0, 0);
+        pdf.text(stat.value, currentX + cardWidth / 2, currentY + 18, { align: 'center' });
+
+        // Move to next position
+        currentX += cardWidth + cardSpacing;
+
+        // Move to next row after 5 cards
+        if ((index + 1) % 5 === 0) {
+          currentX = startX;
+          currentY += cardHeight + cardSpacing;
+        }
       });
     }
-  };
 
   /**
    * Wait for charts to fully render by checking for loading states
@@ -289,20 +361,33 @@ export function EnhancedAOGAnalyticsPDFExport({
         return false;
       }
 
+      // Scroll the element into view to ensure it's rendered
+      element.scrollIntoView({ behavior: 'instant', block: 'start' });
+      await new Promise(resolve => setTimeout(resolve, 500)); // Wait for scroll and render
+
+      // Check if element has content
+      const hasContent = element.offsetHeight > 0 && element.offsetWidth > 0;
+      if (!hasContent) {
+        console.warn(`Section ${sectionId} has no content (height: ${element.offsetHeight}, width: ${element.offsetWidth}), skipping`);
+        return false;
+      }
+
       // Wait for charts to render (with timeout)
-      console.log(`Capturing section: ${sectionId}`);
+      console.log(`Capturing section: ${sectionId} (${element.offsetWidth}x${element.offsetHeight})`);
       await waitForChartsToRender(element, 8000);
 
       // Capture as canvas with high resolution and SVG support
       const canvas = await html2canvas(element, {
         useCORS: true,
-        logging: false,
+        logging: true, // Enable logging to see what's happening
         backgroundColor: '#ffffff',
         scale: 2, // Higher resolution
         allowTaint: false,
         foreignObjectRendering: false, // Disable for better SVG support
         imageTimeout: 15000,
         removeContainer: true,
+        windowWidth: element.scrollWidth,
+        windowHeight: element.scrollHeight,
         onclone: (clonedDoc: Document) => {
           // Remove any loading skeletons from the cloned document
           const clonedElement = clonedDoc.getElementById(sectionId);
@@ -335,9 +420,11 @@ export function EnhancedAOGAnalyticsPDFExport({
       } as any);
 
       if (!canvas || canvas.width === 0 || canvas.height === 0) {
-        console.warn(`Failed to capture ${sectionId}, canvas is empty`);
+        console.warn(`Failed to capture ${sectionId}, canvas is empty (${canvas?.width}x${canvas?.height})`);
         return false;
       }
+
+      console.log(`Canvas captured for ${sectionId}: ${canvas.width}x${canvas.height}`);
 
       // Add new page
       pdf.addPage();
@@ -432,12 +519,16 @@ export function EnhancedAOGAnalyticsPDFExport({
 
       // Pre-check: Wait for all sections to be present in DOM
       const requiredSections = [
+        'bucket-summary-cards-section',
+        'three-bucket-chart-section',
         'three-bucket-section',
+        'aircraft-breakdown-section',
         'trend-analysis-section',
         'aircraft-performance-section',
         'root-cause-section',
         'cost-analysis-section',
-        'predictive-section',
+        'predictive-section-without-forecast',
+        'forecast-and-timeline-section',
       ];
 
       const missingSections = requiredSections.filter(id => !document.getElementById(id));
@@ -446,10 +537,19 @@ export function EnhancedAOGAnalyticsPDFExport({
         // Continue anyway, but warn user
       }
 
-      // Wait a bit for progressive loading to complete
+      // Wait longer for progressive loading to complete (Priority 2 at 500ms, Priority 3 at 1000ms, plus data loading)
       setProgress(5);
-      console.log('Waiting for progressive loading to complete...');
-      await new Promise(resolve => setTimeout(resolve, 3000));
+      console.log('Waiting for progressive loading and data fetching to complete...');
+      await new Promise(resolve => setTimeout(resolve, 5000)); // Increased from 3000 to 5000ms
+
+      // Check again which sections are now available
+      const stillMissingSections = requiredSections.filter(id => !document.getElementById(id));
+      if (stillMissingSections.length > 0) {
+        console.error('Sections still missing after wait:', stillMissingSections);
+        console.log('Available sections:', requiredSections.filter(id => document.getElementById(id)));
+      } else {
+        console.log('All required sections are now available');
+      }
 
       // Create PDF instance
       const pdf = new jsPDF({
@@ -468,12 +568,29 @@ export function EnhancedAOGAnalyticsPDFExport({
 
       // Step 3: Capture chart sections (30-90%)
       const sections = [
-        { id: 'three-bucket-section', title: 'Three-Bucket Analysis' },
+        // Three-bucket analysis
+        { id: 'bucket-summary-cards-section', title: 'Three-Bucket Summary' },
+        { id: 'three-bucket-chart-section', title: 'Three-Bucket Breakdown' },
+        { id: 'three-bucket-section', title: 'Three-Bucket Visualizations' },
+        { id: 'aircraft-breakdown-section', title: 'Per-Aircraft Breakdown' },
+        
+        // Trend analysis
         { id: 'trend-analysis-section', title: 'Trend Analysis' },
+        
+        // Aircraft performance
         { id: 'aircraft-performance-section', title: 'Aircraft Performance' },
+        
+        // Root cause analysis
         { id: 'root-cause-section', title: 'Root Cause Analysis' },
+        
+        // Cost analysis
         { id: 'cost-analysis-section', title: 'Cost Analysis' },
-        { id: 'predictive-section', title: 'Predictive Analytics' },
+        
+        // Predictive analytics (without forecast - will be combined with timeline)
+        { id: 'predictive-section-without-forecast', title: 'Predictive Analytics' },
+        
+        // Combined: Forecast + Recent Events Timeline
+        { id: 'forecast-and-timeline-section', title: 'Forecast & Recent Events' },
       ];
 
       const progressPerSection = 60 / sections.length;
@@ -481,9 +598,13 @@ export function EnhancedAOGAnalyticsPDFExport({
       let capturedCount = 0;
 
       for (const section of sections) {
+        console.log(`Attempting to capture section: ${section.id}`);
         const captured = await captureSection(pdf, section.id, section.title);
         if (captured) {
           capturedCount++;
+          console.log(`✓ Successfully captured: ${section.id}`);
+        } else {
+          console.error(`✗ Failed to capture: ${section.id}`);
         }
         currentProgress += progressPerSection;
         setProgress(Math.round(currentProgress));

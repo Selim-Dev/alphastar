@@ -38,9 +38,9 @@ interface FormFieldProps {
 function FormFieldWithNode({ label, error, children, required }: FormFieldProps) {
   return (
     <div className="space-y-1">
-      <label className="block text-sm font-medium text-foreground">
+      <label className="block text-sm font-medium text-gray-900 dark:text-gray-100">
         {label}
-        {required && <span className="text-destructive ml-1">*</span>}
+        {required && <span className="text-red-600 dark:text-red-500 ml-1 font-bold">*</span>}
       </label>
       {children}
       {error?.message && <p className="text-sm text-destructive">{error.message}</p>}
@@ -122,8 +122,8 @@ function StepIndicator({ currentStep, totalSteps, stepLabels }: StepIndicatorPro
               <div
                 className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium transition-all duration-200 ${
                   isCompleted || isActive 
-                    ? 'bg-primary text-primary-foreground scale-110' 
-                    : 'bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300'
+                    ? 'bg-teal-600 text-white scale-110' 
+                    : 'bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-300'
                 }`}
               >
                 {isCompleted ? (
@@ -133,14 +133,14 @@ function StepIndicator({ currentStep, totalSteps, stepLabels }: StepIndicatorPro
                 )}
               </div>
               <span className={`text-sm font-medium hidden sm:inline ${
-                isActive ? 'text-foreground' : 'text-muted-foreground'
+                isActive ? 'text-gray-900 dark:text-gray-100' : 'text-gray-600 dark:text-gray-400'
               }`}>
                 {label}
               </span>
             </div>
             {index < totalSteps - 1 && (
               <div className="flex-1 mx-3">
-                <div className={`h-0.5 ${isCompleted ? 'bg-primary' : 'bg-slate-200 dark:bg-slate-700'}`} />
+                <div className={`h-0.5 ${isCompleted ? 'bg-teal-600' : 'bg-gray-200 dark:bg-gray-700'}`} />
               </div>
             )}
           </div>
@@ -272,36 +272,36 @@ function FMCCalculationDisplay({ posHours, nmcmSHours, nmcmUHours, nmcsHours }: 
     >
       <div className="flex items-center gap-2 mb-3">
         <Calculator className={`w-5 h-5 ${getStatusColor()}`} />
-        <h4 className="font-semibold text-foreground">Automatic Calculation</h4>
+        <h4 className="font-semibold text-gray-900 dark:text-gray-100">Automatic Calculation</h4>
       </div>
       
       <div className="space-y-3">
         {/* Calculation Formula */}
         <div className="flex items-center gap-2 text-sm font-mono bg-white/50 dark:bg-slate-800/50 rounded-md p-2">
-          <span className="text-muted-foreground">FMC =</span>
-          <span className="text-foreground">{pos.toFixed(1)}</span>
-          <span className="text-muted-foreground">-</span>
+          <span className="text-gray-600 dark:text-gray-400">FMC =</span>
+          <span className="text-gray-900 dark:text-gray-100">{pos.toFixed(1)}</span>
+          <span className="text-gray-600 dark:text-gray-400">-</span>
           <span className="text-amber-600 dark:text-amber-400">{nmcmS.toFixed(1)}</span>
-          <span className="text-muted-foreground">-</span>
+          <span className="text-gray-600 dark:text-gray-400">-</span>
           <span className="text-red-600 dark:text-red-400">{nmcmU.toFixed(1)}</span>
-          <span className="text-muted-foreground">-</span>
+          <span className="text-gray-600 dark:text-gray-400">-</span>
           <span className="text-blue-600 dark:text-blue-400">{nmcs.toFixed(1)}</span>
-          <span className="text-muted-foreground">=</span>
+          <span className="text-gray-600 dark:text-gray-400">=</span>
           <span className={`font-bold ${getStatusColor()}`}>{fmcHours.toFixed(1)} hrs</span>
         </div>
 
         {/* Results Grid */}
         <div className="grid grid-cols-2 gap-4">
-          <div className="bg-background/50 rounded-md p-3">
-            <p className="text-xs text-muted-foreground mb-1">
+          <div className="bg-white/70 dark:bg-slate-800/50 rounded-md p-3">
+            <p className="text-xs text-gray-600 dark:text-gray-400 mb-1">
               <GlossaryTerm term="FMC" display="FMC Hours" />
             </p>
             <p className={`text-2xl font-bold ${getStatusColor()}`}>
               {fmcHours.toFixed(1)}
             </p>
           </div>
-          <div className="bg-background/50 rounded-md p-3">
-            <p className="text-xs text-muted-foreground mb-1">Availability</p>
+          <div className="bg-white/70 dark:bg-slate-800/50 rounded-md p-3">
+            <p className="text-xs text-gray-600 dark:text-gray-400 mb-1">Availability</p>
             <p className={`text-2xl font-bold ${getAvailabilityColor()}`}>
               {availabilityPercentage.toFixed(1)}%
             </p>
@@ -310,11 +310,11 @@ function FMCCalculationDisplay({ posHours, nmcmSHours, nmcmUHours, nmcsHours }: 
 
         {/* Downtime Breakdown */}
         <div className="flex items-center gap-4 text-xs">
-          <span className="text-muted-foreground">Total Downtime:</span>
-          <span className={`font-medium ${totalDowntime > 0 ? 'text-amber-600 dark:text-amber-400' : 'text-muted-foreground'}`}>
+          <span className="text-gray-600 dark:text-gray-400">Total Downtime:</span>
+          <span className={`font-medium ${totalDowntime > 0 ? 'text-amber-600 dark:text-amber-400' : 'text-gray-600 dark:text-gray-400'}`}>
             {totalDowntime.toFixed(1)} hrs
           </span>
-          <span className="text-muted-foreground">
+          <span className="text-gray-600 dark:text-gray-400">
             ({pos > 0 ? ((totalDowntime / pos) * 100).toFixed(1) : 0}% of POS)
           </span>
         </div>
@@ -454,14 +454,14 @@ export function DailyStatusForm({
     <motion.div
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
-      className="bg-white dark:bg-slate-900 border border-border rounded-lg p-4 sm:p-6 shadow-xl"
+      className="bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-700 rounded-lg p-4 sm:p-6 shadow-xl"
     >
       {/* Form Header */}
       <div className="mb-6">
-        <h2 className="text-lg font-semibold text-foreground">
+        <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
           {isEditMode ? 'Edit Daily Status' : 'Add Daily Status Record'}
         </h2>
-        <p className="text-sm text-muted-foreground mt-1">
+        <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
           {isEditMode 
             ? 'Update the aircraft availability status for this date.'
             : 'Record aircraft availability and downtime hours for a specific date.'}
@@ -496,7 +496,7 @@ export function DailyStatusForm({
       <form onSubmit={handleSubmit(handleFormSubmit)} className="space-y-6">
         {/* Basic Information Section */}
         <div className="space-y-4">
-          <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wider flex items-center gap-2">
+          <h3 className="text-sm font-medium text-gray-600 dark:text-gray-400 uppercase tracking-wider flex items-center gap-2">
             <Clock className="w-4 h-4" />
             Basic Information
           </h3>
@@ -567,7 +567,7 @@ export function DailyStatusForm({
 
         {/* Downtime Hours Section */}
         <div className="space-y-4">
-          <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wider flex items-center gap-2">
+          <h3 className="text-sm font-medium text-gray-600 dark:text-gray-400 uppercase tracking-wider flex items-center gap-2">
             <Wrench className="w-4 h-4" />
             Downtime Hours
           </h3>
@@ -655,7 +655,7 @@ export function DailyStatusForm({
 
         {/* Notes Section */}
         <div className="space-y-4">
-          <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wider flex items-center gap-2">
+          <h3 className="text-sm font-medium text-gray-600 dark:text-gray-400 uppercase tracking-wider flex items-center gap-2">
             <Package className="w-4 h-4" />
             Additional Information
           </h3>

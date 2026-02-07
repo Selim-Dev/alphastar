@@ -293,8 +293,8 @@ export function AOGListPageEnhanced() {
                     onClick={() => setDatePreset(preset)}
                     className={`px-3 py-1.5 text-sm font-medium transition-colors ${
                       datePreset === preset
-                        ? 'bg-primary text-primary-foreground'
-                        : 'bg-card text-muted-foreground hover:bg-muted'
+                        ? 'bg-teal-600 text-white dark:bg-teal-500'
+                        : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
                     }`}
                   >
                     {preset === 'allTime' && 'All Time'}
@@ -363,8 +363,8 @@ export function AOGListPageEnhanced() {
                   onClick={() => toggleCategoryFilter(opt.value)}
                   className={`px-3 py-1.5 text-sm font-medium rounded-md border transition-colors ${
                     categoryFilter.includes(opt.value)
-                      ? 'bg-primary text-primary-foreground border-primary'
-                      : 'bg-card text-muted-foreground border-border hover:bg-muted'
+                      ? 'bg-teal-600 text-white border-teal-600 dark:bg-teal-500 dark:border-teal-500'
+                      : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700'
                   }`}
                 >
                   {opt.label}

@@ -45,180 +45,205 @@ export function ExecutivePDFExport({
 
     try {
       // Find the main dashboard content
-      let dashboardElement = document.querySelector('[data-pdf-content]') as HTMLElement;
-      
-      if (!dashboardElement) {
-        dashboardElement = document.querySelector('main .space-y-6') as HTMLElement;
-      }
-      
-      if (!dashboardElement) {
-        dashboardElement = document.querySelector('.space-y-6') as HTMLElement;
-      }
+      const dashboardElement = document.querySelector('[data-pdf-content]') as HTMLElement;
       
       if (!dashboardElement) {
         throw new Error('Dashboard content not found. Please refresh the page and try again.');
       }
 
-      // Create a wrapper for the PDF content
+      console.log('Dashboard element found:', dashboardElement);
+      console.log('Dashboard element dimensions:', {
+        width: dashboardElement.offsetWidth,
+        height: dashboardElement.offsetHeight,
+        scrollHeight: dashboardElement.scrollHeight
+      });
+
+      // Create a wrapper for the PDF content with white background
       const wrapper = document.createElement('div');
-      wrapper.id = 'pdf-export-wrapper';
+      wrapper.id = 'pdf-export-wrapper-dashboard';
       wrapper.style.cssText = `
-        position: fixed;
-        left: -9999px;
+        position: absolute;
+        left: -99999px;
         top: 0;
-        width: 1100px;
-        background: #ffffff;
-        padding: 30px;
-        color: #1f2937;
-        font-family: system-ui, -apple-system, sans-serif;
-        z-index: -1;
+        width: 1200px;
+        background-color: rgb(255, 255, 255);
+        padding: 40px;
+        color: rgb(31, 41, 55);
+        font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        z-index: 9999;
       `;
 
-      // Add header with logo and title
+      // Add header
       const header = document.createElement('div');
+      header.style.cssText = 'margin-bottom: 32px; padding-bottom: 20px; border-bottom: 3px solid rgb(14, 165, 233);';
       header.innerHTML = `
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; padding-bottom: 16px; border-bottom: 3px solid #0ea5e9;">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
           <div>
-            <h1 style="font-size: 24px; font-weight: 700; color: #0f172a; margin: 0; letter-spacing: -0.5px;">Alpha Star Aviation</h1>
-            <p style="font-size: 16px; color: #64748b; margin: 4px 0 0 0;">Executive Dashboard Summary</p>
+            <h1 style="font-size: 28px; font-weight: 700; color: rgb(15, 23, 42); margin: 0 0 8px 0; letter-spacing: -0.5px;">Alpha Star Aviation</h1>
+            <p style="font-size: 18px; color: rgb(100, 116, 139); margin: 0;">Executive Dashboard Summary</p>
           </div>
           <div style="text-align: right;">
-            <p style="font-size: 12px; color: #94a3b8; margin: 0; text-transform: uppercase; letter-spacing: 0.5px;">Report Generated</p>
-            <p style="font-size: 14px; font-weight: 600; color: #1e293b; margin: 4px 0 0 0;">${format(new Date(), 'MMMM d, yyyy')}</p>
-            <p style="font-size: 11px; color: #64748b; margin: 4px 0 0 0;">Period: ${dateRange.startDate} to ${dateRange.endDate}</p>
+            <p style="font-size: 12px; color: rgb(148, 163, 184); margin: 0 0 4px 0; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600;">Report Generated</p>
+            <p style="font-size: 16px; font-weight: 600; color: rgb(30, 41, 59); margin: 0 0 4px 0;">${format(new Date(), 'MMMM d, yyyy')}</p>
+            <p style="font-size: 13px; color: rgb(100, 116, 139); margin: 0;">Period: ${dateRange.startDate} to ${dateRange.endDate}</p>
           </div>
         </div>
       `;
       wrapper.appendChild(header);
 
       // Clone the dashboard content
-      const clone = dashboardElement.cloneNode(true) as HTMLElement;
-      wrapper.appendChild(clone);
+      const contentClone = dashboardElement.cloneNode(true) as HTMLElement;
+      
+      // Remove interactive elements that shouldn't be in PDF
+      const elementsToRemove = contentClone.querySelectorAll(
+        'button, [role="button"], input, select, textarea, .filter-bar, [data-no-pdf]'
+      );
+      elementsToRemove.forEach(el => el.remove());
+      
+      // Apply white background to content
+      contentClone.style.backgroundColor = 'rgb(255, 255, 255)';
+      contentClone.style.color = 'rgb(31, 41, 55)';
+      
+      wrapper.appendChild(contentClone);
 
       // Add footer
       const footer = document.createElement('div');
+      footer.style.cssText = 'margin-top: 40px; padding-top: 20px; border-top: 1px solid rgb(226, 232, 240); text-align: center;';
       footer.innerHTML = `
-        <div style="margin-top: 30px; padding-top: 16px; border-top: 1px solid #e2e8f0; text-align: center;">
-          <p style="font-size: 10px; color: #94a3b8; margin: 0;">
-            Alpha Star Aviation KPI Dashboard • Confidential • Generated on ${format(new Date(), 'yyyy-MM-dd HH:mm:ss')}
-          </p>
-        </div>
+        <p style="font-size: 11px; color: rgb(148, 163, 184); margin: 0;">
+          Alpha Star Aviation KPI Dashboard • Confidential • Generated on ${format(new Date(), 'yyyy-MM-dd HH:mm:ss')}
+        </p>
       `;
       wrapper.appendChild(footer);
 
+      // Append to body
       document.body.appendChild(wrapper);
+      console.log('Wrapper appended to body');
 
-      // Wait for rendering
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      // Wait for rendering and force reflow
+      await new Promise(resolve => setTimeout(resolve, 1500));
+      wrapper.offsetHeight; // Force reflow
       
-      // Force reflow
-      wrapper.offsetHeight;
+      console.log('Starting canvas capture...');
 
-      // CRITICAL FIX: Inject CSS to override any oklab/oklch colors
-      // Create a temporary style element that forces all colors to their computed RGB values
-      const tempStyleId = 'pdf-export-color-fix-dashboard';
-      const tempStyle = document.createElement('style');
-      tempStyle.id = tempStyleId;
-      
-      // Build CSS rules for all elements with oklab/oklch colors
-      let cssRules = '';
-      const allElements = wrapper.querySelectorAll('*');
-      allElements.forEach((el, index) => {
-        const computedStyle = window.getComputedStyle(el);
-        const colorProps = ['color', 'background-color', 'border-color', 'fill', 'stroke'];
-        
-        let hasModernColor = false;
-        let rules = '';
-        
-        colorProps.forEach(prop => {
-          const value = computedStyle.getPropertyValue(prop);
-          if (value && value !== 'rgba(0, 0, 0, 0)' && value !== 'transparent' && value !== 'none') {
-            rules += `${prop}: ${value} !important; `;
-            hasModernColor = true;
-          }
-        });
-        
-        if (hasModernColor) {
-          // Add a unique class to this element
-          el.classList.add(`pdf-color-fix-${index}`);
-          cssRules += `.pdf-color-fix-${index} { ${rules} }\n`;
-        }
-      });
-      
-      tempStyle.textContent = cssRules;
-      document.head.appendChild(tempStyle);
-
-      // Generate canvas with proper color handling - matching AOG Analytics approach
+      // Capture with html2canvas
       const canvas = await html2canvas(wrapper, {
         useCORS: true,
-        logging: false,
+        logging: true, // Enable logging for debugging
         backgroundColor: '#ffffff',
         scale: 2,
         allowTaint: false,
-        foreignObjectRendering: false, // Critical: prevents gradient and OKLCH issues
+        foreignObjectRendering: false,
         imageTimeout: 15000,
-        removeContainer: true,
+        removeContainer: false, // Keep container for debugging
+        width: wrapper.scrollWidth,
+        height: wrapper.scrollHeight,
         windowWidth: wrapper.scrollWidth,
         windowHeight: wrapper.scrollHeight,
         onclone: (clonedDoc: Document) => {
-          const clonedWrapper = clonedDoc.getElementById('pdf-export-wrapper');
-          if (clonedWrapper) {
-            // Remove loading elements
-            const loadingElements = clonedWrapper.querySelectorAll('[class*="skeleton"], [class*="loading"], [class*="spinner"], [class*="animate-pulse"]');
-            loadingElements.forEach((el: Element) => el.remove());
+          console.log('onclone callback triggered');
+          const clonedWrapper = clonedDoc.getElementById('pdf-export-wrapper-dashboard');
+          if (!clonedWrapper) {
+            console.error('Cloned wrapper not found!');
+            return;
+          }
+
+          console.log('Cloned wrapper found, applying fixes...');
+
+          // Remove loading/skeleton elements
+          const loadingElements = clonedWrapper.querySelectorAll(
+            '[class*="skeleton"], [class*="loading"], [class*="spinner"], [class*="animate-pulse"], [class*="animate-spin"]'
+          );
+          loadingElements.forEach(el => el.remove());
+          console.log(`Removed ${loadingElements.length} loading elements`);
+
+          // Force visibility on all elements
+          const allElements = clonedWrapper.querySelectorAll('*');
+          allElements.forEach((el: Element) => {
+            const htmlEl = el as HTMLElement;
+            htmlEl.style.visibility = 'visible';
+            htmlEl.style.opacity = '1';
             
-            // Force visibility on SVG elements
-            const svgElements = clonedWrapper.querySelectorAll('svg');
-            svgElements.forEach((svg: SVGElement) => {
-              svg.style.visibility = 'visible';
-              svg.style.display = 'block';
-            });
+            // Force display for hidden elements
+            if (htmlEl.style.display === 'none') {
+              htmlEl.style.display = 'block';
+            }
+          });
+
+          // Special handling for SVG elements
+          const svgElements = clonedWrapper.querySelectorAll('svg');
+          svgElements.forEach((svg: SVGElement) => {
+            svg.style.visibility = 'visible';
+            svg.style.display = 'block';
+            svg.style.opacity = '1';
+          });
+          console.log(`Processed ${svgElements.length} SVG elements`);
+
+          // CRITICAL: Force bar chart rectangles to use solid colors instead of gradients
+          // html2canvas has issues with SVG gradient references
+          try {
+            const barRects = clonedWrapper.querySelectorAll('rect[fill*="url(#barGradient"]');
+            console.log(`Found ${barRects.length} bar chart rectangles with gradients`);
             
-            // Force visibility on Recharts containers
-            const rechartsContainers = clonedWrapper.querySelectorAll('[class*="recharts"]');
-            rechartsContainers.forEach((container: Element) => {
-              (container as HTMLElement).style.visibility = 'visible';
-              (container as HTMLElement).style.display = 'block';
-            });
-            
-            // CRITICAL FIX: Apply computed RGB colors as inline styles
-            // This overrides any oklab/oklch colors from stylesheets
-            const allClonedElements = clonedWrapper.querySelectorAll('*');
-            const allOriginalElements = wrapper.querySelectorAll('*');
-            
-            // Map cloned elements to original elements by index
-            allClonedElements.forEach((clonedEl, index) => {
-              if (index >= allOriginalElements.length) return;
+            barRects.forEach((rect: Element) => {
+              const rectEl = rect as SVGRectElement;
+              const fillAttr = rectEl.getAttribute('fill');
               
-              const originalEl = allOriginalElements[index];
+              // Extract gradient ID and map to solid color
+              if (fillAttr?.includes('barGradient-flightHours')) {
+                rectEl.setAttribute('fill', '#3b82f6'); // Blue for flight hours
+                console.log('Fixed flightHours bar color');
+              } else if (fillAttr?.includes('barGradient-cycles')) {
+                rectEl.setAttribute('fill', '#8b5cf6'); // Purple for cycles
+                console.log('Fixed cycles bar color');
+              }
+              
+              // Ensure visibility
+              rectEl.style.visibility = 'visible';
+              rectEl.style.opacity = '1';
+            });
+          } catch (barError) {
+            console.error('Error fixing bar chart colors:', barError);
+            // Continue anyway - don't fail the entire PDF generation
+          }
+
+          // Force visibility on Recharts containers
+          const rechartsContainers = clonedWrapper.querySelectorAll('[class*="recharts"]');
+          rechartsContainers.forEach((container: Element) => {
+            const htmlContainer = container as HTMLElement;
+            htmlContainer.style.visibility = 'visible';
+            htmlContainer.style.display = 'block';
+            htmlContainer.style.opacity = '1';
+          });
+          console.log(`Processed ${rechartsContainers.length} Recharts containers`);
+
+          // Apply computed colors as inline styles
+          const originalWrapper = document.getElementById('pdf-export-wrapper-dashboard');
+          if (originalWrapper) {
+            const originalElements = originalWrapper.querySelectorAll('*');
+            const clonedElements = clonedWrapper.querySelectorAll('*');
+            
+            clonedElements.forEach((clonedEl, index) => {
+              if (index >= originalElements.length) return;
+              
+              const originalEl = originalElements[index];
               const clonedHtmlEl = clonedEl as HTMLElement;
               const computedStyle = window.getComputedStyle(originalEl);
               
-              // Apply ONLY color properties as inline styles with !important
-              // This overrides stylesheet colors while preserving other styles
-              const colorProps = [
-                'color',
-                'background-color',
-                'border-color',
-                'border-top-color',
-                'border-right-color',
-                'border-bottom-color',
-                'border-left-color',
-              ];
-              
+              // Apply color properties
+              const colorProps = ['color', 'background-color', 'border-color'];
               colorProps.forEach(prop => {
                 const value = computedStyle.getPropertyValue(prop);
-                if (value && value !== 'rgba(0, 0, 0, 0)' && value !== 'transparent' && value !== 'none') {
+                if (value && value !== 'rgba(0, 0, 0, 0)' && value !== 'transparent') {
                   clonedHtmlEl.style.setProperty(prop, value, 'important');
                 }
               });
               
-              // Special handling for SVG elements (fill and stroke)
+              // SVG-specific properties
               if (clonedEl.tagName.toLowerCase() === 'svg' || 
                   clonedEl.tagName.toLowerCase() === 'path' ||
                   clonedEl.tagName.toLowerCase() === 'circle' ||
-                  clonedEl.tagName.toLowerCase() === 'rect' ||
-                  clonedEl.tagName.toLowerCase() === 'line') {
+                  clonedEl.tagName.toLowerCase() === 'rect') {
                 const fill = computedStyle.getPropertyValue('fill');
                 const stroke = computedStyle.getPropertyValue('stroke');
                 
@@ -230,61 +255,83 @@ export function ExecutivePDFExport({
                 }
               }
             });
-            
-            // Ensure all text is visible
-            clonedWrapper.style.color = '#1f2937';
-            clonedWrapper.style.backgroundColor = '#ffffff';
+            console.log(`Applied computed colors to ${clonedElements.length} elements`);
           }
+
+          // Ensure wrapper has white background
+          clonedWrapper.style.backgroundColor = 'rgb(255, 255, 255)';
+          clonedWrapper.style.color = 'rgb(31, 41, 55)';
         },
-      } as any);
-
-      if (!canvas || canvas.width === 0 || canvas.height === 0) {
-        throw new Error('Failed to capture dashboard content');
-      }
-
-      // Clean up temporary style and classes
-      const tempStyleEl = document.getElementById(tempStyleId);
-      if (tempStyleEl) tempStyleEl.remove();
-      allElements.forEach((el, index) => {
-        el.classList.remove(`pdf-color-fix-${index}`);
       });
 
-      // Remove the wrapper from DOM
-      document.body.removeChild(wrapper);
+      console.log('Canvas captured:', {
+        width: canvas.width,
+        height: canvas.height,
+        isEmpty: canvas.width === 0 || canvas.height === 0
+      });
 
-      // Calculate PDF dimensions (A4 format)
-      const imgWidth = 210; // A4 width in mm
-      const pageHeight = 297; // A4 height in mm
-      const imgHeight = (canvas.height * imgWidth) / canvas.width;
+      if (!canvas || canvas.width === 0 || canvas.height === 0) {
+        throw new Error('Failed to capture dashboard content - canvas is empty');
+      }
+
+      // Convert canvas to image data
+      const imgData = canvas.toDataURL('image/png', 1.0);
+      console.log('Image data generated, length:', imgData.length);
       
-      // Create PDF
+      // Check if image data is valid (not just a blank white image)
+      if (imgData.length < 1000) {
+        console.error('Image data too small, likely blank');
+        throw new Error('Generated image appears to be blank');
+      }
+
+      // Remove wrapper
+      document.body.removeChild(wrapper);
+      console.log('Wrapper removed from DOM');
+
+      // Create PDF with proper dimensions
       const pdf = new jsPDF({
         orientation: 'portrait',
         unit: 'mm',
         format: 'a4',
+        compress: true,
       });
 
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const pdfHeight = pdf.internal.pageSize.getHeight();
+      
+      console.log('PDF page dimensions:', { pdfWidth, pdfHeight });
+
+      // Calculate image dimensions to fit PDF width
+      const imgWidth = pdfWidth;
+      const imgHeight = (canvas.height * pdfWidth) / canvas.width;
+      
+      console.log('Image dimensions in PDF:', { imgWidth, imgHeight });
+
+      // Add image to PDF, splitting across multiple pages if needed
       let heightLeft = imgHeight;
       let position = 0;
-      const imgData = canvas.toDataURL('image/png', 1.0);
+      let pageNumber = 1;
 
       // Add first page
-      pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
-      heightLeft -= pageHeight;
+      pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight, undefined, 'FAST');
+      console.log(`Added page ${pageNumber}`);
+      heightLeft -= pdfHeight;
 
-      // Add additional pages if content is longer than one page
+      // Add additional pages if content is taller than one page
       while (heightLeft > 0) {
         position = heightLeft - imgHeight;
         pdf.addPage();
-        pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
-        heightLeft -= pageHeight;
+        pageNumber++;
+        pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight, undefined, 'FAST');
+        console.log(`Added page ${pageNumber}`);
+        heightLeft -= pdfHeight;
       }
 
-      // Generate filename with date
+      // Save PDF
       const filename = `AlphaStar-Executive-Summary-${format(new Date(), 'yyyy-MM-dd')}.pdf`;
-      
-      // Download the PDF
       pdf.save(filename);
+      
+      console.log(`PDF saved successfully: ${filename} (${pageNumber} pages)`);
 
     } catch (err) {
       console.error('PDF generation failed:', err);

@@ -114,8 +114,25 @@ export function ExecutivePDFExport({
       // Force reflow
       wrapper.offsetHeight;
 
-      // CRITICAL: Strip OKLAB/OKLCH from all stylesheets BEFORE html2canvas processes them
-      // This must happen on the wrapper element before html2canvas clones it
+      // CRITICAL: Strip OKLAB/OKLCH from stylesheets AND inline styles BEFORE html2canvas
+      // Step 1: Process all <style> tags in the document to remove OKLAB/OKLCH
+      const styleElements = document.querySelectorAll('style');
+      const originalStyles: Array<{ element: HTMLStyleElement; content: string }> = [];
+      
+      styleElements.forEach((styleEl) => {
+        const originalContent = styleEl.textContent || '';
+        originalStyles.push({ element: styleEl, content: originalContent });
+        
+        // Replace OKLAB/OKLCH with safe RGB fallbacks
+        let cleanedContent = originalContent;
+        cleanedContent = cleanedContent.replace(/oklab\([^)]+\)/gi, '#64748b');
+        cleanedContent = cleanedContent.replace(/oklch\([^)]+\)/gi, '#64748b');
+        cleanedContent = cleanedContent.replace(/color\(display-p3[^)]+\)/gi, '#64748b');
+        
+        styleEl.textContent = cleanedContent;
+      });
+
+      // Step 2: Set inline styles on wrapper elements to override any remaining OKLAB
       const allElements = wrapper.querySelectorAll('*');
       allElements.forEach((el: Element) => {
         const htmlEl = el as HTMLElement;
@@ -245,6 +262,11 @@ export function ExecutivePDFExport({
 
       // Remove the wrapper from DOM
       document.body.removeChild(wrapper);
+
+      // Restore original stylesheets
+      originalStyles.forEach(({ element, content }) => {
+        element.textContent = content;
+      });
 
       // Calculate PDF dimensions (A4 format)
       const imgWidth = 210; // A4 width in mm

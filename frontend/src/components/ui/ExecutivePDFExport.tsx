@@ -157,82 +157,135 @@ export function ExecutivePDFExport({
       // Force reflow to ensure all styles are computed
       wrapper.offsetHeight;
 
-      // Generate canvas from the wrapper with type assertion for extended options
-      const canvas = await html2canvas(wrapper, {
-        useCORS: true,
-        allowTaint: true,
-        logging: false,
-        width: 1100,
-        backgroundColor: '#ffffff',
-        scale: 2, // Higher quality
-        removeContainer: false,
-        imageTimeout: 0,
-        ignoreElements: (element) => {
-          // Skip elements that might cause gradient issues
-          const tagName = element.tagName?.toLowerCase();
-          const classList = element.classList;
-          
-          // Skip problematic elements
-          if (tagName === 'canvas') return true;
-          if (classList?.contains('recharts-surface')) return false; // Keep Recharts
-          if (element.getAttribute('data-no-pdf')) return true;
-          
-          // Check for gradient usage in styles
-          const style = (element as HTMLElement).style;
-          if (style) {
-            const bgImage = style.backgroundImage;
-            if (bgImage && bgImage.includes('gradient')) {
-              // Check if gradient has valid values
-              if (bgImage.includes('NaN') || bgImage.includes('Infinity') || bgImage.includes('undefined')) {
-                return true; // Skip this element
+      // Try to generate canvas with error handling for gradient issues
+      let canvas: HTMLCanvasElement;
+      
+      try {
+        // First attempt: Normal rendering
+        canvas = await html2canvas(wrapper, {
+          useCORS: true,
+          allowTaint: true,
+          logging: false,
+          width: 1100,
+          backgroundColor: '#ffffff',
+          scale: 2,
+          removeContainer: false,
+          imageTimeout: 0,
+          ignoreElements: (element) => {
+            // Skip elements that might cause gradient issues
+            const tagName = element.tagName?.toLowerCase();
+            const classList = element.classList;
+            
+            // Skip problematic elements
+            if (tagName === 'canvas') return true;
+            if (element.getAttribute('data-no-pdf')) return true;
+            
+            // Check for gradient usage in styles
+            const style = (element as HTMLElement).style;
+            if (style) {
+              const bgImage = style.backgroundImage;
+              if (bgImage && bgImage.includes('gradient')) {
+                // Check if gradient has valid values
+                if (bgImage.includes('NaN') || bgImage.includes('Infinity') || bgImage.includes('undefined')) {
+                  return true; // Skip this element
+                }
               }
             }
-          }
-          
-          return false;
-        },
-        onclone: (clonedDoc: Document) => {
-          // Strip all CSS custom properties and modern color functions from stylesheets
-          stripModernColorsFromDocument(clonedDoc);
-          
-          // Additional styling in the cloned document
-          const clonedWrapper = clonedDoc.getElementById('pdf-export-wrapper');
-          if (clonedWrapper) {
-            clonedWrapper.style.left = '0';
-            clonedWrapper.style.position = 'relative';
-            clonedWrapper.style.backgroundColor = '#ffffff';
-            clonedWrapper.style.color = '#1f2937';
             
-            // Apply PDF-safe styles to the cloned content
-            applyPDFStyles(clonedWrapper);
+            return false;
+          },
+          onclone: (clonedDoc: Document) => {
+            // Strip all CSS custom properties and modern color functions from stylesheets
+            stripModernColorsFromDocument(clonedDoc);
             
-            // Sanitize SVG gradients to prevent non-finite values
-            sanitizeSVGGradients(clonedWrapper);
-            
-            // Remove all CSS gradients that might have NaN values
-            removeProblematicGradients(clonedWrapper);
-            
-            // Force all text to be visible
-            const allText = clonedWrapper.querySelectorAll('*');
-            allText.forEach(el => {
-              const htmlEl = el as HTMLElement;
-              const computed = clonedDoc.defaultView?.getComputedStyle(htmlEl);
-              if (computed) {
-                // Ensure text is visible
-                if (computed.color && computed.color.includes('rgb')) {
-                  const rgb = computed.color.match(/\d+/g);
-                  if (rgb && rgb.length >= 3) {
-                    const avg = (parseInt(rgb[0]) + parseInt(rgb[1]) + parseInt(rgb[2])) / 3;
-                    if (avg > 200) {
-                      htmlEl.style.color = '#1f2937';
+            // Additional styling in the cloned document
+            const clonedWrapper = clonedDoc.getElementById('pdf-export-wrapper');
+            if (clonedWrapper) {
+              clonedWrapper.style.left = '0';
+              clonedWrapper.style.position = 'relative';
+              clonedWrapper.style.backgroundColor = '#ffffff';
+              clonedWrapper.style.color = '#1f2937';
+              
+              // Apply PDF-safe styles to the cloned content
+              applyPDFStyles(clonedWrapper);
+              
+              // Sanitize SVG gradients to prevent non-finite values
+              sanitizeSVGGradients(clonedWrapper);
+              
+              // Remove all CSS gradients that might have NaN values
+              removeProblematicGradients(clonedWrapper);
+              
+              // Force all text to be visible
+              const allText = clonedWrapper.querySelectorAll('*');
+              allText.forEach(el => {
+                const htmlEl = el as HTMLElement;
+                const computed = clonedDoc.defaultView?.getComputedStyle(htmlEl);
+                if (computed) {
+                  // Ensure text is visible
+                  if (computed.color && computed.color.includes('rgb')) {
+                    const rgb = computed.color.match(/\d+/g);
+                    if (rgb && rgb.length >= 3) {
+                      const avg = (parseInt(rgb[0]) + parseInt(rgb[1]) + parseInt(rgb[2])) / 3;
+                      if (avg > 200) {
+                        htmlEl.style.color = '#1f2937';
+                      }
                     }
                   }
                 }
-              }
-            });
+              });
+            }
+          },
+        } as Parameters<typeof html2canvas>[1]);
+      } catch (gradientError) {
+        console.warn('First PDF generation attempt failed, trying fallback method:', gradientError);
+        
+        // Fallback: Remove ALL gradients and try again
+        const allElements = wrapper.querySelectorAll('*');
+        allElements.forEach(el => {
+          const htmlEl = el as HTMLElement;
+          const computed = window.getComputedStyle(htmlEl);
+          
+          // Remove any background images (including gradients)
+          if (computed.backgroundImage && computed.backgroundImage !== 'none') {
+            htmlEl.style.backgroundImage = 'none';
+            if (!htmlEl.style.backgroundColor) {
+              htmlEl.style.backgroundColor = '#ffffff';
+            }
           }
-        },
-      } as Parameters<typeof html2canvas>[1]);
+        });
+        
+        // Wait a bit for styles to apply
+        await new Promise(resolve => setTimeout(resolve, 500));
+        
+        // Try again with simpler settings
+        canvas = await html2canvas(wrapper, {
+          useCORS: true,
+          allowTaint: true,
+          logging: false,
+          width: 1100,
+          backgroundColor: '#ffffff',
+          scale: 1.5, // Lower scale for fallback
+          removeContainer: false,
+          imageTimeout: 0,
+          ignoreElements: (element) => {
+            return element.getAttribute('data-no-pdf') === 'true';
+          },
+          onclone: (clonedDoc: Document) => {
+            stripModernColorsFromDocument(clonedDoc);
+            const clonedWrapper = clonedDoc.getElementById('pdf-export-wrapper');
+            if (clonedWrapper) {
+              applyPDFStyles(clonedWrapper);
+              
+              // Remove ALL gradients in fallback mode
+              const allEls = clonedWrapper.querySelectorAll('*');
+              allEls.forEach(el => {
+                const htmlEl = el as HTMLElement;
+                htmlEl.style.backgroundImage = 'none';
+              });
+            }
+          },
+        } as Parameters<typeof html2canvas>[1]);
+      }
 
       // Remove the wrapper from DOM
       document.body.removeChild(wrapper);

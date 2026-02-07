@@ -22,7 +22,7 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/Form';
 import { Breadcrumb } from '@/components/ui/Breadcrumb';
-import { Tabs, TabPanel } from '@/components/ui/Tabs';
+import { Tabs } from '@/components/ui/Tabs';
 import { MilestoneTimeline, MilestoneEditForm, MilestoneHistory, NextStepActionPanel, PartsTab, CostsTab, AttachmentsTab, EventTimeline, RelatedEvents, AOGEventEditForm } from '@/components/aog';
 import { useAOGEventById, useAOGEvents } from '@/hooks/useAOGEvents';
 import { useAircraft } from '@/hooks/useAircraft';

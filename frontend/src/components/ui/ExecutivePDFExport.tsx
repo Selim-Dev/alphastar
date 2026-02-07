@@ -237,92 +237,44 @@ export function ExecutivePDFExport({
           },
         } as Parameters<typeof html2canvas>[1]);
       } catch (gradientError) {
-        console.warn('First PDF generation attempt failed, trying fallback method:', gradientError);
+        console.warn('First PDF generation attempt failed, trying simplified method:', gradientError);
         
-        // Fallback: Remove ALL gradients, stylesheets, and modern colors
+        // Simplified fallback: Just remove gradients, keep other styles
         const allElements = wrapper.querySelectorAll('*');
         allElements.forEach(el => {
           const htmlEl = el as HTMLElement;
-          const computed = window.getComputedStyle(htmlEl);
           
-          // Remove any background images (including gradients)
-          if (computed.backgroundImage && computed.backgroundImage !== 'none') {
+          // Only remove background images (gradients)
+          if (htmlEl.style.backgroundImage && htmlEl.style.backgroundImage !== 'none') {
             htmlEl.style.backgroundImage = 'none';
-            if (!htmlEl.style.backgroundColor) {
-              htmlEl.style.backgroundColor = '#ffffff';
-            }
-          }
-          
-          // Force safe colors for all elements
-          if (computed.color) {
-            const rgb = computed.color.match(/\d+/g);
-            if (rgb && rgb.length >= 3) {
-              htmlEl.style.color = `rgb(${rgb[0]}, ${rgb[1]}, ${rgb[2]})`;
-            } else {
-              htmlEl.style.color = '#1f2937';
-            }
-          }
-          
-          if (computed.backgroundColor && computed.backgroundColor !== 'rgba(0, 0, 0, 0)') {
-            const rgb = computed.backgroundColor.match(/\d+/g);
-            if (rgb && rgb.length >= 3) {
-              htmlEl.style.backgroundColor = `rgb(${rgb[0]}, ${rgb[1]}, ${rgb[2]})`;
-            }
-          }
-          
-          if (computed.borderColor) {
-            const rgb = computed.borderColor.match(/\d+/g);
-            if (rgb && rgb.length >= 3) {
-              htmlEl.style.borderColor = `rgb(${rgb[0]}, ${rgb[1]}, ${rgb[2]})`;
-            }
           }
         });
         
-        // Remove all style tags that might contain OKLCH
-        const styleTags = wrapper.querySelectorAll('style');
-        styleTags.forEach(style => style.remove());
+        // Wait for styles to settle
+        await new Promise(resolve => setTimeout(resolve, 300));
         
-        // Wait a bit for styles to apply
-        await new Promise(resolve => setTimeout(resolve, 500));
-        
-        // Try again with simpler settings and no stylesheets
+        // Retry with basic settings
         canvas = await html2canvas(wrapper, {
           useCORS: true,
           allowTaint: true,
           logging: false,
           width: 1100,
           backgroundColor: '#ffffff',
-          scale: 1.5, // Lower scale for fallback
+          scale: 1.5,
           removeContainer: false,
           imageTimeout: 0,
-          ignoreElements: (element) => {
-            return element.getAttribute('data-no-pdf') === 'true';
-          },
           onclone: (clonedDoc: Document) => {
-            // In fallback mode, be extremely aggressive
+            // Only strip modern colors, keep structure
+            stripModernColorsFromDocument(clonedDoc);
+            
             const clonedWrapper = clonedDoc.getElementById('pdf-export-wrapper');
             if (clonedWrapper) {
-              // Remove ALL style tags
-              const allStyles = clonedDoc.querySelectorAll('style, link[rel="stylesheet"]');
-              allStyles.forEach(s => s.remove());
-              
-              // Apply only inline safe styles
+              // Remove gradients only
               const allEls = clonedWrapper.querySelectorAll('*');
               allEls.forEach(el => {
                 const htmlEl = el as HTMLElement;
-                
-                // Clear all potentially problematic styles
-                htmlEl.style.backgroundImage = 'none';
-                
-                // Set safe defaults
-                if (!htmlEl.style.color || htmlEl.style.color.includes('oklch') || htmlEl.style.color.includes('var(')) {
-                  htmlEl.style.color = '#1f2937';
-                }
-                if (!htmlEl.style.backgroundColor || htmlEl.style.backgroundColor.includes('oklch') || htmlEl.style.backgroundColor.includes('var(')) {
-                  htmlEl.style.backgroundColor = '#ffffff';
-                }
-                if (htmlEl.style.borderColor && (htmlEl.style.borderColor.includes('oklch') || htmlEl.style.borderColor.includes('var('))) {
-                  htmlEl.style.borderColor = '#e2e8f0';
+                if (htmlEl.style.backgroundImage) {
+                  htmlEl.style.backgroundImage = 'none';
                 }
               });
             }

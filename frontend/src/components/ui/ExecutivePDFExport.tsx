@@ -400,7 +400,7 @@ function stripModernColorsFromDocument(doc: Document): void {
     'primary': '#0f172a',
     'primary-foreground': '#f8fafc',
     // Background colors
-    'background': '#fafafa',
+    'background': '#ffffff',
     'foreground': '#0f172a',
     // Card colors
     'card': '#ffffff',
@@ -411,6 +411,7 @@ function stripModernColorsFromDocument(doc: Document): void {
     // Border colors
     'border': '#e2e8f0',
     'input': '#e2e8f0',
+    'ring': '#0891b2',
     // Aviation colors
     'aviation': '#0891b2',
     'aviation-foreground': '#ffffff',
@@ -420,6 +421,12 @@ function stripModernColorsFromDocument(doc: Document): void {
     'success': '#16a34a',
     'warning': '#ea580c',
     'info': '#0284c7',
+    // Popover
+    'popover': '#ffffff',
+    'popover-foreground': '#0f172a',
+    // Accent
+    'accent': '#f1f5f9',
+    'accent-foreground': '#0f172a',
   };
 
   // Process all style elements
@@ -427,22 +434,27 @@ function stripModernColorsFromDocument(doc: Document): void {
   styleSheets.forEach(sheet => {
     let css = sheet.textContent || '';
     
-    // Replace modern color functions with safe fallbacks
-    css = css.replace(/oklab\([^)]+\)/gi, '#64748b');
-    css = css.replace(/oklch\([^)]+\)/gi, '#64748b');
-    css = css.replace(/lab\([^)]+\)/gi, '#64748b');
-    css = css.replace(/lch\([^)]+\)/gi, '#64748b');
-    css = css.replace(/color-mix\([^)]+\)/gi, '#64748b');
-    css = css.replace(/color\(display-p3[^)]+\)/gi, '#64748b');
+    // Replace modern color functions with safe fallbacks - more aggressive patterns
+    css = css.replace(/oklab\s*\([^)]+\)/gi, '#64748b');
+    css = css.replace(/oklch\s*\([^)]+\)/gi, '#64748b');
+    css = css.replace(/lab\s*\([^)]+\)/gi, '#64748b');
+    css = css.replace(/lch\s*\([^)]+\)/gi, '#64748b');
+    css = css.replace(/color-mix\s*\([^)]+\)/gi, '#64748b');
+    css = css.replace(/color\s*\(\s*display-p3[^)]+\)/gi, '#64748b');
+    css = css.replace(/hwb\s*\([^)]+\)/gi, '#64748b');
     
     // Replace CSS custom properties with actual colors
     Object.entries(colorMap).forEach(([key, value]) => {
-      const regex = new RegExp(`var\\(--${key}[^)]*\\)`, 'gi');
+      // Match var(--key) or var(--key, fallback)
+      const regex = new RegExp(`var\\s*\\(\\s*--${key}[^)]*\\)`, 'gi');
       css = css.replace(regex, value);
     });
     
+    // Replace any remaining CSS variables with fallback
+    css = css.replace(/var\s*\(\s*--[^)]+\)/gi, '#64748b');
+    
     // Replace hsl() with rgb() for better compatibility
-    css = css.replace(/hsl\(([^)]+)\)/gi, (_match, hslValues) => {
+    css = css.replace(/hsl\s*\(\s*([^)]+)\)/gi, (_match, hslValues) => {
       try {
         const values = hslValues.split(/[\s,/]+/).map((v: string) => parseFloat(v));
         if (values.length >= 3) {
@@ -459,10 +471,51 @@ function stripModernColorsFromDocument(doc: Document): void {
     sheet.textContent = css;
   });
 
+  // Also process link stylesheets (external CSS)
+  const linkSheets = doc.querySelectorAll('link[rel="stylesheet"]');
+  linkSheets.forEach(link => {
+    try {
+      const sheet = (link as HTMLLinkElement).sheet;
+      if (sheet && sheet.cssRules) {
+        for (let i = 0; i < sheet.cssRules.length; i++) {
+          const rule = sheet.cssRules[i];
+          if (rule instanceof CSSStyleRule) {
+            let cssText = rule.cssText;
+            
+            // Apply same replacements
+            cssText = cssText.replace(/oklab\s*\([^)]+\)/gi, '#64748b');
+            cssText = cssText.replace(/oklch\s*\([^)]+\)/gi, '#64748b');
+            cssText = cssText.replace(/lab\s*\([^)]+\)/gi, '#64748b');
+            cssText = cssText.replace(/lch\s*\([^)]+\)/gi, '#64748b');
+            cssText = cssText.replace(/var\s*\(\s*--[^)]+\)/gi, '#64748b');
+            
+            Object.entries(colorMap).forEach(([key, value]) => {
+              const regex = new RegExp(`var\\s*\\(\\s*--${key}[^)]*\\)`, 'gi');
+              cssText = cssText.replace(regex, value);
+            });
+            
+            // Try to update the rule (may fail due to CORS)
+            try {
+              sheet.deleteRule(i);
+              sheet.insertRule(cssText, i);
+            } catch {
+              // Ignore CORS errors
+            }
+          }
+        }
+      }
+    } catch {
+      // Ignore errors accessing external stylesheets
+    }
+  });
+
   // Apply inline styles to all elements
   const allElements = doc.querySelectorAll('*');
   allElements.forEach(el => {
     const htmlEl = el as HTMLElement;
+    
+    // Get computed style
+    const computed = doc.defaultView?.getComputedStyle(htmlEl);
     
     // Get inline style
     const inlineStyle = htmlEl.getAttribute('style') || '';
@@ -471,21 +524,37 @@ function stripModernColorsFromDocument(doc: Document): void {
     if (inlineStyle.includes('var(--')) {
       let cleanedStyle = inlineStyle;
       Object.entries(colorMap).forEach(([key, value]) => {
-        const regex = new RegExp(`var\\(--${key}[^)]*\\)`, 'gi');
+        const regex = new RegExp(`var\\s*\\(\\s*--${key}[^)]*\\)`, 'gi');
         cleanedStyle = cleanedStyle.replace(regex, value);
       });
+      // Replace any remaining CSS variables
+      cleanedStyle = cleanedStyle.replace(/var\s*\(\s*--[^)]+\)/gi, '#64748b');
       htmlEl.setAttribute('style', cleanedStyle);
     }
     
     // Replace modern color functions in inline styles
     if (hasModernColorFunction(inlineStyle)) {
       let cleanedStyle = inlineStyle;
-      cleanedStyle = cleanedStyle.replace(/oklab\([^)]+\)/gi, '#64748b');
-      cleanedStyle = cleanedStyle.replace(/oklch\([^)]+\)/gi, '#64748b');
-      cleanedStyle = cleanedStyle.replace(/lab\([^)]+\)/gi, '#64748b');
-      cleanedStyle = cleanedStyle.replace(/lch\([^)]+\)/gi, '#64748b');
-      cleanedStyle = cleanedStyle.replace(/color-mix\([^)]+\)/gi, '#64748b');
+      cleanedStyle = cleanedStyle.replace(/oklab\s*\([^)]+\)/gi, '#64748b');
+      cleanedStyle = cleanedStyle.replace(/oklch\s*\([^)]+\)/gi, '#64748b');
+      cleanedStyle = cleanedStyle.replace(/lab\s*\([^)]+\)/gi, '#64748b');
+      cleanedStyle = cleanedStyle.replace(/lch\s*\([^)]+\)/gi, '#64748b');
+      cleanedStyle = cleanedStyle.replace(/color-mix\s*\([^)]+\)/gi, '#64748b');
+      cleanedStyle = cleanedStyle.replace(/hwb\s*\([^)]+\)/gi, '#64748b');
       htmlEl.setAttribute('style', cleanedStyle);
+    }
+    
+    // Check computed styles for modern color functions
+    if (computed) {
+      ['color', 'backgroundColor', 'borderColor', 'fill', 'stroke'].forEach(prop => {
+        const value = computed.getPropertyValue(prop);
+        if (value && hasModernColorFunction(value)) {
+          // Set explicit fallback color
+          const fallbackColor = prop === 'backgroundColor' ? '#ffffff' : 
+                               prop === 'borderColor' ? '#e2e8f0' : '#1f2937';
+          htmlEl.style.setProperty(prop, fallbackColor, 'important');
+        }
+      });
     }
   });
 }
@@ -530,7 +599,7 @@ function hslToRgb(h: number, s: number, l: number): { r: number; g: number; b: n
  * Check if a color value contains modern color functions
  */
 function hasModernColorFunction(value: string): boolean {
-  return /oklab|oklch|lab\(|lch\(|color-mix|color\(display-p3|var\(--/i.test(value);
+  return /oklab|oklch|lab\s*\(|lch\s*\(|color-mix|color\s*\(\s*display-p3|var\s*\(\s*--|hwb\s*\(/i.test(value);
 }
 
 /**

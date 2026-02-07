@@ -6,7 +6,7 @@ WORKDIR /app
 # Install dependencies only
 FROM base AS deps
 COPY package*.json ./
-RUN npm ci
+RUN npm i
 
 # Build stage
 FROM base AS builder

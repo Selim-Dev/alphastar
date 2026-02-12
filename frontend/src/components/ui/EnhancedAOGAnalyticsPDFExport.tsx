@@ -410,7 +410,7 @@ export function EnhancedAOGAnalyticsPDFExport({
       const canvas = await html2canvas(element, {
         useCORS: true,
         logging: false,
-        backgroundColor: '#ffffff',
+        background: '#ffffff',
         allowTaint: false,
         foreignObjectRendering: false, // Keep false for SVG support
         imageTimeout: 15000,

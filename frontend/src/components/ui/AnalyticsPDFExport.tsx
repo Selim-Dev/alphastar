@@ -86,7 +86,7 @@ export function AnalyticsPDFExport({
       const canvas = await html2canvas(clone, {
         useCORS: true,
         logging: false,
-        backgroundColor: '#ffffff',
+        background: '#ffffff',
         allowTaint: true,
         foreignObjectRendering: true,
       });

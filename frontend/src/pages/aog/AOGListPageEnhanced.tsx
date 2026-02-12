@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { format, subDays, startOfMonth, endOfMonth, subMonths } from 'date-fns';
 import { ColumnDef } from '@tanstack/react-table';
-import { Plane } from 'lucide-react';
+import { Plane, Trash2 } from 'lucide-react';
 import { DataTable } from '@/components/ui/DataTable';
 import { Button } from '@/components/ui/Form';
 import { ExportButton } from '@/components/ui/ExportButton';
@@ -15,8 +15,9 @@ import {
   LocationDisplay,
   AOGQuickStats,
 } from '@/components/aog';
-import { useAOGEvents } from '@/hooks/useAOGEvents';
+import { useAOGEvents, useDeleteAOGEvent } from '@/hooks/useAOGEvents';
 import { useAircraft } from '@/hooks/useAircraft';
+import { useAuth } from '@/contexts/AuthContext';
 import { formatDuration } from '@/lib/formatDuration';
 import type { AOGEvent, Aircraft } from '@/types';
 
@@ -72,6 +73,8 @@ const CATEGORY_OPTIONS = [
 
 export function AOGListPageEnhanced() {
   const navigate = useNavigate();
+  const deleteEvent = useDeleteAOGEvent();
+  const { user } = useAuth();
   
   const [datePreset, setDatePreset] = useState<DatePreset>('allTime');
   const [customRange, setCustomRange] = useState<DateRange>({});
@@ -80,6 +83,9 @@ export function AOGListPageEnhanced() {
   const [categoryFilter, setCategoryFilter] = useState<string[]>([]);
   const [locationFilter, setLocationFilter] = useState<string>('');
   const [searchQuery, setSearchQuery] = useState<string>('');
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+
+  const isAdmin = user?.role === 'Admin';
 
   const dateRange = useMemo(() => {
     if (datePreset === 'custom') {
@@ -183,6 +189,34 @@ export function AOGListPageEnhanced() {
     );
   };
 
+  // Handle delete
+  const handleDelete = async (event: AOGEvent & { downtimeHours?: number }, e: React.MouseEvent) => {
+    e.stopPropagation(); // Prevent row click navigation
+    
+    const eventId = event._id || (event as unknown as { id?: string }).id;
+    if (!eventId) {
+      console.error('No event ID found for deletion');
+      return;
+    }
+
+    const aircraft = aircraftMap.get(String(event.aircraftId));
+    const confirmMessage = `Are you sure you want to delete this AOG event?\n\nAircraft: ${aircraft?.registration || 'Unknown'}\nDefect: ${event.reasonCode}\n\nThis action cannot be undone.`;
+    
+    if (!window.confirm(confirmMessage)) {
+      return;
+    }
+
+    try {
+      setDeletingId(eventId);
+      await deleteEvent.mutateAsync(eventId);
+    } catch (error) {
+      console.error('Failed to delete AOG event:', error);
+      alert('Failed to delete AOG event. Please try again.');
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
   // Table columns
   const columns: ColumnDef<AOGEvent & { downtimeHours?: number }, unknown>[] = useMemo(
     () => [
@@ -236,8 +270,31 @@ export function AOGListPageEnhanced() {
             ? formatDuration(row.original.downtimeHours)
             : '-',
       },
+      ...(isAdmin
+        ? [
+            {
+              id: 'actions',
+              header: 'Actions',
+              cell: ({ row }: { row: { original: AOGEvent & { downtimeHours?: number } } }) => {
+                const eventId = row.original._id || (row.original as unknown as { id?: string }).id;
+                const isDeleting = deletingId === eventId;
+
+                return (
+                  <button
+                    onClick={(e) => handleDelete(row.original, e)}
+                    disabled={isDeleting}
+                    className="p-2 text-red-600 hover:text-red-700 hover:bg-red-50 dark:text-red-400 dark:hover:text-red-300 dark:hover:bg-red-900/20 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    title="Delete AOG event"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                );
+              },
+            } as ColumnDef<AOGEvent & { downtimeHours?: number }, unknown>,
+          ]
+        : []),
     ],
-    [aircraftMap]
+    [aircraftMap, deletingId, isAdmin]
   );
 
   return (

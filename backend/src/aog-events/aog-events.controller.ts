@@ -292,6 +292,8 @@ export class AOGEventsController {
 
   @Delete(':id')
   @Roles(UserRole.Admin)
+  @Delete(':id')
+  @Roles(UserRole.Admin)
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({ summary: 'Delete AOG event by ID (Admin only)' })
   @ApiParam({ name: 'id', description: 'AOG event ID' })

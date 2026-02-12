@@ -303,6 +303,19 @@ export function useUpdateAOGEvent() {
   });
 }
 
+export function useDeleteAOGEvent() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      await api.delete(`/aog-events/${id}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['aog-events'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+    },
+  });
+}
+
 /**
  * Hook for transitioning AOG event status
  * Requirements: 7.1

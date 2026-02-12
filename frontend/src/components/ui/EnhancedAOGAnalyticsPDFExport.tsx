@@ -411,7 +411,6 @@ export function EnhancedAOGAnalyticsPDFExport({
         useCORS: true,
         logging: false,
         backgroundColor: '#ffffff',
-        scale: 2,
         allowTaint: false,
         foreignObjectRendering: false, // Keep false for SVG support
         imageTimeout: 15000,

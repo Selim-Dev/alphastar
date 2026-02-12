@@ -130,8 +130,7 @@ export function ExecutivePDFExport({
       const canvas = await html2canvas(wrapper, {
         useCORS: true,
         logging: true, // Enable logging for debugging
-        background: '#ffffff',
-        scale: 2,
+        backgroundColor: '#ffffff',
         allowTaint: false,
         foreignObjectRendering: false,
         imageTimeout: 15000,

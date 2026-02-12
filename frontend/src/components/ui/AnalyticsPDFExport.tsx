@@ -87,10 +87,9 @@ export function AnalyticsPDFExport({
         useCORS: true,
         logging: false,
         backgroundColor: '#ffffff',
-        scale: 2, // Higher resolution for better quality
         allowTaint: true,
         foreignObjectRendering: true,
-      } as any); // Type assertion needed for html2canvas options
+      });
 
       // Remove the clone
       document.body.removeChild(clone);

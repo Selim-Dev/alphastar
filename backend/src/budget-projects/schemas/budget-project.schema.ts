@@ -1,5 +1,5 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
-import { Document, Types } from 'mongoose';
+import { Document, Types, Schema as MongooseSchema } from 'mongoose';
 
 export type BudgetProjectDocument = BudgetProject & Document;
 
@@ -12,10 +12,7 @@ export class BudgetProject {
   templateType: string; // e.g., "RSAF"
 
   @Prop({
-    type: {
-      start: { type: Date, required: true },
-      end: { type: Date, required: true },
-    },
+    type: MongooseSchema.Types.Mixed,
     required: true,
   })
   dateRange: {
@@ -27,12 +24,7 @@ export class BudgetProject {
   currency: string;
 
   @Prop({
-    type: {
-      type: { type: String, enum: ['individual', 'type', 'group'], required: true },
-      aircraftIds: [{ type: Types.ObjectId, ref: 'Aircraft' }],
-      aircraftTypes: [String],
-      fleetGroups: [String],
-    },
+    type: MongooseSchema.Types.Mixed,
     required: true,
   })
   aircraftScope: {

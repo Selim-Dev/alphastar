@@ -25,6 +25,7 @@ import { AOGListPageEnhanced, AOGLogPage, AOGAnalyticsPage, AOGDetailPage } from
 import { WorkOrdersListPage, WorkOrdersNewPage, WorkOrdersAnalyticsPage, WorkOrderSummaryPage } from '@/pages/work-orders';
 import { DiscrepanciesListPage, DiscrepanciesNewPage, DiscrepanciesAnalyticsPage } from '@/pages/discrepancies';
 import { BudgetPage } from '@/pages/BudgetPage';
+import { BudgetProjectsListPage, BudgetProjectDetailPage, BudgetAnalyticsPage } from '@/pages/budget';
 import { ImportPage } from '@/pages/ImportPage';
 import { AdminPage } from '@/pages/AdminPage';
 import { HelpCenterPage } from '@/pages/HelpCenterPage';
@@ -107,6 +108,12 @@ function App() {
         
         <Route path="/fleet-at-mro" element={<FleetAtMROPage />} />
         <Route path="/budget" element={<BudgetPage />} />
+        
+        {/* Budget Projects Routes - new budget system */}
+        <Route path="/budget-projects" element={<BudgetProjectsListPage />} />
+        <Route path="/budget-projects/:id" element={<BudgetProjectDetailPage />} />
+        <Route path="/budget-projects/:id/analytics" element={<BudgetAnalyticsPage />} />
+        
         <Route path="/vacation-plan" element={<VacationPlanPage />} />
         <Route
           path="/import"

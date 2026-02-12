@@ -11,6 +11,7 @@ import { WorkOrdersModule } from './work-orders/work-orders.module';
 import { WorkOrderSummariesModule } from './work-order-summaries/work-order-summaries.module';
 import { DiscrepanciesModule } from './discrepancies/discrepancies.module';
 import { BudgetModule } from './budget/budget.module';
+import { BudgetProjectsModule } from './budget-projects/budget-projects.module';
 import { ImportExportModule } from './import-export/import-export.module';
 import { DashboardModule } from './dashboard/dashboard.module';
 import { DemoModule } from './demo/demo.module';
@@ -35,6 +36,7 @@ import { AppService } from './app.service';
     WorkOrderSummariesModule,
     DiscrepanciesModule,
     BudgetModule,
+    BudgetProjectsModule,
     ImportExportModule,
     DashboardModule,
     DemoModule,

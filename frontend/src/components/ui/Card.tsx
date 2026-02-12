@@ -1,87 +1,55 @@
-import React from 'react';
 import { motion, HTMLMotionProps } from 'framer-motion';
+import React from 'react';
 
 /**
- * Card Component - Premium elevated surface container
+ * Card - Reusable card container component with motion support
  * 
- * Design Specifications (from design.md):
- * - Border radius: 12px (rounded-xl)
- * - Padding: 20px (p-5)
- * - Border: 1px solid border color
- * - Shadow: shadow-sm (light), shadow (dark) - using theme-aware shadows
- * - Background: card color
- * 
- * Requirements: 4.1 - Card SHALL display with appropriate elevation, padding,
- * subtle border, and shadow tuned for the current theme mode
+ * Features:
+ * - Framer Motion animations
+ * - Responsive design
+ * - Dark mode support
+ * - Hover effects
+ * - Flexible layout
  */
-
 export interface CardProps extends Omit<HTMLMotionProps<'div'>, 'children'> {
   /** Card content */
   children: React.ReactNode;
   /** Additional CSS classes */
   className?: string;
-  /** Card padding variant */
-  padding?: 'none' | 'sm' | 'md' | 'lg';
-  /** Enable hover elevation effect */
+  /** Enable hover effect */
   hoverable?: boolean;
-  /** Disable animation */
-  static?: boolean;
+  /** Enable click interaction */
+  clickable?: boolean;
+  /** Animation delay */
+  delay?: number;
 }
-
-const paddingClasses = {
-  none: '',
-  sm: 'p-3',
-  md: 'p-5',
-  lg: 'p-6',
-};
 
 export function Card({
   children,
   className = '',
-  padding = 'md',
   hoverable = false,
-  static: isStatic = false,
-  ...motionProps
+  clickable = false,
+  delay = 0,
+  ...props
 }: CardProps) {
-  const baseClasses = [
-    // Background and text
-    'bg-card text-card-foreground',
-    // Border with theme-aware color
-    'border border-border',
-    // Premium border radius (12px)
-    'rounded-xl',
-    // Theme-aware shadow
-    'shadow-theme-sm',
-    // Padding based on variant
-    paddingClasses[padding],
-    // Smooth transitions for hover and theme changes
-    'transition-shadow duration-200 ease-out',
-  ].join(' ');
-
-  const hoverClasses = hoverable
-    ? 'hover:shadow-theme-md hover:border-border/80 cursor-pointer'
+  const hoverClass = hoverable || clickable
+    ? 'hover:shadow-lg hover:-translate-y-1 transition-all duration-200'
     : '';
-
-  const combinedClasses = `${baseClasses} ${hoverClasses} ${className}`.trim();
-
-  if (isStatic) {
-    return (
-      <div className={combinedClasses}>
-        {children}
-      </div>
-    );
-  }
+  
+  const cursorClass = clickable ? 'cursor-pointer' : '';
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 10 }}
+      initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{
-        duration: 0.2,
-        ease: [0.25, 0.46, 0.45, 0.94],
-      }}
-      className={combinedClasses}
-      {...motionProps}
+      transition={{ duration: 0.3, delay }}
+      className={`
+        bg-card border border-border rounded-lg shadow-sm
+        ${hoverClass}
+        ${cursorClass}
+        ${className}
+      `.trim().replace(/\s+/g, ' ')}
+      {...props}
     >
       {children}
     </motion.div>
@@ -110,18 +78,21 @@ export function CardHeader({ children, className = '' }: CardHeaderProps) {
 export interface CardTitleProps {
   children: React.ReactNode;
   className?: string;
-  as?: 'h2' | 'h3' | 'h4';
+  as?: 'h1' | 'h2' | 'h3' | 'h4' | 'h5' | 'h6';
 }
 
 export function CardTitle({ children, className = '', as: Component = 'h3' }: CardTitleProps) {
   const sizeClasses = {
     h2: 'text-h2',
     h3: 'text-h3',
-    h4: 'text-lg font-semibold',
+    h4: 'text-h4',
+    h5: 'text-h5',
+    h6: 'text-h6',
+    h1: 'text-h1',
   };
 
   return (
-    <Component className={`${sizeClasses[Component]} text-foreground ${className}`.trim()}>
+    <Component className={`font-semibold text-foreground ${sizeClasses[Component]} ${className}`.trim()}>
       {children}
     </Component>
   );

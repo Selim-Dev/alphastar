@@ -71,7 +71,8 @@ const IMPORT_TYPE_LABELS: Record<ImportType, string> = {
   utilization: 'Daily Utilization Counters',
   maintenance_tasks: 'Maintenance Tasks',
   aog_events: 'AOG Events',
-  budget: 'Budget Plan',
+  // budget: 'Budget Plan', // DEPRECATED: Use Budget Projects module instead (/budget-projects)
+  budget: 'Budget Plan (Legacy)', // Kept for backward compatibility but hidden from UI
   aircraft: 'Aircraft Master',
   daily_status: 'Daily Status',
 };
@@ -324,7 +325,9 @@ export function ImportPage() {
             </p>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-              {(importTypes || []).map((type) => (
+              {(importTypes || [])
+                .filter((type) => type.type !== 'budget') // Hide legacy budget import - use Budget Projects instead
+                .map((type) => (
                 <button
                   key={type.type}
                   onClick={() => setSelectedType(type.type)}
@@ -340,6 +343,29 @@ export function ImportPage() {
                   </p>
                 </button>
               ))}
+            </div>
+
+            {/* Budget Projects Note */}
+            <div className="mb-6 p-4 bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+              <div className="flex items-start gap-3">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-blue-600 dark:text-blue-400 flex-shrink-0 mt-0.5">
+                  <circle cx="12" cy="12" r="10" />
+                  <line x1="12" y1="16" x2="12" y2="12" />
+                  <line x1="12" y1="8" x2="12.01" y2="8" />
+                </svg>
+                <div>
+                  <p className="text-sm font-medium text-blue-900 dark:text-blue-100">
+                    Looking for Budget Import?
+                  </p>
+                  <p className="text-sm text-blue-700 dark:text-blue-300 mt-1">
+                    Budget data import has moved to the new{' '}
+                    <a href="/budget-projects" className="underline hover:no-underline font-medium">
+                      Budget Projects
+                    </a>
+                    {' '}module. Use the Budget Projects interface for creating and managing budget plans with Excel import/export.
+                  </p>
+                </div>
+              </div>
             </div>
 
             <div className="flex items-center gap-3">

@@ -1,41 +1,49 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
-import { Document, Types, Schema as MongooseSchema } from 'mongoose';
+import { Document, Types } from 'mongoose';
 
 export type BudgetAuditLogDocument = BudgetAuditLog & Document;
 
-@Schema({ timestamps: false, collection: 'budgetauditlog' })
+@Schema({ timestamps: true, collection: 'budgetauditlog' })
 export class BudgetAuditLog {
-  @Prop({ type: Types.ObjectId, ref: 'BudgetProject', required: true })
+  @Prop({ type: Types.ObjectId, required: true, index: true })
   projectId: Types.ObjectId;
 
-  @Prop({ required: true, enum: ['project', 'planRow', 'actual'] })
+  @Prop({
+    type: String,
+    required: true,
+    enum: ['project', 'planRow', 'actual'],
+  })
   entityType: string;
 
   @Prop({ type: Types.ObjectId, required: true })
   entityId: Types.ObjectId;
 
-  @Prop({ required: true, enum: ['create', 'update', 'delete'] })
+  @Prop({
+    type: String,
+    required: true,
+    enum: ['create', 'update', 'delete'],
+  })
   action: string;
 
-  @Prop()
+  @Prop({ type: String })
   fieldChanged?: string;
 
-  @Prop({ type: MongooseSchema.Types.Mixed })
+  @Prop({ type: Object })
   oldValue?: any;
 
-  @Prop({ type: MongooseSchema.Types.Mixed })
+  @Prop({ type: Object })
   newValue?: any;
 
-  @Prop({ type: Types.ObjectId, ref: 'User', required: true })
+  @Prop({ type: Types.ObjectId, required: true, index: true })
   userId: Types.ObjectId;
 
-  @Prop({ required: true, default: Date.now })
+  @Prop({ type: Date, default: Date.now, index: true })
   timestamp: Date;
 }
 
 export const BudgetAuditLogSchema = SchemaFactory.createForClass(BudgetAuditLog);
 
-// Indexes
+// Compound indexes for efficient querying
 BudgetAuditLogSchema.index({ projectId: 1, timestamp: -1 });
 BudgetAuditLogSchema.index({ userId: 1, timestamp: -1 });
 BudgetAuditLogSchema.index({ entityType: 1, entityId: 1 });

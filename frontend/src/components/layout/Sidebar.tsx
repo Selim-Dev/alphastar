@@ -10,6 +10,7 @@ import {
   ClipboardList,
   Search,
   DollarSign,
+  Calculator,
   Upload,
   Settings,
   HelpCircle,
@@ -107,7 +108,16 @@ const navigationGroups: NavGroupConfig[] = [
   {
     label: 'Finance',
     items: [
-      { path: '/budget', label: 'Budget & Cost', icon: DollarSign },
+      // Legacy Budget & Cost (deprecated - use Budget Projects instead)
+      // { path: '/budget', label: 'Budget & Cost (Legacy)', icon: DollarSign },
+      { 
+        path: '/budget-projects', 
+        label: 'Budget Projects', 
+        icon: Calculator,
+        subItems: [
+          { path: '/budget-projects', label: 'Projects List', icon: List },
+        ],
+      },
     ],
   },
   {

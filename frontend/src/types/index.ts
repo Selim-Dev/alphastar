@@ -1284,3 +1284,6 @@ export const ALLOWED_TRANSITIONS: Record<AOGWorkflowStatus, AOGWorkflowStatus[]>
   BACK_IN_SERVICE: ['CLOSED'],
   CLOSED: [],
 };
+
+// Budget Projects types (new Budget & Cost Revamp module)
+export * from './budget-projects';

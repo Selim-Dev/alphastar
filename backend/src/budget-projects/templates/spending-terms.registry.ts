@@ -129,10 +129,10 @@ export const RSAF_TEMPLATE: BudgetTemplate = {
   name: 'RSAF Budget Template',
   spendingTerms: RSAF_SPENDING_TERMS,
   excelStructure: {
-    headerRow: 1,
-    termColumn: 'A',
-    plannedColumns: ['B'],
-    actualColumns: ['C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N'], // 12 months
+    headerRow: 3, // Row 3 contains main headers (aircraft columns + year blocks)
+    termColumn: 'D', // Column D contains clause descriptions
+    plannedColumns: ['E', 'F', 'G', 'H'], // A330, G650ER-1, G650ER-2, PMO
+    actualColumns: ['O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z', 'AA', 'AB', 'AC', 'AD', 'AE', 'AF', 'AG', 'AH', 'AI', 'AJ', 'AK', 'AL', 'AM', 'AN', 'AO', 'AP', 'AQ', 'AR', 'AS', 'AT', 'AU', 'AV', 'AW', 'AX'], // 36 months (3 years)
   },
 };
 

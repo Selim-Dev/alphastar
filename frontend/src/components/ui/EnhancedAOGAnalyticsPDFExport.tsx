@@ -412,7 +412,6 @@ export function EnhancedAOGAnalyticsPDFExport({
         logging: false,
         background: '#ffffff',
         allowTaint: false,
-        foreignObjectRendering: false, // Keep false for SVG support
         imageTimeout: 15000,
         removeContainer: true,
         windowWidth: element.scrollWidth,

@@ -82,14 +82,12 @@ export function AnalyticsPDFExport({
       const waitTime = attemptNumber === 0 ? 1000 : 500;
       await new Promise(resolve => setTimeout(resolve, waitTime));
 
-      // Capture the content as canvas with higher resolution
       const canvas = await html2canvas(clone, {
         useCORS: true,
         logging: false,
         background: '#ffffff',
         allowTaint: true,
-        foreignObjectRendering: true,
-      });
+      } as any);
 
       // Remove the clone
       document.body.removeChild(clone);

@@ -129,12 +129,11 @@ export function ExecutivePDFExport({
       // Capture with html2canvas
       const canvas = await html2canvas(wrapper, {
         useCORS: true,
-        logging: true, // Enable logging for debugging
+        logging: true,
         background: '#ffffff',
         allowTaint: false,
-        foreignObjectRendering: false,
         imageTimeout: 15000,
-        removeContainer: false, // Keep container for debugging
+        removeContainer: false,
         width: wrapper.scrollWidth,
         height: wrapper.scrollHeight,
         windowWidth: wrapper.scrollWidth,
@@ -261,7 +260,7 @@ export function ExecutivePDFExport({
           clonedWrapper.style.backgroundColor = 'rgb(255, 255, 255)';
           clonedWrapper.style.color = 'rgb(31, 41, 55)';
         },
-      });
+      } as any);
 
       console.log('Canvas captured:', {
         width: canvas.width,

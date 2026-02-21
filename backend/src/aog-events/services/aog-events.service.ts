@@ -434,6 +434,7 @@ export class AOGEventsService {
       clearedAt: dto.clearedAt ? new Date(dto.clearedAt) : undefined,
       category: dto.category as AOGCategory,
       reasonCode: dto.reasonCode,
+      location: dto.location, // ICAO airport code
       responsibleParty: dto.responsibleParty as ResponsibleParty,
       actionTaken: dto.actionTaken,
       manpowerCount: dto.manpowerCount,

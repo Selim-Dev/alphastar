@@ -6,7 +6,6 @@ import { format } from 'date-fns';
 import { useNavigate } from 'react-router-dom';
 import { Dialog } from '@/components/ui/Dialog';
 import { FormField, Input, Select, Button } from '@/components/ui/Form';
-import { useAircraft } from '@/hooks/useAircraft';
 import { useBudgetProjects } from '@/hooks/useBudgetProjects';
 import type { CreateBudgetProjectDto } from '@/types/budget-projects';
 
@@ -17,17 +16,11 @@ const createProjectSchema = z.object({
   dateRangeStart: z.string().min(1, 'Start date is required'),
   dateRangeEnd: z.string().min(1, 'End date is required'),
   currency: z.string().min(1, 'Currency is required'),
-  aircraftScopeType: z.enum(['individual', 'type', 'group']),
-  aircraftIds: z.array(z.string()).optional(),
-  aircraftTypes: z.array(z.string()).optional(),
-  fleetGroups: z.array(z.string()).optional(),
+  columnNames: z.array(z.string().min(1)).min(1, 'At least one column name is required'),
   status: z.enum(['draft', 'active', 'closed']),
 }).refine(
   (data) => new Date(data.dateRangeEnd) >= new Date(data.dateRangeStart),
-  {
-    message: 'End date must be after or equal to start date',
-    path: ['dateRangeEnd'],
-  }
+  { message: 'End date must be after or equal to start date', path: ['dateRangeEnd'] }
 );
 
 type CreateProjectFormData = z.infer<typeof createProjectSchema>;
@@ -41,19 +34,15 @@ export function CreateProjectDialog({ open, onClose }: CreateProjectDialogProps)
   const navigate = useNavigate();
   const { useCreateProject } = useBudgetProjects();
   const createProject = useCreateProject();
-  const { data: aircraftData } = useAircraft();
-  const aircraft = aircraftData?.data || [];
-
-  const [selectedAircraftIds, setSelectedAircraftIds] = useState<string[]>([]);
-  const [selectedAircraftTypes, setSelectedAircraftTypes] = useState<string[]>([]);
-  const [selectedFleetGroups, setSelectedFleetGroups] = useState<string[]>([]);
+  const [columnInput, setColumnInput] = useState('');
 
   const {
     register,
     handleSubmit,
     control,
-    watch,
     reset,
+    setValue,
+    watch,
     formState: { errors, isSubmitting },
   } = useForm<CreateProjectFormData>({
     resolver: zodResolver(createProjectSchema),
@@ -63,26 +52,40 @@ export function CreateProjectDialog({ open, onClose }: CreateProjectDialogProps)
       dateRangeStart: format(new Date(), 'yyyy-MM-dd'),
       dateRangeEnd: format(new Date(new Date().getFullYear(), 11, 31), 'yyyy-MM-dd'),
       currency: 'USD',
-      aircraftScopeType: 'type',
+      columnNames: [],
       status: 'draft',
     },
   });
 
-  const aircraftScopeType = watch('aircraftScopeType');
+
+  const columnNames = watch('columnNames');
 
   // Reset form when dialog closes
   useEffect(() => {
     if (!open) {
       reset();
-      setSelectedAircraftIds([]);
-      setSelectedAircraftTypes([]);
-      setSelectedFleetGroups([]);
+      setColumnInput('');
     }
   }, [open, reset]);
 
-  // Get unique aircraft types and fleet groups
-  const aircraftTypes = Array.from(new Set(aircraft.map((a) => a.aircraftType).filter(Boolean)));
-  const fleetGroups = Array.from(new Set(aircraft.map((a) => a.fleetGroup).filter(Boolean)));
+  const addColumnName = (name: string) => {
+    const trimmed = name.trim();
+    if (trimmed && !columnNames.includes(trimmed)) {
+      setValue('columnNames', [...columnNames, trimmed], { shouldValidate: true });
+    }
+    setColumnInput('');
+  };
+
+  const removeColumnName = (name: string) => {
+    setValue('columnNames', columnNames.filter((c) => c !== name), { shouldValidate: true });
+  };
+
+  const handleColumnInputKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter' || e.key === ',') {
+      e.preventDefault();
+      addColumnName(columnInput);
+    }
+  };
 
   const onSubmit = async (data: CreateProjectFormData) => {
     try {
@@ -94,46 +97,17 @@ export function CreateProjectDialog({ open, onClose }: CreateProjectDialogProps)
           end: data.dateRangeEnd,
         },
         currency: data.currency,
-        aircraftScope: {
-          type: data.aircraftScopeType,
-          ...(data.aircraftScopeType === 'individual' && { aircraftIds: selectedAircraftIds }),
-          ...(data.aircraftScopeType === 'type' && { aircraftTypes: selectedAircraftTypes }),
-          ...(data.aircraftScopeType === 'group' && { fleetGroups: selectedFleetGroups }),
-        },
+        columnNames: data.columnNames,
         status: data.status,
       };
 
       const project = await createProject.mutateAsync(dto);
-      
-      // Show success toast (you can add a toast library)
       console.log('Project created successfully:', project);
-      
-      // Navigate to the project detail page
       navigate(`/budget-projects/${project._id}`);
-      
       onClose();
     } catch (error) {
       console.error('Failed to create project:', error);
-      // Error handling - you can add a toast notification here
     }
-  };
-
-  const handleAircraftSelection = (aircraftId: string, checked: boolean) => {
-    setSelectedAircraftIds((prev) =>
-      checked ? [...prev, aircraftId] : prev.filter((id) => id !== aircraftId)
-    );
-  };
-
-  const handleAircraftTypeSelection = (type: string, checked: boolean) => {
-    setSelectedAircraftTypes((prev) =>
-      checked ? [...prev, type] : prev.filter((t) => t !== type)
-    );
-  };
-
-  const handleFleetGroupSelection = (group: string, checked: boolean) => {
-    setSelectedFleetGroups((prev) =>
-      checked ? [...prev, group] : prev.filter((g) => g !== group)
-    );
   };
 
   return (
@@ -201,99 +175,52 @@ export function CreateProjectDialog({ open, onClose }: CreateProjectDialogProps)
           />
         </FormField>
 
-        {/* Aircraft Scope Type */}
-        <FormField label="Aircraft Scope" error={errors.aircraftScopeType} required>
+        {/* Column Names Tag Input */}
+        <div className="space-y-2">
+          <label className="block text-sm font-medium text-gray-900 dark:text-gray-100">
+            Column Names <span className="text-red-600 dark:text-red-500">*</span>
+          </label>
           <Controller
-            name="aircraftScopeType"
+            name="columnNames"
             control={control}
-            render={({ field }) => (
-              <Select
-                {...field}
-                options={[
-                  { value: 'individual', label: 'Individual Aircraft' },
-                  { value: 'type', label: 'Aircraft Type' },
-                  { value: 'group', label: 'Fleet Group' },
-                ]}
-                error={!!errors.aircraftScopeType}
-              />
+            render={() => (
+              <div>
+                <input
+                  type="text"
+                  value={columnInput}
+                  onChange={(e) => setColumnInput(e.target.value)}
+                  onKeyDown={handleColumnInputKeyDown}
+                  onBlur={() => { if (columnInput.trim()) addColumnName(columnInput); }}
+                  placeholder="Type column name and press Enter"
+                  className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500"
+                />
+                {columnNames.length > 0 && (
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {columnNames.map((name) => (
+                      <span
+                        key={name}
+                        className="inline-flex items-center gap-1 rounded-full bg-teal-100 dark:bg-teal-900/40 px-3 py-1 text-sm font-medium text-teal-800 dark:text-teal-200"
+                      >
+                        {name}
+                        <button
+                          type="button"
+                          onClick={() => removeColumnName(name)}
+                          className="ml-0.5 inline-flex h-4 w-4 items-center justify-center rounded-full text-teal-600 dark:text-teal-300 hover:bg-teal-200 dark:hover:bg-teal-800 hover:text-teal-800 dark:hover:text-teal-100 transition-colors"
+                          aria-label={`Remove ${name}`}
+                        >
+                          ×
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
             )}
           />
-        </FormField>
-
-        {/* Aircraft Selection based on scope type */}
-        {aircraftScopeType === 'individual' && (
-          <div className="space-y-2">
-            <label className="block text-sm font-medium text-gray-900 dark:text-gray-100">
-              Select Aircraft <span className="text-red-600 dark:text-red-500">*</span>
-            </label>
-            <div className="max-h-48 overflow-y-auto border border-gray-300 dark:border-gray-600 rounded-lg p-3 space-y-2 bg-gray-50 dark:bg-gray-800">
-              {aircraft.map((a) => (
-                <label key={a._id} className="flex items-center gap-2 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 p-1 rounded transition-colors">
-                  <input
-                    type="checkbox"
-                    checked={selectedAircraftIds.includes(a._id)}
-                    onChange={(e) => handleAircraftSelection(a._id, e.target.checked)}
-                    className="rounded border-gray-300 dark:border-gray-600 text-teal-600 focus:ring-teal-500"
-                  />
-                  <span className="text-sm text-gray-900 dark:text-gray-100">
-                    {a.registration} ({a.aircraftType})
-                  </span>
-                </label>
-              ))}
-            </div>
-            {selectedAircraftIds.length === 0 && (
-              <p className="text-sm text-red-600 dark:text-red-500">At least one aircraft must be selected</p>
-            )}
-          </div>
-        )}
-
-        {aircraftScopeType === 'type' && (
-          <div className="space-y-2">
-            <label className="block text-sm font-medium text-gray-900 dark:text-gray-100">
-              Select Aircraft Types <span className="text-red-600 dark:text-red-500">*</span>
-            </label>
-            <div className="max-h-48 overflow-y-auto border border-gray-300 dark:border-gray-600 rounded-lg p-3 space-y-2 bg-gray-50 dark:bg-gray-800">
-              {aircraftTypes.map((type) => (
-                <label key={type} className="flex items-center gap-2 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 p-1 rounded transition-colors">
-                  <input
-                    type="checkbox"
-                    checked={selectedAircraftTypes.includes(type)}
-                    onChange={(e) => handleAircraftTypeSelection(type, e.target.checked)}
-                    className="rounded border-gray-300 dark:border-gray-600 text-teal-600 focus:ring-teal-500"
-                  />
-                  <span className="text-sm text-gray-900 dark:text-gray-100">{type}</span>
-                </label>
-              ))}
-            </div>
-            {selectedAircraftTypes.length === 0 && (
-              <p className="text-sm text-red-600 dark:text-red-500">At least one aircraft type must be selected</p>
-            )}
-          </div>
-        )}
-
-        {aircraftScopeType === 'group' && (
-          <div className="space-y-2">
-            <label className="block text-sm font-medium text-gray-900 dark:text-gray-100">
-              Select Fleet Groups <span className="text-red-600 dark:text-red-500">*</span>
-            </label>
-            <div className="max-h-48 overflow-y-auto border border-gray-300 dark:border-gray-600 rounded-lg p-3 space-y-2 bg-gray-50 dark:bg-gray-800">
-              {fleetGroups.map((group) => (
-                <label key={group} className="flex items-center gap-2 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 p-1 rounded transition-colors">
-                  <input
-                    type="checkbox"
-                    checked={selectedFleetGroups.includes(group)}
-                    onChange={(e) => handleFleetGroupSelection(group, e.target.checked)}
-                    className="rounded border-gray-300 dark:border-gray-600 text-teal-600 focus:ring-teal-500"
-                  />
-                  <span className="text-sm text-gray-900 dark:text-gray-100">{group}</span>
-                </label>
-              ))}
-            </div>
-            {selectedFleetGroups.length === 0 && (
-              <p className="text-sm text-red-600 dark:text-red-500">At least one fleet group must be selected</p>
-            )}
-          </div>
-        )}
+          {errors.columnNames && (
+            <p className="text-sm text-red-600 dark:text-red-500">{errors.columnNames.message}</p>
+          )}
+        </div>
 
         {/* Status */}
         <FormField label="Status" error={errors.status}>

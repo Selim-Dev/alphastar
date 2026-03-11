@@ -21,7 +21,7 @@ import { AvailabilityPage } from '@/pages/AvailabilityPage';
 import { DailyStatusPage } from '@/pages/DailyStatusPage';
 import { AircraftDetailPage } from '@/pages/AircraftDetailPage';
 import { MaintenanceTasksListPage, MaintenanceTasksLogPage, MaintenanceTasksAnalyticsPage } from '@/pages/maintenance';
-import { AOGListPageEnhanced, AOGLogPage, AOGAnalyticsPage, AOGDetailPage } from '@/pages/aog';
+import { AOGListPage, AOGDetailPage, AOGAnalyticsPage } from '@/pages/aog';
 import { WorkOrdersListPage, WorkOrdersNewPage, WorkOrdersAnalyticsPage, WorkOrderSummaryPage } from '@/pages/work-orders';
 import { DiscrepanciesListPage, DiscrepanciesNewPage, DiscrepanciesAnalyticsPage } from '@/pages/discrepancies';
 import { BudgetPage } from '@/pages/BudgetPage';
@@ -64,13 +64,8 @@ function App() {
         
         {/* AOG Routes - separate pages instead of tabs */}
         <Route path="/aog" element={<RedirectWithParams to="/aog/list" />} />
-        <Route path="/aog/list" element={<AOGListPageEnhanced />} />
+        <Route path="/aog/list" element={<AOGListPage />} />
         <Route path="/aog/:id" element={<AOGDetailPage />} />
-        <Route path="/aog/log" element={
-          <ProtectedRoute allowedRoles={['Admin', 'Editor']}>
-            <AOGLogPage />
-          </ProtectedRoute>
-        } />
         <Route path="/aog/analytics" element={<AOGAnalyticsPage />} />
         {/* Legacy route redirects - preserves query params */}
         <Route path="/events" element={<RedirectWithParams to="/aog/list" />} />

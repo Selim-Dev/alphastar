@@ -20,6 +20,9 @@ export class BudgetActual {
   @Prop()
   aircraftType?: string;
 
+  @Prop()
+  columnName?: string;
+
   @Prop({ required: true, min: 0 })
   amount: number;
 

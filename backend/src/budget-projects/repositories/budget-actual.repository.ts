@@ -138,9 +138,11 @@ export class BudgetActualRepository {
     const map = new Map<string, Map<string, number>>();
 
     for (const actual of actuals) {
-      const termKey = actual.aircraftId
-        ? `${actual.termId}_${actual.aircraftId}`
-        : actual.termId;
+      const termKey = actual.columnName
+        ? `${actual.termId}_${actual.columnName}`
+        : actual.aircraftId
+          ? `${actual.termId}_${actual.aircraftId}`
+          : actual.termId;
 
       if (!map.has(termKey)) {
         map.set(termKey, new Map<string, number>());
@@ -152,5 +154,51 @@ export class BudgetActualRepository {
     }
 
     return map;
+  }
+
+  async findByProjectTermPeriodAndColumn(
+    projectId: string,
+    termId: string,
+    period: string,
+    columnName: string,
+  ): Promise<BudgetActualDocument | null> {
+    return this.budgetActualModel
+      .findOne({
+        projectId: new Types.ObjectId(projectId),
+        termId,
+        period,
+        columnName,
+      })
+      .exec();
+  }
+
+  async upsertByColumnName(
+    projectId: string,
+    termId: string,
+    period: string,
+    amount: number,
+    userId: string,
+    columnName: string,
+    notes?: string,
+  ): Promise<BudgetActualDocument> {
+    const query = {
+      projectId: new Types.ObjectId(projectId),
+      termId,
+      period,
+      columnName,
+    };
+
+    const updateData: Partial<BudgetActual> = {
+      amount,
+      createdBy: new Types.ObjectId(userId),
+    };
+
+    if (notes) {
+      updateData.notes = notes;
+    }
+
+    return this.budgetActualModel
+      .findOneAndUpdate(query, updateData, { upsert: true, new: true })
+      .exec() as Promise<BudgetActualDocument>;
   }
 }

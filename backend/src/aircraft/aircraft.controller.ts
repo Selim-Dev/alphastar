@@ -89,18 +89,31 @@ export class AircraftController {
     @Param('id') id: string,
     @Body() updateAircraftDto: UpdateAircraftDto,
   ) {
-    const updateData = {
-      ...updateAircraftDto,
-      manufactureDate: updateAircraftDto.manufactureDate
+    const updateData: Record<string, unknown> = {};
+
+    // Only include fields that were actually sent in the request
+    if (updateAircraftDto.fleetGroup !== undefined) updateData.fleetGroup = updateAircraftDto.fleetGroup;
+    if (updateAircraftDto.aircraftType !== undefined) updateData.aircraftType = updateAircraftDto.aircraftType;
+    if (updateAircraftDto.msn !== undefined) updateData.msn = updateAircraftDto.msn;
+    if (updateAircraftDto.owner !== undefined) updateData.owner = updateAircraftDto.owner;
+    if (updateAircraftDto.enginesCount !== undefined) updateData.enginesCount = updateAircraftDto.enginesCount;
+    if (updateAircraftDto.status !== undefined) updateData.status = updateAircraftDto.status;
+    if (updateAircraftDto.manufactureDate !== undefined) {
+      updateData.manufactureDate = updateAircraftDto.manufactureDate
         ? new Date(updateAircraftDto.manufactureDate)
-        : undefined,
-      certificationDate: updateAircraftDto.certificationDate
+        : null;
+    }
+    if (updateAircraftDto.certificationDate !== undefined) {
+      updateData.certificationDate = updateAircraftDto.certificationDate
         ? new Date(updateAircraftDto.certificationDate)
-        : undefined,
-      inServiceDate: updateAircraftDto.inServiceDate
+        : null;
+    }
+    if (updateAircraftDto.inServiceDate !== undefined) {
+      updateData.inServiceDate = updateAircraftDto.inServiceDate
         ? new Date(updateAircraftDto.inServiceDate)
-        : undefined,
-    };
+        : null;
+    }
+
     return this.aircraftService.update(id, updateData);
   }
 

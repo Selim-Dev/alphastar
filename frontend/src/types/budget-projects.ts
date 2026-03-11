@@ -9,7 +9,8 @@ export interface BudgetProject {
     end: string;
   };
   currency: string;
-  aircraftScope: {
+  columnNames: string[];
+  aircraftScope?: {
     type: 'individual' | 'type' | 'group';
     aircraftIds?: string[];
     aircraftTypes?: string[];
@@ -29,6 +30,7 @@ export interface BudgetPlanRow {
   termCategory: string;
   aircraftId?: string;
   aircraftType?: string;
+  columnName?: string;
   plannedAmount: number;
   createdAt: string;
   updatedAt: string;
@@ -41,6 +43,7 @@ export interface BudgetActual {
   period: string;
   aircraftId?: string;
   aircraftType?: string;
+  columnName?: string;
   amount: number;
   notes?: string;
   createdBy: string;
@@ -54,6 +57,7 @@ export interface BudgetTableRow {
   termCategory: string;
   aircraftId?: string;
   aircraftType?: string;
+  columnName?: string;
   plannedAmount: number;
   actuals: Record<string, number>; // { "2025-01": 5000, "2025-02": 4500, ... }
   totalSpent: number;
@@ -161,12 +165,7 @@ export interface CreateBudgetProjectDto {
     end: string;
   };
   currency: string;
-  aircraftScope: {
-    type: 'individual' | 'type' | 'group';
-    aircraftIds?: string[];
-    aircraftTypes?: string[];
-    fleetGroups?: string[];
-  };
+  columnNames: string[];
   status?: 'draft' | 'active' | 'closed';
 }
 
@@ -177,12 +176,7 @@ export interface UpdateBudgetProjectDto {
     end: string;
   };
   currency?: string;
-  aircraftScope?: {
-    type: 'individual' | 'type' | 'group';
-    aircraftIds?: string[];
-    aircraftTypes?: string[];
-    fleetGroups?: string[];
-  };
+  columnNames?: string[];
   status?: 'draft' | 'active' | 'closed';
 }
 
@@ -193,6 +187,7 @@ export interface UpdatePlanRowDto {
 export interface UpdateActualDto {
   termId: string;
   amount: number;
+  columnName?: string;
   aircraftId?: string;
   aircraftType?: string;
   notes?: string;

@@ -23,11 +23,14 @@ export class BudgetProject {
   @Prop({ required: true, default: 'USD' })
   currency: string;
 
+  @Prop({ type: [String], required: true })
+  columnNames: string[];
+
   @Prop({
     type: MongooseSchema.Types.Mixed,
-    required: true,
+    required: false,
   })
-  aircraftScope: {
+  aircraftScope?: {
     type: 'individual' | 'type' | 'group';
     aircraftIds?: Types.ObjectId[];
     aircraftTypes?: string[];

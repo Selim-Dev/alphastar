@@ -27,9 +27,6 @@ import { BudgetAnalyticsController } from './controllers/budget-analytics.contro
 import { BudgetAuditController } from './controllers/budget-audit.controller';
 import { BudgetImportExportController } from './controllers/budget-import-export.controller';
 
-// External modules
-import { AircraftModule } from '../aircraft/aircraft.module';
-
 @Module({
   imports: [
     MongooseModule.forFeature([
@@ -38,7 +35,6 @@ import { AircraftModule } from '../aircraft/aircraft.module';
       { name: BudgetActual.name, schema: BudgetActualSchema },
       { name: BudgetAuditLog.name, schema: BudgetAuditLogSchema },
     ]),
-    AircraftModule,
   ],
   controllers: [
     BudgetProjectsController,

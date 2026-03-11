@@ -1,6 +1,5 @@
-import { IsString, IsNotEmpty, IsDateString, IsEnum, IsOptional, ValidateNested, IsArray, IsMongoId } from 'class-validator';
+import { IsString, IsNotEmpty, IsDateString, IsEnum, IsOptional, ValidateNested, IsArray, ArrayMinSize } from 'class-validator';
 import { Type } from 'class-transformer';
-import { Types } from 'mongoose';
 
 class DateRangeDto {
   @IsDateString()
@@ -10,27 +9,6 @@ class DateRangeDto {
   @IsDateString()
   @IsNotEmpty()
   end: string;
-}
-
-class AircraftScopeDto {
-  @IsEnum(['individual', 'type', 'group'])
-  @IsNotEmpty()
-  type: 'individual' | 'type' | 'group';
-
-  @IsOptional()
-  @IsArray()
-  @IsMongoId({ each: true })
-  aircraftIds?: string[];
-
-  @IsOptional()
-  @IsArray()
-  @IsString({ each: true })
-  aircraftTypes?: string[];
-
-  @IsOptional()
-  @IsArray()
-  @IsString({ each: true })
-  fleetGroups?: string[];
 }
 
 export class CreateBudgetProjectDto {
@@ -51,10 +29,10 @@ export class CreateBudgetProjectDto {
   @IsNotEmpty()
   currency: string;
 
-  @ValidateNested()
-  @Type(() => AircraftScopeDto)
-  @IsNotEmpty()
-  aircraftScope: AircraftScopeDto;
+  @IsArray()
+  @IsString({ each: true })
+  @ArrayMinSize(1)
+  columnNames: string[];
 
   @IsOptional()
   @IsEnum(['draft', 'active', 'closed'])

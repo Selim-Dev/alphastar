@@ -1,4 +1,5 @@
 import { ReactNode, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
 import { Button } from './Form';
 
@@ -44,7 +45,7 @@ export function Dialog({ open, onClose, title, children, maxWidth = 'lg' }: Dial
     '2xl': 'max-w-2xl',
   };
 
-  return (
+  return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       {/* Backdrop */}
       <div
@@ -80,6 +81,7 @@ export function Dialog({ open, onClose, title, children, maxWidth = 'lg' }: Dial
         {/* Content */}
         <div className="p-6 overflow-y-auto flex-1 bg-white dark:bg-gray-900">{children}</div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

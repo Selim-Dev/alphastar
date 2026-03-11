@@ -68,7 +68,6 @@ const navigationGroups: NavGroupConfig[] = [
         icon: AlertTriangle,
         subItems: [
           { path: '/aog/list', label: 'Events List', icon: List },
-          { path: '/aog/log', label: 'Log Event', icon: PlusCircle, editorOnly: true },
           { path: '/aog/analytics', label: 'Analytics', icon: BarChart3 },
         ],
       },

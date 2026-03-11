@@ -10,7 +10,6 @@ import { BudgetPlanRowRepository } from '../repositories/budget-plan-row.reposit
 import { BudgetActualRepository } from '../repositories/budget-actual.repository';
 import { BudgetAuditLogRepository } from '../repositories/budget-audit-log.repository';
 import { BudgetTemplatesService } from './budget-templates.service';
-import { AircraftService } from '../../aircraft/services/aircraft.service';
 import { CreateBudgetProjectDto } from '../dto/create-budget-project.dto';
 import { UpdateBudgetProjectDto } from '../dto/update-budget-project.dto';
 import { BudgetProjectFiltersDto } from '../dto/budget-project-filters.dto';
@@ -26,7 +25,6 @@ export class BudgetProjectsService {
     private readonly actualRepository: BudgetActualRepository,
     private readonly auditLogRepository: BudgetAuditLogRepository,
     private readonly templatesService: BudgetTemplatesService,
-    private readonly aircraftService: AircraftService,
   ) {}
 
   /**
@@ -54,10 +52,7 @@ export class BudgetProjectsService {
       throw new BadRequestException('Start date must be before end date');
     }
 
-    // Resolve aircraft scope
-    const aircraftIds = await this.resolveAircraftScope(dto.aircraftScope);
-
-    // Create project
+    // Create project with columnNames
     const project = await this.projectRepository.create({
       name: dto.name,
       templateType: dto.templateType,
@@ -66,18 +61,13 @@ export class BudgetProjectsService {
         end: endDate,
       },
       currency: dto.currency,
-      aircraftScope: {
-        type: dto.aircraftScope.type,
-        aircraftIds: dto.aircraftScope.aircraftIds?.map((id) => new Types.ObjectId(id)),
-        aircraftTypes: dto.aircraftScope.aircraftTypes,
-        fleetGroups: dto.aircraftScope.fleetGroups,
-      },
+      columnNames: dto.columnNames,
       status: dto.status || 'draft',
       createdBy: new Types.ObjectId(userId),
     });
 
-    // Generate plan rows
-    await this.generatePlanRows(project._id.toString(), dto.templateType, aircraftIds);
+    // Generate plan rows using columnNames
+    await this.generatePlanRows(project._id.toString(), dto.templateType, dto.columnNames);
 
     // Log audit entry
     await this.auditLogRepository.create({
@@ -301,27 +291,44 @@ export class BudgetProjectsService {
       throw new BadRequestException('Period is outside project date range');
     }
 
-    // Find existing actual
-    const existing = await this.actualRepository.findByProjectTermAndPeriod(
-      projectId,
-      dto.termId,
-      period,
-      dto.aircraftId,
-    );
+    // Find existing actual — use columnName for new projects, fallback to aircraftId for legacy
+    const existing = dto.columnName
+      ? await this.actualRepository.findByProjectTermPeriodAndColumn(
+          projectId,
+          dto.termId,
+          period,
+          dto.columnName,
+        )
+      : await this.actualRepository.findByProjectTermAndPeriod(
+          projectId,
+          dto.termId,
+          period,
+          dto.aircraftId,
+        );
 
     const oldValue = existing?.amount;
 
     // Upsert actual
-    const actual = await this.actualRepository.upsert(
-      projectId,
-      dto.termId,
-      period,
-      dto.amount,
-      userId,
-      dto.aircraftId,
-      dto.aircraftType,
-      dto.notes,
-    );
+    const actual = dto.columnName
+      ? await this.actualRepository.upsertByColumnName(
+          projectId,
+          dto.termId,
+          period,
+          dto.amount,
+          userId,
+          dto.columnName,
+          dto.notes,
+        )
+      : await this.actualRepository.upsert(
+          projectId,
+          dto.termId,
+          period,
+          dto.amount,
+          userId,
+          dto.aircraftId,
+          dto.aircraftType,
+          dto.notes,
+        );
 
     // Log audit entry
     await this.auditLogRepository.create({
@@ -355,9 +362,12 @@ export class BudgetProjectsService {
     // Build actuals map: termKey -> period -> amount
     const actualsMap = new Map<string, Map<string, number>>();
     for (const actual of actuals) {
-      const termKey = actual.aircraftId
-        ? `${actual.termId}_${actual.aircraftId.toString()}`
-        : actual.termId;
+      // Use columnName for new projects, fallback to aircraftId for legacy
+      const termKey = actual.columnName
+        ? `${actual.termId}_${actual.columnName}`
+        : actual.aircraftId
+          ? `${actual.termId}_${actual.aircraftId.toString()}`
+          : actual.termId;
 
       if (!actualsMap.has(termKey)) {
         actualsMap.set(termKey, new Map<string, number>());
@@ -370,9 +380,12 @@ export class BudgetProjectsService {
 
     // Build table rows
     const rows = planRows.map((planRow) => {
-      const termKey = planRow.aircraftId
-        ? `${planRow.termId}_${planRow.aircraftId.toString()}`
-        : planRow.termId;
+      // Use columnName for new projects, fallback to aircraftId for legacy
+      const termKey = planRow.columnName
+        ? `${planRow.termId}_${planRow.columnName}`
+        : planRow.aircraftId
+          ? `${planRow.termId}_${planRow.aircraftId.toString()}`
+          : planRow.termId;
 
       const periodMap = actualsMap.get(termKey) || new Map<string, number>();
       const actualsRecord: Record<string, number> = {};
@@ -396,6 +409,7 @@ export class BudgetProjectsService {
         termCategory: planRow.termCategory,
         aircraftId: planRow.aircraftId?.toString(),
         aircraftType: planRow.aircraftType,
+        columnName: planRow.columnName,
         plannedAmount: planRow.plannedAmount,
         actuals: actualsRecord,
         totalSpent,
@@ -448,71 +462,33 @@ export class BudgetProjectsService {
   }
 
   /**
-   * Resolve aircraft scope to list of aircraft IDs
-   */
-  private async resolveAircraftScope(scope: any): Promise<string[]> {
-    if (scope.type === 'individual' && scope.aircraftIds) {
-      // Validate all aircraft IDs exist
-      for (const id of scope.aircraftIds) {
-        await this.aircraftService.findById(id);
-      }
-      return scope.aircraftIds;
-    }
-
-    if (scope.type === 'type' && scope.aircraftTypes) {
-      // Find all aircraft of specified types
-      const allAircraft = await this.aircraftService.findAll({});
-      return allAircraft.data
-        .filter((a) => scope.aircraftTypes.includes(a.aircraftType))
-        .map((a) => a._id.toString());
-    }
-
-    if (scope.type === 'group' && scope.fleetGroups) {
-      // Find all aircraft in specified fleet groups
-      const allAircraft = await this.aircraftService.findAll({});
-      return allAircraft.data
-        .filter((a) => scope.fleetGroups.includes(a.fleetGroup))
-        .map((a) => a._id.toString());
-    }
-
-    return [];
-  }
-
-  /**
-   * Generate plan rows for all term × aircraft combinations
+   * Generate plan rows for all term × columnName combinations
    */
   private async generatePlanRows(
     projectId: string,
     templateType: string,
-    aircraftIds: string[],
+    columnNames: string[],
   ): Promise<void> {
     const terms = this.templatesService.getSpendingTerms(templateType);
-    const rows: any[] = [];
+    const rows: Array<{
+      projectId: Types.ObjectId;
+      termId: string;
+      termName: string;
+      termCategory: string;
+      columnName: string;
+      plannedAmount: number;
+    }> = [];
 
     for (const term of terms) {
-      if (aircraftIds.length === 0) {
-        // No aircraft scope - create one row per term
+      for (const columnName of columnNames) {
         rows.push({
           projectId: new Types.ObjectId(projectId),
           termId: term.id,
           termName: term.name,
           termCategory: term.category,
+          columnName,
           plannedAmount: 0,
         });
-      } else {
-        // Create one row per term × aircraft combination
-        for (const aircraftId of aircraftIds) {
-          const aircraft = await this.aircraftService.findById(aircraftId);
-          rows.push({
-            projectId: new Types.ObjectId(projectId),
-            termId: term.id,
-            termName: term.name,
-            termCategory: term.category,
-            aircraftId: new Types.ObjectId(aircraftId),
-            aircraftType: aircraft.aircraftType,
-            plannedAmount: 0,
-          });
-        }
       }
     }
 

@@ -21,6 +21,9 @@ import * as bcrypt from 'bcrypt';
 // Import schemas
 import { User, UserDocument, UserRole, UserSchema } from '../auth/schemas/user.schema';
 import { Aircraft, AircraftDocument, AircraftStatus, AircraftSchema } from '../aircraft/schemas/aircraft.schema';
+import { BudgetProject, BudgetProjectDocument, BudgetProjectSchema } from '../budget-projects/schemas/budget-project.schema';
+import { BudgetPlanRow, BudgetPlanRowDocument, BudgetPlanRowSchema } from '../budget-projects/schemas/budget-plan-row.schema';
+import { RSAF_SPENDING_TERMS } from '../budget-projects/templates/spending-terms.registry';
 
 // Production seed data - ONLY essential data
 const ADMIN_USER = {
@@ -471,6 +474,8 @@ const AIRCRAFT_DATA: Partial<Aircraft>[] = [
     MongooseModule.forFeature([
       { name: User.name, schema: UserSchema },
       { name: Aircraft.name, schema: AircraftSchema },
+      { name: BudgetProject.name, schema: BudgetProjectSchema },
+      { name: BudgetPlanRow.name, schema: BudgetPlanRowSchema },
     ]),
   ],
 })
@@ -482,6 +487,8 @@ class ProductionSeeder {
   constructor(
     private userModel: Model<UserDocument>,
     private aircraftModel: Model<AircraftDocument>,
+    private budgetProjectModel: Model<BudgetProjectDocument>,
+    private budgetPlanRowModel: Model<BudgetPlanRowDocument>,
   ) {}
 
   async seedUsers(): Promise<void> {
@@ -535,6 +542,97 @@ class ProductionSeeder {
     return createdAircraft;
   }
 
+  async seedRSAFBudgetProject(): Promise<void> {
+    console.log('💰 Seeding RSAF budget project...');
+
+    const existingProject = await this.budgetProjectModel.findOne({ name: 'RSAF FY2025 Budget' });
+    if (existingProject) {
+      console.log('  ⏭️  RSAF FY2025 Budget already exists, skipping...');
+      return;
+    }
+
+    const columnNames = ['A330', 'G650ER-1', 'G650ER-2', 'PMO'];
+
+    // Create the budget project
+    const project = await this.budgetProjectModel.create({
+      name: 'RSAF FY2025 Budget',
+      templateType: 'RSAF',
+      columnNames,
+      dateRange: {
+        start: new Date('2025-04-01'),
+        end: new Date('2028-03-31'),
+      },
+      currency: 'USD',
+      status: 'active',
+      createdBy: this.adminUserId,
+    });
+    console.log('  ✅ Created RSAF FY2025 Budget project');
+
+    // Map 18 RSAF clauses to the first spending term in each category
+    // Format: termId → { A330, 'G650ER-1', 'G650ER-2', PMO }
+    const clauseAmounts: Record<string, Record<string, number>> = {
+      'off-base-maint-intl-scheduled': { 'A330': 275_789, 'G650ER-1': 1_399_409, 'G650ER-2': 1_399_409, 'PMO': 0 },
+      'scheduled-maint-a-check':       { 'A330': 1_000_000, 'G650ER-1': 2_500_000, 'G650ER-2': 2_500_000, 'PMO': 0 },
+      'engines-apu-corporate-care':    { 'A330': 2_000_000, 'G650ER-1': 5_000_000, 'G650ER-2': 5_000_000, 'PMO': 0 },
+      'landing-gear-overhaul':         { 'A330': 500_000, 'G650ER-1': 1_200_000, 'G650ER-2': 1_200_000, 'PMO': 0 },
+      'component-repair-avionics':     { 'A330': 300_000, 'G650ER-1': 800_000, 'G650ER-2': 800_000, 'PMO': 0 },
+      'spare-parts-rotable':           { 'A330': 800_000, 'G650ER-1': 2_000_000, 'G650ER-2': 2_000_000, 'PMO': 0 },
+      'gse-purchase':                  { 'A330': 200_000, 'G650ER-1': 500_000, 'G650ER-2': 500_000, 'PMO': 300_000 },
+      'handling-permits-landing-fees':  { 'A330': 400_000, 'G650ER-1': 1_000_000, 'G650ER-2': 1_000_000, 'PMO': 200_000 },
+      'fuel-jet-a1':                   { 'A330': 2_000_000, 'G650ER-1': 4_000_000, 'G650ER-2': 4_000_000, 'PMO': 0 },
+      'subscriptions-navigation-data': { 'A330': 100_000, 'G650ER-1': 200_000, 'G650ER-2': 200_000, 'PMO': 500_000 },
+      'insurance-hull':                { 'A330': 500_000, 'G650ER-1': 1_200_000, 'G650ER-2': 1_200_000, 'PMO': 0 },
+      'cabin-crew-salaries':           { 'A330': 300_000, 'G650ER-1': 800_000, 'G650ER-2': 800_000, 'PMO': 0 },
+      'manpower-pilots':               { 'A330': 800_000, 'G650ER-1': 1_500_000, 'G650ER-2': 1_500_000, 'PMO': 5_000_000 },
+      'miscellaneous-office-supplies': { 'A330': 200_000, 'G650ER-1': 500_000, 'G650ER-2': 500_000, 'PMO': 3_000_000 },
+      'communication-satcom':          { 'A330': 100_000, 'G650ER-1': 200_000, 'G650ER-2': 200_000, 'PMO': 500_000 },
+      'consumables-oil':               { 'A330': 50_000, 'G650ER-1': 100_000, 'G650ER-2': 100_000, 'PMO': 200_000 },
+      'catering-meals':                { 'A330': 67_979, 'G650ER-1': 142_410, 'G650ER-2': 142_410, 'PMO': 168_241 },
+      'training-pilot-recurrent':      { 'A330': 700_000, 'G650ER-1': 1_100_000, 'G650ER-2': 1_100_000, 'PMO': 1_800_000 },
+    };
+
+    // Generate plan rows: 65 terms × 4 columns = 260 rows
+    const planRows: Array<{
+      projectId: Types.ObjectId;
+      termId: string;
+      termName: string;
+      termCategory: string;
+      columnName: string;
+      plannedAmount: number;
+    }> = [];
+
+    for (const term of RSAF_SPENDING_TERMS) {
+      for (const colName of columnNames) {
+        const amounts = clauseAmounts[term.id];
+        const plannedAmount = amounts ? (amounts[colName] || 0) : 0;
+
+        planRows.push({
+          projectId: project._id as Types.ObjectId,
+          termId: term.id,
+          termName: term.name,
+          termCategory: term.category,
+          columnName: colName,
+          plannedAmount,
+        });
+      }
+    }
+
+    await this.budgetPlanRowModel.insertMany(planRows);
+    console.log(`  ✅ Created ${planRows.length} plan rows (${RSAF_SPENDING_TERMS.length} terms × ${columnNames.length} columns)`);
+
+    // Log grand totals for verification
+    const totals: Record<string, number> = {};
+    for (const row of planRows) {
+      totals[row.columnName] = (totals[row.columnName] || 0) + row.plannedAmount;
+    }
+    const grandTotal = Object.values(totals).reduce((sum, v) => sum + v, 0);
+    console.log('  📊 Grand totals:');
+    for (const [col, total] of Object.entries(totals)) {
+      console.log(`     ${col}: $${total.toLocaleString()}`);
+    }
+    console.log(`     Total: $${grandTotal.toLocaleString()}`);
+  }
+
   async run(): Promise<void> {
     console.log('\n🚀 Starting PRODUCTION database seed...\n');
     console.log('⚠️  This script seeds ONLY essential data:');
@@ -548,6 +646,9 @@ class ProductionSeeder {
     console.log('');
     
     const aircraft = await this.seedAircraft();
+    console.log('');
+
+    await this.seedRSAFBudgetProject();
     console.log('');
 
     console.log('✨ Production database seed completed!\n');
@@ -605,8 +706,10 @@ async function bootstrap() {
 
   const userModel = app.get<Model<UserDocument>>('UserModel');
   const aircraftModel = app.get<Model<AircraftDocument>>('AircraftModel');
+  const budgetProjectModel = app.get<Model<BudgetProjectDocument>>('BudgetProjectModel');
+  const budgetPlanRowModel = app.get<Model<BudgetPlanRowDocument>>('BudgetPlanRowModel');
 
-  const seeder = new ProductionSeeder(userModel, aircraftModel);
+  const seeder = new ProductionSeeder(userModel, aircraftModel, budgetProjectModel, budgetPlanRowModel);
 
   try {
     await seeder.run();

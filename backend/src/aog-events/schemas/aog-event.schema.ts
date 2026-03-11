@@ -2,8 +2,6 @@ import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Document, Types } from 'mongoose';
 import { baseSchemaOptions } from '../../database/base.schema';
 
-export type AOGEventDocument = AOGEvent & Document;
-
 export enum ResponsibleParty {
   Internal = 'Internal',
   OEM = 'OEM',
@@ -13,216 +11,17 @@ export enum ResponsibleParty {
 }
 
 export enum AOGCategory {
-  Scheduled = 'scheduled',        // S-MX - Scheduled Maintenance
-  Unscheduled = 'unscheduled',    // U-MX - Unscheduled Maintenance
-  AOG = 'aog',                    // AOG - Aircraft On Ground (critical)
-  MRO = 'mro',                    // MRO - Maintenance Repair Overhaul facility visit
-  Cleaning = 'cleaning',          // CLEANING - Operational cleaning
+  Scheduled = 'scheduled',
+  Unscheduled = 'unscheduled',
+  AOG = 'aog',
+  MRO = 'mro',
+  Cleaning = 'cleaning',
 }
 
-// NEW: AOG Workflow Status - 18 states for tracking AOG event progression
-export enum AOGWorkflowStatus {
-  REPORTED = 'REPORTED',
-  TROUBLESHOOTING = 'TROUBLESHOOTING',
-  ISSUE_IDENTIFIED = 'ISSUE_IDENTIFIED',
-  RESOLVED_NO_PARTS = 'RESOLVED_NO_PARTS',
-  PART_REQUIRED = 'PART_REQUIRED',
-  PROCUREMENT_REQUESTED = 'PROCUREMENT_REQUESTED',
-  FINANCE_APPROVAL_PENDING = 'FINANCE_APPROVAL_PENDING',
-  ORDER_PLACED = 'ORDER_PLACED',
-  IN_TRANSIT = 'IN_TRANSIT',
-  AT_PORT = 'AT_PORT',
-  CUSTOMS_CLEARANCE = 'CUSTOMS_CLEARANCE',
-  RECEIVED_IN_STORES = 'RECEIVED_IN_STORES',
-  ISSUED_TO_MAINTENANCE = 'ISSUED_TO_MAINTENANCE',
-  INSTALLED_AND_TESTED = 'INSTALLED_AND_TESTED',
-  ENGINE_RUN_REQUESTED = 'ENGINE_RUN_REQUESTED',
-  ENGINE_RUN_COMPLETED = 'ENGINE_RUN_COMPLETED',
-  BACK_IN_SERVICE = 'BACK_IN_SERVICE',
-  CLOSED = 'CLOSED',
-}
+export type AOGEventDocument = AOGEvent & Document;
 
-// NEW: Blocking Reason - reasons why an AOG is waiting
-export enum BlockingReason {
-  Finance = 'Finance',
-  Port = 'Port',
-  Customs = 'Customs',
-  Vendor = 'Vendor',
-  Ops = 'Ops',
-  Other = 'Other',
-}
-
-// NEW: Part Request Status - tracking procurement lifecycle
-export enum PartRequestStatus {
-  REQUESTED = 'REQUESTED',
-  APPROVED = 'APPROVED',
-  ORDERED = 'ORDERED',
-  SHIPPED = 'SHIPPED',
-  RECEIVED = 'RECEIVED',
-  ISSUED = 'ISSUED',
-}
-
-// Sub-document: Milestone History Entry - tracking milestone timestamp changes
-@Schema({ _id: false })
-export class MilestoneHistoryEntry {
-  @Prop({ required: true })
-  milestone: string; // 'reportedAt', 'procurementRequestedAt', etc.
-
-  @Prop({ required: true })
-  timestamp: Date;
-
-  @Prop({ required: true })
-  recordedAt: Date;
-
-  @Prop({ type: Types.ObjectId, ref: 'User', required: true })
-  recordedBy: Types.ObjectId;
-}
-
-export const MilestoneHistoryEntrySchema =
-  SchemaFactory.createForClass(MilestoneHistoryEntry);
-
-// Sub-document: Status History Entry - append-only timeline of workflow transitions
-@Schema({ _id: false })
-export class StatusHistoryEntry {
-  @Prop({ required: true, enum: AOGWorkflowStatus })
-  fromStatus: AOGWorkflowStatus;
-
-  @Prop({ required: true, enum: AOGWorkflowStatus })
-  toStatus: AOGWorkflowStatus;
-
-  @Prop({ required: true, default: () => new Date() })
-  timestamp: Date;
-
-  @Prop({ type: Types.ObjectId, ref: 'User', required: true })
-  actorId: Types.ObjectId;
-
-  @Prop({ required: true })
-  actorRole: string;
-
-  @Prop()
-  notes?: string;
-
-  // Optional metadata
-  @Prop({ type: Types.ObjectId })
-  partRequestId?: Types.ObjectId;
-
-  @Prop()
-  financeRef?: string;
-
-  @Prop()
-  shippingRef?: string;
-
-  @Prop()
-  opsRunRef?: string;
-}
-
-export const StatusHistoryEntrySchema =
-  SchemaFactory.createForClass(StatusHistoryEntry);
-
-// Sub-document: Part Request - tracking parts within an AOG event
-@Schema()
-export class PartRequest {
-  @Prop({ type: Types.ObjectId, default: () => new Types.ObjectId() })
-  _id: Types.ObjectId;
-
-  @Prop({ required: true })
-  partNumber: string;
-
-  @Prop({ required: true })
-  partDescription: string;
-
-  @Prop({ required: true, min: 1 })
-  quantity: number;
-
-  @Prop({ min: 0 })
-  estimatedCost?: number;
-
-  @Prop({ min: 0 })
-  actualCost?: number;
-
-  @Prop()
-  vendor?: string;
-
-  @Prop({ required: true })
-  requestedDate: Date;
-
-  @Prop({ enum: PartRequestStatus, default: PartRequestStatus.REQUESTED })
-  status: PartRequestStatus;
-
-  @Prop()
-  invoiceRef?: string;
-
-  @Prop()
-  trackingNumber?: string;
-
-  @Prop()
-  eta?: Date;
-
-  @Prop()
-  receivedDate?: Date;
-
-  @Prop()
-  issuedDate?: Date;
-}
-
-export const PartRequestSchema = SchemaFactory.createForClass(PartRequest);
-
-// Sub-document: Cost Audit Entry - tracking cost field changes
-@Schema({ _id: false })
-export class CostAuditEntry {
-  @Prop({ required: true })
-  field: string; // 'costLabor', 'costParts', 'costExternal'
-
-  @Prop({ required: true })
-  previousValue: number;
-
-  @Prop({ required: true })
-  newValue: number;
-
-  @Prop({ required: true })
-  changedAt: Date;
-
-  @Prop({ type: Types.ObjectId, ref: 'User', required: true })
-  changedBy: Types.ObjectId;
-
-  @Prop()
-  reason?: string;
-}
-
-export const CostAuditEntrySchema =
-  SchemaFactory.createForClass(CostAuditEntry);
-
-// Sub-document: Attachment Metadata - enhanced attachment tracking
-@Schema({ _id: false })
-export class AttachmentMeta {
-  @Prop({ required: true })
-  s3Key: string;
-
-  @Prop({ required: true })
-  filename: string;
-
-  @Prop({ required: true })
-  attachmentType: string; // 'purchase_order', 'invoice', 'shipping_doc', 'photo'
-
-  @Prop({ required: true })
-  uploadedAt: Date;
-
-  @Prop({ type: Types.ObjectId, ref: 'User', required: true })
-  uploadedBy: Types.ObjectId;
-
-  @Prop()
-  fileSize?: number;
-
-  @Prop()
-  mimeType?: string;
-}
-
-export const AttachmentMetaSchema =
-  SchemaFactory.createForClass(AttachmentMeta);
-
-@Schema(baseSchemaOptions)
+@Schema({ ...baseSchemaOptions, collection: 'aogevents' })
 export class AOGEvent {
-  // Existing fields preserved
   @Prop({ type: Types.ObjectId, ref: 'Aircraft', required: true, index: true })
   aircraftId: Types.ObjectId;
 
@@ -232,124 +31,53 @@ export class AOGEvent {
   @Prop()
   clearedAt?: Date;
 
-  @Prop({ required: true, enum: AOGCategory })
-  category: AOGCategory;
-
-  @Prop({ required: true })
-  reasonCode: string;
+  @Prop({ enum: AOGCategory })
+  category?: string;
 
   @Prop()
-  location?: string; // ICAO airport code (e.g., OERK, LFSB, EDDH)
+  reasonCode?: string;
 
-  @Prop({ required: true, enum: ResponsibleParty, index: true })
-  responsibleParty: ResponsibleParty;
+  @Prop({ enum: ResponsibleParty })
+  responsibleParty?: string;
 
-  @Prop({ required: true })
-  actionTaken: string;
-
-  @Prop({ required: true, min: 0 })
-  manpowerCount: number;
-
-  @Prop({ required: true, min: 0 })
-  manHours: number;
-
-  // NEW: Workflow status (optional for simplified model)
-  @Prop({
-    enum: AOGWorkflowStatus,
-    index: true,
-  })
-  currentStatus?: AOGWorkflowStatus;
-
-  // NEW: Blocking reason for waiting states (optional for simplified model)
-  @Prop({ enum: BlockingReason })
-  blockingReason?: BlockingReason;
-
-  // NEW: Status history (append-only)
-  @Prop({ type: [StatusHistoryEntrySchema], default: [] })
-  statusHistory: StatusHistoryEntry[];
-
-  // NEW: Part requests
-  @Prop({ type: [PartRequestSchema], default: [] })
-  partRequests: PartRequest[];
-
-  // Existing cost fields
-  @Prop({ min: 0 })
-  costLabor?: number;
+  @Prop()
+  actionTaken?: string;
 
   @Prop({ min: 0 })
-  costParts?: number;
+  manpowerCount?: number;
 
   @Prop({ min: 0 })
-  costExternal?: number;
-
-  // NEW: Estimated costs
-  @Prop({ min: 0 })
-  estimatedCostLabor?: number;
-
-  @Prop({ min: 0 })
-  estimatedCostParts?: number;
-
-  @Prop({ min: 0 })
-  estimatedCostExternal?: number;
-
-  // NEW: Budget integration
-  @Prop()
-  budgetClauseId?: number;
+  manHours?: number;
 
   @Prop()
-  budgetPeriod?: string; // YYYY-MM
-
-  @Prop({ default: false })
-  isBudgetAffecting: boolean;
-
-  @Prop({ type: Types.ObjectId, ref: 'ActualSpend' })
-  linkedActualSpendId?: Types.ObjectId;
-
-  // NEW: Cost audit trail
-  @Prop({ type: [CostAuditEntrySchema], default: [] })
-  costAuditTrail: CostAuditEntry[];
-
-  // NEW: Enhanced attachments metadata
-  @Prop({ type: [AttachmentMetaSchema], default: [] })
-  attachmentsMeta: AttachmentMeta[];
-
-  // Existing fields
-  @Prop({ type: [String], default: [] })
-  attachments: string[]; // S3 keys (preserved for backward compatibility)
-
-  @Prop({ type: Types.ObjectId, ref: 'User', required: true })
-  updatedBy: Types.ObjectId;
-
-  @Prop({ type: Boolean })
-  isDemo?: boolean;
-
-  // NEW: Legacy indicator
-  @Prop({ type: Boolean })
-  isLegacy?: boolean;
-
-  // NEW: Milestone timestamps for simplified workflow
-  @Prop()
-  reportedAt?: Date; // Defaults to detectedAt
+  location?: string; // ICAO airport code
 
   @Prop()
-  procurementRequestedAt?: Date; // Optional - when parts were requested
+  notes?: string;
+
+  // Milestone timestamps
+  @Prop()
+  reportedAt?: Date;
 
   @Prop()
-  availableAtStoreAt?: Date; // Optional - when parts arrived
+  procurementRequestedAt?: Date;
 
   @Prop()
-  issuedBackAt?: Date; // Optional - when parts issued to maintenance
+  availableAtStoreAt?: Date;
 
   @Prop()
-  installationCompleteAt?: Date; // Required for closed events
+  issuedBackAt?: Date;
 
   @Prop()
-  testStartAt?: Date; // Optional - when ops testing started
+  installationCompleteAt?: Date;
 
   @Prop()
-  upAndRunningAt?: Date; // Required for closed events - same as clearedAt
+  testStartAt?: Date;
 
-  // NEW: Computed downtime metrics (stored for performance)
+  @Prop()
+  upAndRunningAt?: Date;
+
+  // Computed downtime buckets (stored for query performance)
   @Prop({ min: 0, default: 0 })
   technicalTimeHours: number;
 
@@ -362,20 +90,46 @@ export class AOGEvent {
   @Prop({ min: 0, default: 0 })
   totalDowntimeHours: number;
 
-  // NEW: Simplified cost fields
-  @Prop({ min: 0, default: 0 })
-  internalCost: number; // Labor and man-hours
+  // Cost fields (simplified model)
+  @Prop({ min: 0 })
+  internalCost?: number;
 
-  @Prop({ min: 0, default: 0 })
-  externalCost: number; // Vendor and third-party
+  @Prop({ min: 0 })
+  externalCost?: number;
 
-  // NEW: Milestone history tracking
-  @Prop({ type: [MilestoneHistoryEntrySchema], default: [] })
-  milestoneHistory: MilestoneHistoryEntry[];
+  // Legacy cost fields (preserved for compatibility)
+  @Prop({ min: 0 })
+  costLabor?: number;
 
-  // NEW: Import indicator
-  @Prop({ type: Boolean, default: false })
-  isImported: boolean;
+  @Prop({ min: 0 })
+  costParts?: number;
+
+  @Prop({ min: 0 })
+  costExternal?: number;
+
+  @Prop({ type: [String], default: [] })
+  attachments: string[]; // S3 keys
+
+  @Prop({ default: false })
+  isLegacy?: boolean;
+
+  @Prop({ default: false })
+  isImported?: boolean;
+
+  @Prop({ default: false })
+  isDemo?: boolean;
+
+  @Prop({ type: Array, default: [] })
+  milestoneHistory: Record<string, unknown>[];
+
+  @Prop()
+  currentStatus?: string;
+
+  @Prop()
+  blockingReason?: string;
+
+  @Prop({ type: Types.ObjectId, ref: 'User', required: true })
+  updatedBy: Types.ObjectId;
 
   createdAt?: Date;
   updatedAt?: Date;
@@ -383,100 +137,14 @@ export class AOGEvent {
 
 export const AOGEventSchema = SchemaFactory.createForClass(AOGEvent);
 
-// Virtual field: status (computed from clearedAt)
+// Virtual: status — 'active' if clearedAt is null, 'completed' otherwise
 AOGEventSchema.virtual('status').get(function (this: AOGEventDocument) {
-  return this.clearedAt ? 'resolved' : 'active';
+  return this.clearedAt ? 'completed' : 'active';
 });
 
-// Virtual field: durationHours (computed from detectedAt and clearedAt or current time)
-AOGEventSchema.virtual('durationHours').get(function (this: AOGEventDocument) {
-  const endTime = this.clearedAt || new Date();
-  const durationMs = endTime.getTime() - this.detectedAt.getTime();
-  return Math.max(0, durationMs / (1000 * 60 * 60)); // Convert to hours
-});
-
-// Ensure virtuals are included in JSON output
-AOGEventSchema.set('toJSON', { virtuals: true });
-AOGEventSchema.set('toObject', { virtuals: true });
-
-// Pre-save hook to compute downtime metrics from milestone timestamps
-AOGEventSchema.pre('save', function () {
-  const doc = this as AOGEventDocument;
-  
-  // Compute metrics if milestone timestamps are present
-  if (doc.reportedAt && doc.upAndRunningAt) {
-    // Technical Time = (reportedAt → procurementRequestedAt) + (availableAtStoreAt → installationCompleteAt)
-    let technicalTime = 0;
-    
-    // Phase 1: Troubleshooting (reportedAt → procurementRequestedAt OR installationCompleteAt if no procurement)
-    if (doc.procurementRequestedAt) {
-      const phase1Ms = new Date(doc.procurementRequestedAt).getTime() - new Date(doc.reportedAt).getTime();
-      technicalTime += Math.max(0, phase1Ms / (1000 * 60 * 60));
-    } else if (doc.installationCompleteAt) {
-      // No procurement - all time from reported to installation is technical
-      const phase1Ms = new Date(doc.installationCompleteAt).getTime() - new Date(doc.reportedAt).getTime();
-      technicalTime += Math.max(0, phase1Ms / (1000 * 60 * 60));
-    }
-    
-    // Phase 2: Installation (availableAtStoreAt → installationCompleteAt)
-    if (doc.availableAtStoreAt && doc.installationCompleteAt) {
-      const phase2Ms = new Date(doc.installationCompleteAt).getTime() - new Date(doc.availableAtStoreAt).getTime();
-      technicalTime += Math.max(0, phase2Ms / (1000 * 60 * 60));
-    }
-    
-    doc.technicalTimeHours = technicalTime;
-    
-    // Procurement Time = (procurementRequestedAt → availableAtStoreAt)
-    let procurementTime = 0;
-    if (doc.procurementRequestedAt && doc.availableAtStoreAt) {
-      const procurementMs = new Date(doc.availableAtStoreAt).getTime() - new Date(doc.procurementRequestedAt).getTime();
-      procurementTime = Math.max(0, procurementMs / (1000 * 60 * 60));
-    }
-    doc.procurementTimeHours = procurementTime;
-    
-    // Ops Time = (testStartAt → upAndRunningAt)
-    let opsTime = 0;
-    if (doc.testStartAt && doc.upAndRunningAt) {
-      const opsMs = new Date(doc.upAndRunningAt).getTime() - new Date(doc.testStartAt).getTime();
-      opsTime = Math.max(0, opsMs / (1000 * 60 * 60));
-    }
-    doc.opsTimeHours = opsTime;
-    
-    // Total Downtime = (reportedAt → upAndRunningAt)
-    const totalMs = new Date(doc.upAndRunningAt).getTime() - new Date(doc.reportedAt).getTime();
-    doc.totalDowntimeHours = Math.max(0, totalMs / (1000 * 60 * 60));
-  } else if (doc.detectedAt && doc.clearedAt) {
-    // Fallback: compute total downtime from detectedAt and clearedAt
-    const totalMs = new Date(doc.clearedAt).getTime() - new Date(doc.detectedAt).getTime();
-    doc.totalDowntimeHours = Math.max(0, totalMs / (1000 * 60 * 60));
-  }
-  
-  // Set defaults for reportedAt and upAndRunningAt if not set
-  if (!doc.reportedAt && doc.detectedAt) {
-    doc.reportedAt = doc.detectedAt;
-  }
-  if (!doc.upAndRunningAt && doc.clearedAt) {
-    doc.upAndRunningAt = doc.clearedAt;
-  }
-});
-
-// Index on aircraftId for efficient queries
+// Indexes
 AOGEventSchema.index({ aircraftId: 1, detectedAt: -1 });
-
-// Index on responsibleParty for analytics queries
-AOGEventSchema.index({ responsibleParty: 1, detectedAt: -1 });
-
-// Index for date-based queries
 AOGEventSchema.index({ detectedAt: -1 });
-
-// NEW: Index on currentStatus for workflow queries
-AOGEventSchema.index({ currentStatus: 1, detectedAt: -1 });
-
-// NEW: Index on blockingReason for analytics
-AOGEventSchema.index({ blockingReason: 1, currentStatus: 1 });
-
-// NEW: Index on reportedAt for date-based queries (simplified workflow)
-AOGEventSchema.index({ reportedAt: -1 });
-
-// NEW: Compound index on aircraftId + reportedAt for filtered date queries
-AOGEventSchema.index({ aircraftId: 1, reportedAt: -1 });
+AOGEventSchema.index({ clearedAt: 1 });
+AOGEventSchema.index({ responsibleParty: 1, detectedAt: -1 });
+AOGEventSchema.index({ reportedAt: 1 });

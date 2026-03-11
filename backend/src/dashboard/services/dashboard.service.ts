@@ -12,7 +12,7 @@ import { Aircraft } from '../../aircraft/schemas/aircraft.schema';
 import { Discrepancy } from '../../discrepancies/schemas/discrepancy.schema';
 import { DailyStatus } from '../../daily-status/schemas/daily-status.schema';
 import { DailyCounter } from '../../utilization/schemas/daily-counter.schema';
-import { AOGEvent, BlockingReason, AOGWorkflowStatus } from '../../aog-events/schemas/aog-event.schema';
+import { AOGEvent } from '../../aog-events/schemas/aog-event.schema';
 
 export interface KPISummary {
   fleetAvailabilityPercentage: number;
@@ -278,7 +278,6 @@ export interface AOGSummaryEvent {
   id: string;
   aircraftId: string;
   registration: string;
-  reasonCode: string;
   location: string | null;
   durationHours: number;
   detectedAt: string;
@@ -517,55 +516,41 @@ export class DashboardService {
 
     // Active AOG events (Critical) - query directly to get proper _id
     const activeAOGEvents = await this.aogEventModel.find({ clearedAt: null }).limit(10).exec();
+    const now = new Date();
     for (const event of activeAOGEvents) {
       const ac = aircraftMap.get(event.aircraftId?.toString());
       const eventId = event._id.toString();
+      const durationHours = event.detectedAt
+        ? (now.getTime() - event.detectedAt.getTime()) / (1000 * 60 * 60)
+        : 0;
+      const isLongActive = durationHours > 48;
+
       alerts.push({
         id: eventId,
         type: 'aog',
         priority: 'critical',
         title: `AOG: ${ac?.registration || 'Unknown'}`,
-        description: `${event.reasonCode} - ${event.responsibleParty}`,
+        description: `Active for ${Math.round(durationHours)}h${event.location ? ` at ${event.location}` : ''}`,
         aircraftId: event.aircraftId?.toString(),
         aircraftRegistration: ac?.registration,
         actionUrl: `/aog/${eventId}`,
         createdAt: event.detectedAt?.toISOString() || new Date().toISOString(),
       });
-    }
 
-    // AOG events in blocking states (Warning) - Requirements 21.2
-    const blockingStatuses = [
-      AOGWorkflowStatus.FINANCE_APPROVAL_PENDING,
-      AOGWorkflowStatus.AT_PORT,
-      AOGWorkflowStatus.CUSTOMS_CLEARANCE,
-      AOGWorkflowStatus.IN_TRANSIT,
-    ];
-    const blockedAOGEvents = await this.aogEventModel.find({
-      clearedAt: null,
-      currentStatus: { $in: blockingStatuses },
-      blockingReason: { $exists: true, $ne: null },
-    }).limit(10).exec();
-    
-    for (const event of blockedAOGEvents) {
-      const ac = aircraftMap.get(event.aircraftId?.toString());
-      const eventId = event._id.toString();
-      // Skip if already added as active AOG
-      if (alerts.some(a => a.id === eventId)) continue;
-      
-      const blockingReasonLabel = event.blockingReason || 'Unknown';
-      const statusLabel = event.currentStatus?.replace(/_/g, ' ') || 'Unknown';
-      
-      alerts.push({
-        id: `blocked-${eventId}`,
-        type: 'aog_blocked',
-        priority: 'warning',
-        title: `AOG Blocked: ${ac?.registration || 'Unknown'}`,
-        description: `Status: ${statusLabel} - Blocked by: ${blockingReasonLabel}`,
-        aircraftId: event.aircraftId?.toString(),
-        aircraftRegistration: ac?.registration,
-        actionUrl: `/aog/${eventId}`,
-        createdAt: event.detectedAt?.toISOString() || new Date().toISOString(),
-      });
+      // Warning alert for events active > 48 hours
+      if (isLongActive) {
+        alerts.push({
+          id: `long-aog-${eventId}`,
+          type: 'aog',
+          priority: 'warning',
+          title: `AOG > 48h: ${ac?.registration || 'Unknown'}`,
+          description: `Active for ${Math.round(durationHours)}h — requires attention`,
+          aircraftId: event.aircraftId?.toString(),
+          aircraftRegistration: ac?.registration,
+          actionUrl: `/aog/${eventId}`,
+          createdAt: event.detectedAt?.toISOString() || new Date().toISOString(),
+        });
+      }
     }
 
     // Low availability aircraft (Warning)
@@ -880,7 +865,7 @@ export class DashboardService {
         type: aog.clearedAt ? 'aog_cleared' : 'aog_created',
         description: aog.clearedAt 
           ? `AOG cleared for ${ac?.registration || 'Unknown'}`
-          : `AOG detected for ${ac?.registration || 'Unknown'}: ${aog.reasonCode}`,
+          : `AOG detected for ${ac?.registration || 'Unknown'}${aog.location ? ` at ${aog.location}` : ''}`,
         timestamp: (aog.clearedAt || aog.detectedAt)?.toISOString() || new Date().toISOString(),
         aircraftId: aog.aircraftId?.toString(),
         aircraftRegistration: ac?.registration,
@@ -1355,7 +1340,6 @@ export class DashboardService {
         id: event._id.toString(),
         aircraftId: event.aircraftId?.toString() || '',
         registration: ac?.registration || 'Unknown',
-        reasonCode: event.reasonCode || 'Unknown',
         location: event.location || null,
         durationHours: Math.round(durationHours * 10) / 10,
         detectedAt: event.detectedAt?.toISOString() || now.toISOString(),
@@ -1365,7 +1349,7 @@ export class DashboardService {
     // Get unavailable aircraft (active AOG events)
     const unavailableAircraft = activeEventsList.map(event => ({
       registration: event.registration,
-      reason: event.reasonCode,
+      reason: `AOG${event.location ? ` at ${event.location}` : ''}`,
       durationDays: Math.round((event.durationHours / 24) * 10) / 10,
     }));
 

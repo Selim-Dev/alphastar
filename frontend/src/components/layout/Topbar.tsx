@@ -32,7 +32,6 @@ const routeConfig: RouteConfig[] = [
   { path: '/maintenance/tasks/analytics', title: 'Analytics' },
   { path: '/aog', title: 'AOG & Events' },
   { path: '/aog/list', title: 'Events List' },
-  { path: '/aog/log', title: 'Log Event' },
   { path: '/aog/analytics', title: 'Analytics' },
   { path: '/work-orders', title: 'Work Orders' },
   { path: '/work-orders/new', title: 'New Work Order' },

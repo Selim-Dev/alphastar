@@ -28,9 +28,10 @@ const aircraftSchema = z.object({
   aircraftType: z.string().min(1, 'Aircraft type is required'),
   msn: z.string().min(1, 'MSN is required'),
   owner: z.string().min(1, 'Owner is required'),
-  manufactureDate: z.string().min(1, 'Manufacture date is required'),
+  manufactureDate: z.string().optional(),
+  certificationDate: z.string().optional(),
   inServiceDate: z.string().optional(),
-  enginesCount: z.number().min(1, 'Engines count must be at least 1').max(4, 'Engines count must be at most 4'),
+  enginesCount: z.coerce.number().min(1, 'Engines count must be at least 1').max(4, 'Engines count must be at most 4'),
   status: z.enum(['active', 'parked', 'leased']),
 });
 
@@ -315,13 +316,12 @@ function AircraftManagement() {
     setEditingAircraft(aircraft);
     setValue('registration', aircraft.registration);
     setValue('fleetGroup', aircraft.fleetGroup);
-    setValue('aircraftType', aircraft.aircraftType);
-    setValue('msn', aircraft.msn);
+    setValue('aircraftType', aircraft.aircraftType || '');
+    setValue('msn', aircraft.msn || '');
     setValue('owner', aircraft.owner);
-    setValue('manufactureDate', aircraft.manufactureDate.split('T')[0]);
-    if (aircraft.inServiceDate) {
-      setValue('inServiceDate', aircraft.inServiceDate.split('T')[0]);
-    }
+    setValue('manufactureDate', aircraft.manufactureDate ? aircraft.manufactureDate.split('T')[0] : '');
+    setValue('certificationDate', aircraft.certificationDate ? aircraft.certificationDate.split('T')[0] : '');
+    setValue('inServiceDate', aircraft.inServiceDate ? aircraft.inServiceDate.split('T')[0] : '');
     setValue('enginesCount', aircraft.enginesCount);
     setValue('status', aircraft.status);
     setShowForm(true);
@@ -335,11 +335,21 @@ function AircraftManagement() {
 
   const onSubmit = async (data: AircraftFormData) => {
     try {
+      // Convert empty date strings to undefined so they don't overwrite existing values
+      const payload = {
+        ...data,
+        manufactureDate: data.manufactureDate || undefined,
+        certificationDate: data.certificationDate || undefined,
+        inServiceDate: data.inServiceDate || undefined,
+      };
+
       if (editingAircraft) {
         const aircraftId = editingAircraft.id || editingAircraft._id;
-        await updateAircraft.mutateAsync({ id: aircraftId, ...data });
+        // Don't send registration on update — it's immutable via this form
+        const { registration: _reg, ...updatePayload } = payload;
+        await updateAircraft.mutateAsync({ id: aircraftId, ...updatePayload });
       } else {
-        await createAircraft.mutateAsync(data);
+        await createAircraft.mutateAsync(payload);
       }
       closeForm();
     } catch (error) {
@@ -387,6 +397,14 @@ function AircraftManagement() {
       cell: ({ row }) => {
         if (!row.original.manufactureDate) return '-';
         return new Date(row.original.manufactureDate).toLocaleDateString();
+      },
+    },
+    {
+      accessorKey: 'certificationDate',
+      header: 'Certification Date',
+      cell: ({ row }) => {
+        if (!row.original.certificationDate) return '-';
+        return new Date(row.original.certificationDate).toLocaleDateString();
       },
     },
     {
@@ -487,14 +505,17 @@ function AircraftManagement() {
               <FormField label="Owner" error={errors.owner} required>
                 <Input {...register('owner')} error={!!errors.owner} placeholder="Alpha Star Aviation" />
               </FormField>
-              <FormField label="Manufacture Date" error={errors.manufactureDate} required>
+              <FormField label="Manufacture Date" error={errors.manufactureDate}>
                 <Input {...register('manufactureDate')} type="date" error={!!errors.manufactureDate} />
+              </FormField>
+              <FormField label="Certification Date" error={errors.certificationDate}>
+                <Input {...register('certificationDate')} type="date" error={!!errors.certificationDate} />
               </FormField>
               <FormField label="In Service Date" error={errors.inServiceDate}>
                 <Input {...register('inServiceDate')} type="date" error={!!errors.inServiceDate} />
               </FormField>
               <FormField label="Engines Count" error={errors.enginesCount} required>
-                <Input {...register('enginesCount')} type="number" min={1} max={4} error={!!errors.enginesCount} />
+                <Input {...register('enginesCount', { valueAsNumber: true })} type="number" min={1} max={4} error={!!errors.enginesCount} />
               </FormField>
               <FormField label="Status" error={errors.status} required>
                 <Select

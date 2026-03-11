@@ -23,6 +23,9 @@ export class BudgetPlanRow {
   @Prop()
   aircraftType?: string;
 
+  @Prop()
+  columnName?: string;
+
   @Prop({ required: true, default: 0, min: 0 })
   plannedAmount: number;
 }
@@ -31,5 +34,6 @@ export const BudgetPlanRowSchema = SchemaFactory.createForClass(BudgetPlanRow);
 
 // Indexes
 BudgetPlanRowSchema.index({ projectId: 1, termId: 1, aircraftId: 1 }, { unique: true });
+BudgetPlanRowSchema.index({ projectId: 1, termId: 1, columnName: 1 });
 BudgetPlanRowSchema.index({ projectId: 1 });
 BudgetPlanRowSchema.index({ termId: 1 });

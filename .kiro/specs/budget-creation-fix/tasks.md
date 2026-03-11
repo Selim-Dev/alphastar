@@ -1,0 +1,151 @@
+# Implementation Plan
+
+- [x] 1. Write bug condition exploration test
+  - **Property 1: Fault Condition** - Non-Aircraft Column Names Rejected
+  - **CRITICAL**: This test MUST FAIL on unfixed code - failure confirms the bug exists
+  - **DO NOT attempt to fix the test or the code when it fails**
+  - **NOTE**: This test encodes the expected behavior - it will validate the fix when it passes after implementation
+  - **GOAL**: Surface counterexamples that demonstrate the bug exists
+  - **Scoped PBT Approach**: Scope the property to concrete failing cases: creating a budget project with columnNames containing non-aircraft entries like "PMO", "G650ER-1", "G650ER-2"
+  - Write a property-based test in `backend/src/budget-projects/__tests__/budget-creation-fix.exploration.spec.ts`
+  - Test that calling the `create()` service method (or POST `/api/budget-projects`) with non-aircraft column names succeeds and produces the correct plan row count
+  - Bug condition from design: `isBugCondition(input)` = input contains column names NOT in aircraftMasterData (registrations, types, or groups)
+  - Expected behavior: project is created with `columnNames` stored, and `spendingTerms.length × columnNames.length` plan rows are generated
+  - Since the current DTO uses `@IsMongoId()` on `aircraftIds` and `resolveAircraftScope()` queries the aircraft collection, this test WILL FAIL on unfixed code because:
+    - "PMO" is not a valid MongoId → 400 Bad Request
+    - "G650ER-1" doesn't match any aircraft type → empty resolution → flat plan rows
+  - Test cases to include:
+    - Create project with `aircraftScope: { type: 'type', aircraftTypes: ['PMO'] }` → expect failure (PMO not in aircraft master)
+    - Create project with `aircraftScope: { type: 'type', aircraftTypes: ['G650ER-1', 'G650ER-2'] }` → expect failure (custom labels not in aircraft types)
+    - Create project with `aircraftScope: { type: 'individual', aircraftIds: ['PMO'] }` → expect failure (not a MongoId)
+  - Run test on UNFIXED code
+  - **EXPECTED OUTCOME**: Test FAILS (this is correct - it proves the bug exists)
+  - Document counterexamples found (e.g., "POST with aircraftTypes=['PMO'] returns 0 resolved aircraft, generating flat plan rows instead of 65×1=65 column-associated rows")
+  - Mark task complete when test is written, run, and failure is documented
+  - _Requirements: 1.1, 1.2, 1.3, 1.4_
+
+- [x] 2. Write preservation property tests (BEFORE implementing fix)
+  - **Property 2: Preservation** - Budget Table Data and Calculations Unchanged
+  - **IMPORTANT**: Follow observation-first methodology
+  - Write preservation tests in `backend/src/budget-projects/__tests__/budget-creation-fix.preservation.spec.ts`
+  - Observe behavior on UNFIXED code for non-buggy inputs (existing projects with valid aircraft scope):
+    - Observe: `getTableData()` returns correct rows with plannedAmount, totalSpent, remaining, variance, variancePercent for a project with valid aircraft IDs
+    - Observe: Recording actuals via `updateActual()` correctly tracks amounts per termId per aircraftId per period
+    - Observe: Grand totals (budgeted, spent, remaining) are computed correctly as sums across all rows
+    - Observe: `columnTotals` per period are computed correctly
+  - Write property-based tests capturing observed behavior:
+    - For any existing budget project with N plan rows, `getTableData()` returns exactly N rows
+    - For any plan row, `remaining = plannedAmount - totalSpent` and `variance = remaining`
+    - For any plan row, `variancePercent = (variance / plannedAmount) * 100` when plannedAmount > 0
+    - Grand total `budgeted = sum(plannedAmount)`, `spent = sum(totalSpent)`, `remaining = budgeted - spent`
+    - `columnTotals[period] = sum(row.actuals[period])` for all rows
+  - Verify tests PASS on UNFIXED code (confirms baseline behavior to preserve)
+  - **EXPECTED OUTCOME**: Tests PASS (this confirms baseline behavior to preserve)
+  - Mark task complete when tests are written, run, and passing on unfixed code
+  - _Requirements: 3.1, 3.2, 3.4, 3.5_
+
+- [x] 3. Fix for budget project creation with free-text column names
+
+  - [x] 3.1 Update backend DTO: Replace AircraftScopeDto with columnNames
+    - In `backend/src/budget-projects/dto/create-budget-project.dto.ts`:
+      - Remove `AircraftScopeDto` class entirely
+      - Remove `aircraftScope` field from `CreateBudgetProjectDto`
+      - Add `columnNames: string[]` field with `@IsArray()`, `@IsString({ each: true })`, `@ArrayMinSize(1)` validators
+    - In `backend/src/budget-projects/dto/update-budget-project.dto.ts`:
+      - Verify `PartialType(CreateBudgetProjectDto)` automatically makes `columnNames` optional
+    - _Bug_Condition: isBugCondition(input) where input contains non-aircraft column names that fail @IsMongoId validation_
+    - _Expected_Behavior: DTO accepts any string array as columnNames without aircraft master data validation_
+    - _Preservation: Existing update DTO behavior unchanged via PartialType_
+    - _Requirements: 2.1, 2.4_
+
+  - [x] 3.2 Update backend schemas: Add columnName fields
+    - In `backend/src/budget-projects/schemas/budget-project.schema.ts`:
+      - Add `columnNames: string[]` field with `@Prop({ type: [String], required: true })`
+      - Change `aircraftScope` from `required: true` to `required: false` for backward compatibility
+    - In `backend/src/budget-projects/schemas/budget-plan-row.schema.ts`:
+      - Add `columnName: string` field with `@Prop()`
+      - Add new index `{ projectId: 1, termId: 1, columnName: 1 }` (keep old index for legacy data)
+    - In `backend/src/budget-projects/schemas/budget-actual.schema.ts`:
+      - Add `columnName: string` field with `@Prop()`
+    - _Bug_Condition: Schema stores aircraftScope.aircraftIds as Types.ObjectId[], coupling to aircraft collection_
+    - _Expected_Behavior: Schema stores columnNames as plain string array, plan rows use columnName string_
+    - _Preservation: Old aircraftScope, aircraftId, aircraftType fields kept as optional for legacy data_
+    - _Requirements: 2.1, 2.3, 2.4, 3.1_
+
+  - [x] 3.3 Rewrite service: Replace resolveAircraftScope with columnNames-based logic
+    - In `backend/src/budget-projects/services/budget-projects.service.ts`:
+      - In `create()`: Use `dto.columnNames` directly instead of calling `resolveAircraftScope(dto.aircraftScope)`
+      - In `create()`: Store `columnNames` on the project document instead of `aircraftScope`
+      - Rewrite `generatePlanRows()`: Iterate over `columnNames: string[]` instead of `aircraftIds: string[]`, store `columnName` on each plan row, remove `aircraftService.findById()` calls
+      - Update `getTableData()`: Use `columnName` field for building termKey (fallback to aircraftId for legacy projects)
+      - Update `updateActual()`: Accept and store `columnName` on actuals (fallback to aircraftId for legacy)
+      - Remove `resolveAircraftScope()` method
+      - Remove `AircraftService` import/injection if no longer used elsewhere
+    - _Bug_Condition: resolveAircraftScope queries aircraft collection, returns empty for non-aircraft entries; generatePlanRows creates flat structure when aircraftIds is empty_
+    - _Expected_Behavior: create() uses dto.columnNames directly, generatePlanRows creates terms.length × columnNames.length rows with columnName field_
+    - _Preservation: getTableData uses columnName when available, falls back to aircraftId for legacy projects_
+    - _Requirements: 2.1, 2.3, 2.4, 3.1, 3.2_
+
+  - [x] 3.4 Update frontend types and hooks
+    - In `frontend/src/types/budget-projects.ts`:
+      - Add `columnNames: string[]` to `BudgetProject` interface
+      - Keep `aircraftScope` as optional for backward compatibility
+      - Update `CreateBudgetProjectDto`: Replace `aircraftScope` with `columnNames: string[]`
+      - Update `UpdateBudgetProjectDto`: Replace `aircraftScope` with optional `columnNames`
+      - Add `columnName?: string` to `BudgetPlanRow`, `BudgetActual`, and `BudgetTableRow` interfaces
+    - In `frontend/src/hooks/useBudgetProjects.ts`:
+      - Update `useCreateProject` mutation to send `columnNames` instead of `aircraftScope`
+    - _Preservation: Old interfaces kept as optional fields for backward compatibility_
+    - _Requirements: 2.1, 2.2, 2.4_
+
+  - [x] 3.5 Replace CreateProjectDialog aircraft checkboxes with tag input
+    - In `frontend/src/components/budget/CreateProjectDialog.tsx`:
+      - Remove `useAircraft()` hook import and usage
+      - Remove aircraft scope type selector (`aircraftScopeType` field) and all checkbox sections (individual, type, group)
+      - Remove `selectedAircraftIds`, `selectedAircraftTypes`, `selectedFleetGroups` state
+      - Add tag input component: free-text input where user types a column name and presses Enter/comma to add it as a tag
+      - Show tags as removable chips with an X button
+      - Update Zod schema: Replace `aircraftScopeType`, `aircraftIds`, `aircraftTypes`, `fleetGroups` with `columnNames: z.array(z.string().min(1)).min(1, 'At least one column name is required')`
+      - Update `onSubmit`: Send `{ columnNames }` instead of `{ aircraftScope: { type, ... } }`
+    - _Bug_Condition: UI only shows checkboxes from aircraft master data, no way to enter "PMO" or "G650ER-1"_
+    - _Expected_Behavior: UI allows typing any free-text column name as a tag_
+    - _Requirements: 2.2, 2.4_
+
+  - [x] 3.6 Update BudgetTable to use columnName for grouping
+    - In `frontend/src/components/budget/BudgetTable.tsx`:
+      - Update row key and grouping logic to use `columnName` instead of `aircraftId`
+      - Display `columnName` instead of `aircraftType` in the sub-label under term names
+      - Fallback to `aircraftType` for legacy projects that don't have `columnName`
+    - _Preservation: Legacy projects without columnName still display correctly using aircraftType fallback_
+    - _Requirements: 2.4, 3.2_
+
+  - [x] 3.7 Add RSAF budget project seed data
+    - In `backend/src/scripts/seed.ts`:
+      - Add RSAF budget project: name="RSAF FY2025 Budget", templateType="RSAF", columnNames=["A330", "G650ER-1", "G650ER-2", "PMO"], dateRange 2025-04-01 to 2028-03-31, currency="USD", status="active"
+      - Seed plan rows with planned amounts from the budgetary sheet (18 clauses × 4 columns)
+      - Grand totals: A330=10,293,768, G650ER-1=24,141,819, G650ER-2=24,141,819, PMO=11,668,241
+      - Map 18 clause totals to the 65 spending terms: assign each clause's planned amount to the first spending term in that clause's category, remaining terms set to 0
+      - Make seed idempotent: check if project exists before creating
+    - _Requirements: 2.5_
+
+  - [x] 3.8 Verify bug condition exploration test now passes
+    - **Property 1: Expected Behavior** - Non-Aircraft Column Names Accepted
+    - **IMPORTANT**: Re-run the SAME test from task 1 - do NOT write a new test
+    - The test from task 1 encodes the expected behavior (project created with columnNames, correct plan row count)
+    - When this test passes, it confirms the expected behavior is satisfied
+    - Run bug condition exploration test from step 1
+    - **EXPECTED OUTCOME**: Test PASSES (confirms bug is fixed)
+    - _Requirements: 2.1, 2.3, 2.4_
+
+  - [x] 3.9 Verify preservation tests still pass
+    - **Property 2: Preservation** - Budget Table Data and Calculations Unchanged
+    - **IMPORTANT**: Re-run the SAME tests from task 2 - do NOT write new tests
+    - Run preservation property tests from step 2
+    - **EXPECTED OUTCOME**: Tests PASS (confirms no regressions)
+    - Confirm all tests still pass after fix (no regressions)
+
+- [x] 4. Checkpoint - Ensure all tests pass
+  - Run all budget-projects tests to confirm no regressions
+  - Verify exploration test (task 1) passes after fix
+  - Verify preservation tests (task 2) still pass after fix
+  - Ensure all tests pass, ask the user if questions arise

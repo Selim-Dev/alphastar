@@ -1,4 +1,15 @@
-import { PartialType } from '@nestjs/swagger';
-import { CreateAOGEventDto } from './create-aog-event.dto';
+import { IsString, IsOptional, IsDateString } from 'class-validator';
 
-export class UpdateAOGEventDto extends PartialType(CreateAOGEventDto) {}
+export class UpdateAOGEventDto {
+  @IsDateString()
+  @IsOptional()
+  clearedAt?: string;
+
+  @IsString()
+  @IsOptional()
+  location?: string;
+
+  @IsString()
+  @IsOptional()
+  notes?: string;
+}

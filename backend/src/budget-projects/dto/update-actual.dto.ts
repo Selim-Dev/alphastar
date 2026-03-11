@@ -18,5 +18,9 @@ export class UpdateActualDto {
 
   @IsOptional()
   @IsString()
+  columnName?: string;
+
+  @IsOptional()
+  @IsString()
   notes?: string;
 }

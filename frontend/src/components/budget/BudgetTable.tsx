@@ -169,9 +169,17 @@ export function BudgetTable({ projectId, readOnly = false }: BudgetTableProps) {
         });
       } else if (cell.columnType === 'actual' && cell.period) {
         // Update actual amount
-        // Extract termId from rowId (format: termId-aircraftId or termId-all)
+        // Extract termId from rowId (format: termId-columnName or termId-aircraftId or termId-all)
+        // Find the matching row to get columnName for the API call
+        const editedRow = tableData?.rows.find(r => {
+          const rKey = r.columnName
+            ? `${r.termId}-${r.columnName}`
+            : `${r.termId}-${r.aircraftId || 'all'}`;
+          return rKey === cell.rowId;
+        });
+
         const parts = cell.rowId.split('-');
-        const termId = parts.slice(0, -1).join('-'); // Everything except the last part (aircraftId or 'all')
+        const termId = editedRow?.termId || parts.slice(0, -1).join('-');
         
         await updateActual.mutateAsync({
           projectId,
@@ -179,6 +187,8 @@ export function BudgetTable({ projectId, readOnly = false }: BudgetTableProps) {
           dto: {
             termId,
             amount: numValue,
+            ...(editedRow?.columnName && { columnName: editedRow.columnName }),
+            ...(editedRow?.aircraftId && { aircraftId: editedRow.aircraftId }),
           },
         });
         
@@ -480,9 +490,13 @@ export function BudgetTable({ projectId, readOnly = false }: BudgetTableProps) {
 
             {/* Table Body */}
             <tbody>
-              {tableData.rows.map((row, rowIndex) => (
+              {tableData.rows.map((row, rowIndex) => {
+                const rowKey = row.columnName
+                  ? `${row.termId}-${row.columnName}`
+                  : `${row.termId}-${row.aircraftId || 'all'}`;
+                return (
                 <tr
-                  key={`${row.termId}-${row.aircraftId || 'all'}`}
+                  key={rowKey}
                   className={`
                     hover:bg-muted/30 transition-colors
                     ${rowIndex % 2 === 0 ? 'bg-background' : 'bg-muted/20'}
@@ -491,9 +505,9 @@ export function BudgetTable({ projectId, readOnly = false }: BudgetTableProps) {
                   {/* Spending Term Name */}
                   <td className="sticky left-0 z-10 px-4 py-3 text-sm text-foreground border-b border-r border-border bg-inherit">
                     <div className="font-medium">{row.termName}</div>
-                    {row.aircraftType && (
+                    {(row.columnName || row.aircraftType) && (
                       <div className="text-xs text-muted-foreground mt-1">
-                        {row.aircraftType}
+                        {row.columnName || row.aircraftType}
                       </div>
                     )}
                   </td>
@@ -508,9 +522,9 @@ export function BudgetTable({ projectId, readOnly = false }: BudgetTableProps) {
                     className={`px-4 py-3 text-sm text-right font-medium text-foreground border-b border-r border-border bg-blue-500/5 ${
                       readOnly ? 'cursor-default' : 'cursor-pointer hover:bg-blue-500/10'
                     } transition-colors`}
-                    onClick={() => !readOnly && startEditing(`${row.termId}-${row.aircraftId || 'all'}`, 'planned', undefined, row.plannedAmount)}
+                    onClick={() => !readOnly && startEditing(rowKey, 'planned', undefined, row.plannedAmount)}
                   >
-                    {isCellEditing(`${row.termId}-${row.aircraftId || 'all'}`, 'planned') ? (
+                    {isCellEditing(rowKey, 'planned') ? (
                       <div className="relative">
                         <input
                           ref={inputRef}
@@ -530,28 +544,28 @@ export function BudgetTable({ projectId, readOnly = false }: BudgetTableProps) {
                           }}
                           className="w-full px-2 py-1 text-right border border-blue-500 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 bg-background"
                         />
-                        {isCellSaving(`${row.termId}-${row.aircraftId || 'all'}`, 'planned') && (
+                        {isCellSaving(rowKey, 'planned') && (
                           <Loader2 className="absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 animate-spin text-blue-500" />
                         )}
                       </div>
                     ) : (
                       <div className="flex items-center justify-end gap-2">
                         <span>{row.plannedAmount.toLocaleString()}</span>
-                        {isCellSaving(`${row.termId}-${row.aircraftId || 'all'}`, 'planned') && (
+                        {isCellSaving(rowKey, 'planned') && (
                           <Check className="w-4 h-4 text-green-500" />
                         )}
                       </div>
                     )}
-                    {getCellError(`${row.termId}-${row.aircraftId || 'all'}`, 'planned') && (
+                    {getCellError(rowKey, 'planned') && (
                       <div className="absolute z-50 mt-1 px-2 py-1 text-xs text-white bg-red-500 rounded shadow-lg whitespace-nowrap">
-                        {getCellError(`${row.termId}-${row.aircraftId || 'all'}`, 'planned')}
+                        {getCellError(rowKey, 'planned')}
                       </div>
                     )}
                   </td>
                   
                   {/* Monthly Actuals */}
                   {tableData.periods.map((period) => {
-                    const cellId = `${row.termId}-${row.aircraftId || 'all'}`;
+                    const cellId = rowKey;
                     const actualValue = row.actuals[period] || 0;
                     
                     return (
@@ -622,7 +636,8 @@ export function BudgetTable({ projectId, readOnly = false }: BudgetTableProps) {
                     {row.remaining.toLocaleString()}
                   </td>
                 </tr>
-              ))}
+              );
+              })}
 
               {/* Column Totals Row */}
               <tr className="bg-muted/50 font-semibold border-t-2 border-border">
@@ -664,14 +679,16 @@ export function BudgetTable({ projectId, readOnly = false }: BudgetTableProps) {
         {/* Mobile Card View - Shown only on mobile (<768px) */}
         <div className="md:hidden divide-y divide-border">
           {tableData.rows.map((row) => {
-            const cellId = `${row.termId}-${row.aircraftId || 'all'}`;
+            const cellId = row.columnName
+              ? `${row.termId}-${row.columnName}`
+              : `${row.termId}-${row.aircraftId || 'all'}`;
             return (
               <div key={cellId} className="p-4 space-y-3">
                 {/* Term Header */}
                 <div className="border-b border-border pb-2">
                   <div className="font-semibold text-foreground">{row.termName}</div>
-                  {row.aircraftType && (
-                    <div className="text-xs text-muted-foreground mt-1">{row.aircraftType}</div>
+                  {(row.columnName || row.aircraftType) && (
+                    <div className="text-xs text-muted-foreground mt-1">{row.columnName || row.aircraftType}</div>
                   )}
                   <div className="text-xs text-muted-foreground mt-1">{row.termCategory}</div>
                 </div>

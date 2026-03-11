@@ -25,7 +25,7 @@ export interface Aircraft {
   aircraftType: string;
   msn: string;
   owner: string;
-  manufactureDate: string;
+  manufactureDate?: string;
   certificationDate?: string;
   inServiceDate?: string;
   enginesCount: number;

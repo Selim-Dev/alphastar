@@ -34,7 +34,7 @@ export function BudgetedVsSpentChart({ data, currency }: BudgetedVsSpentChartPro
           tickFormatter={(value) => `${currency} ${(value / 1000).toFixed(0)}K`}
         />
         <Tooltip
-          formatter={(value: string | number | undefined) => `${currency} ${Number(value).toLocaleString()}`}
+          formatter={((value: string | number | undefined) => `${currency} ${Number(value).toLocaleString()}`) as never}
           contentStyle={{
             backgroundColor: 'hsl(var(--background))',
             border: '1px solid hsl(var(--border))',

@@ -399,7 +399,7 @@ function CostBreakdownSection({ filter }: { filter?: Record<string, string> }) {
                   border: '1px solid #e2e8f0',
                   borderRadius: '8px',
                 }}
-                formatter={(value: number | undefined) => formatUSD(value ?? 0)}
+                formatter={((value: number | undefined) => formatUSD(value ?? 0)) as never}
               />
               <Legend />
               <Bar dataKey="Internal" fill="#3b82f6" radius={[4, 4, 0, 0]} />
@@ -435,7 +435,7 @@ function CostBreakdownSection({ filter }: { filter?: Record<string, string> }) {
                   border: '1px solid #e2e8f0',
                   borderRadius: '8px',
                 }}
-                formatter={(value: number | undefined) => formatUSD(value ?? 0)}
+                formatter={((value: number | undefined) => formatUSD(value ?? 0)) as never}
               />
             </PieChart>
           </ResponsiveContainer>

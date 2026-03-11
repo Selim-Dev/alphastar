@@ -75,7 +75,7 @@ export function AOGMiniTrendChart({ trendData, isLoading }: AOGMiniTrendChartPro
               fontSize: '12px',
             }}
             labelStyle={{ color: 'hsl(var(--foreground))' }}
-            formatter={(value: number | undefined) => value !== undefined ? [`${value} events`, 'Count'] : ['', '']}
+            formatter={((value: number | undefined) => value !== undefined ? [`${value} events`, 'Count'] : ['', '']) as never}
           />
           <Line
             type="monotone"

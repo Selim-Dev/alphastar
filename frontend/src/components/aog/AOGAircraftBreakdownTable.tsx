@@ -264,7 +264,7 @@ export function AOGAircraftBreakdownTable({ data, filterInfo, isLoading }: AOGAi
         useCORS: true,
         logging: false,
         width: 800,
-        background: '#ffffff',
+        backgroundColor: '#ffffff',
       });
 
       document.body.removeChild(wrapper);

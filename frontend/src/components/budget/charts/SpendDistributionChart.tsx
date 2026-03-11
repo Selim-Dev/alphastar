@@ -54,7 +54,7 @@ export function SpendDistributionChart({ data, currency }: SpendDistributionChar
           ))}
         </Pie>
         <Tooltip
-          formatter={(value: string | number | undefined) => `${currency} ${Number(value).toLocaleString()}`}
+          formatter={((value: string | number | undefined) => `${currency} ${Number(value).toLocaleString()}`) as never}
           contentStyle={{
             backgroundColor: 'hsl(var(--background))',
             border: '1px solid hsl(var(--border))',

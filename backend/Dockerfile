@@ -1,23 +1,22 @@
-FROM node:20-alpine AS builder
+FROM node:20-slim AS builder
 
 WORKDIR /app
 
 COPY package*.json ./
-RUN npm ci
+RUN npm install
 
 COPY . .
 RUN npm run build
 
-FROM node:20-alpine AS runner
+FROM node:20-slim AS runner
 
 WORKDIR /app
 ENV NODE_ENV=production
 
-# Create non-root user
-RUN addgroup -S nodejs && adduser -S nestjs -G nodejs
+RUN groupadd -r nodejs && useradd -r -g nodejs nestjs
 
 COPY package*.json ./
-RUN npm ci --omit=dev
+RUN npm install --omit=dev
 
 COPY --from=builder --chown=nestjs:nodejs /app/dist ./dist
 

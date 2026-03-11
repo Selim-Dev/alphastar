@@ -30,7 +30,7 @@ const ADMIN_USER = {
   email: 'admin@alphastarav.com',
   password: 'Admin@123!', // IMPORTANT: Change this password after first login!
   name: 'System Administrator',
-  role: UserRole.Admin,
+  role: UserRole.SuperAdmin,
 };
 
 // Aircraft fleet data from Alpha Star Aviation (27 aircraft)

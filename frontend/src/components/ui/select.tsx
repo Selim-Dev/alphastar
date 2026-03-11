@@ -54,7 +54,7 @@ interface SelectTriggerProps {
 }
 
 export function SelectTrigger({ className = '', children, placeholder }: SelectTriggerProps) {
-  const { value, open, setOpen } = useSelectContext();
+  const { open, setOpen } = useSelectContext();
 
   return (
     <button

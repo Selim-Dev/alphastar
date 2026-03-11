@@ -40,6 +40,7 @@ export function useCreateAircraft() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['aircraft'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
     },
   });
 }
@@ -54,6 +55,7 @@ export function useUpdateAircraft() {
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['aircraft'] });
       queryClient.invalidateQueries({ queryKey: ['aircraft', variables.id] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
     },
   });
 }
@@ -66,6 +68,7 @@ export function useDeleteAircraft() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['aircraft'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
     },
   });
 }

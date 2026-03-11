@@ -78,13 +78,13 @@ describe('BudgetProjectDetailPage', () => {
         },
         isLoading: false,
         error: null,
-      })),
+      })) as unknown as never,
       useUpdatePlanRow: vi.fn(() => ({
         mutateAsync: vi.fn().mockResolvedValue(undefined),
-      })),
+      })) as unknown as never,
       useUpdateActual: vi.fn(() => ({
         mutateAsync: vi.fn().mockResolvedValue(undefined),
-      })),
+      })) as unknown as never,
       useProjects: vi.fn(),
       useCreateProject: vi.fn(),
       useUpdateProject: vi.fn(),

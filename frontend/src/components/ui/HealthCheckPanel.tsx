@@ -7,7 +7,7 @@ export function HealthCheckPanel() {
   const { data: healthData, isLoading, error, refetch } = useHealthCheck();
   const triggerSeed = useTriggerSeed();
 
-  const isAdmin = user?.role === 'Admin';
+  const isAdmin = user?.role === 'SuperAdmin' || user?.role === 'Admin';
 
   const handleSeed = async () => {
     if (window.confirm('This will populate the database with demo data. Continue?')) {

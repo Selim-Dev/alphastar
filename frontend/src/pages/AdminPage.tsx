@@ -6,7 +6,6 @@ import { ColumnDef } from '@tanstack/react-table';
 import { DataTable } from '@/components/ui/DataTable';
 import { FormField, Input, Select, Button } from '@/components/ui/Form';
 import { ExportButton } from '@/components/ui/ExportButton';
-import { HealthCheckPanel } from '@/components/ui/HealthCheckPanel';
 import { useUsers, useCreateUser } from '@/hooks/useUsers';
 import { useAircraft, useCreateAircraft, useUpdateAircraft, useDeleteAircraft } from '@/hooks/useAircraft';
 import type { User, Aircraft } from '@/types';
@@ -16,7 +15,7 @@ const userSchema = z.object({
   email: z.string().email('Please enter a valid email'),
   password: z.string().min(6, 'Password must be at least 6 characters'),
   name: z.string().min(1, 'Name is required'),
-  role: z.enum(['Admin', 'Editor', 'Viewer']),
+  role: z.enum(['SuperAdmin', 'Admin', 'Editor', 'Viewer']),
 });
 
 type UserFormData = z.infer<typeof userSchema>;
@@ -37,50 +36,68 @@ const aircraftSchema = z.object({
 
 type AircraftFormData = z.infer<typeof aircraftSchema>;
 
+// Tab config
+const TABS = [
+  {
+    id: 'users' as const,
+    label: 'User Management',
+    icon: (
+      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+      </svg>
+    ),
+  },
+  {
+    id: 'aircraft' as const,
+    label: 'Aircraft Master',
+    icon: (
+      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+      </svg>
+    ),
+  },
+];
+
 export function AdminPage() {
-  const [activeTab, setActiveTab] = useState<'users' | 'aircraft' | 'health'>('users');
+  const [activeTab, setActiveTab] = useState<'users' | 'aircraft'>('users');
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-bold text-foreground">Admin Settings</h1>
-      
-      {/* Tab Navigation */}
-      <div className="flex gap-2 border-b border-border">
-        <button
-          onClick={() => setActiveTab('users')}
-          className={`px-4 py-2 text-sm font-medium transition-colors ${
-            activeTab === 'users'
-              ? 'text-primary border-b-2 border-primary'
-              : 'text-muted-foreground hover:text-foreground'
-          }`}
-        >
-          User Management
-        </button>
-        <button
-          onClick={() => setActiveTab('aircraft')}
-          className={`px-4 py-2 text-sm font-medium transition-colors ${
-            activeTab === 'aircraft'
-              ? 'text-primary border-b-2 border-primary'
-              : 'text-muted-foreground hover:text-foreground'
-          }`}
-        >
-          Aircraft Master
-        </button>
-        <button
-          onClick={() => setActiveTab('health')}
-          className={`px-4 py-2 text-sm font-medium transition-colors ${
-            activeTab === 'health'
-              ? 'text-primary border-b-2 border-primary'
-              : 'text-muted-foreground hover:text-foreground'
-          }`}
-        >
-          Data Health
-        </button>
+      <div className="flex items-center gap-3">
+        <div className="p-2 rounded-lg bg-primary/10">
+          <svg className="w-6 h-6 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+          </svg>
+        </div>
+        <div>
+          <h1 className="text-2xl font-bold text-foreground">Settings</h1>
+          <p className="text-sm text-muted-foreground">Manage users and aircraft fleet data</p>
+        </div>
       </div>
 
-      {activeTab === 'users' && <UserManagement />}
-      {activeTab === 'aircraft' && <AircraftManagement />}
-      {activeTab === 'health' && <HealthCheckPanel />}
+      {/* Tab Navigation */}
+      <div className="flex gap-1 bg-muted/50 p-1 rounded-lg w-fit">
+        {TABS.map((tab) => (
+          <button
+            key={tab.id}
+            onClick={() => setActiveTab(tab.id)}
+            className={`flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-md transition-all ${
+              activeTab === tab.id
+                ? 'bg-card text-foreground shadow-sm'
+                : 'text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            {tab.icon}
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
+      <div className="bg-card border border-border rounded-xl p-6">
+        {activeTab === 'users' && <UserManagement />}
+        {activeTab === 'aircraft' && <AircraftManagement />}
+      </div>
     </div>
   );
 }
@@ -89,14 +106,22 @@ export function AdminPage() {
 // Role descriptions for help section
 const ROLE_DESCRIPTIONS = [
   {
+    role: 'SuperAdmin',
+    color: 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200',
+    permissions: [
+      'All Admin permissions',
+      'Delete AOG events',
+      'Full system control',
+    ],
+  },
+  {
     role: 'Admin',
     color: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200',
     permissions: [
       'Full read access to all data',
-      'Create, update, and delete all records',
-      'Manage users (create, edit, delete)',
-      'Access admin settings and health check',
-      'Run seed scripts and data imports',
+      'Create, update, and delete records',
+      'Manage users',
+      'Access settings and data import',
     ],
   },
   {
@@ -105,9 +130,7 @@ const ROLE_DESCRIPTIONS = [
     permissions: [
       'Full read access to all data',
       'Create and update operational records',
-      'Cannot delete records',
-      'Cannot manage users',
-      'Cannot access admin-only features',
+      'Cannot delete records or manage users',
     ],
   },
   {
@@ -115,10 +138,7 @@ const ROLE_DESCRIPTIONS = [
     color: 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200',
     permissions: [
       'Read-only access to all data',
-      'View dashboards and reports',
-      'Export data to Excel',
-      'Cannot create, update, or delete records',
-      'Cannot access admin settings',
+      'View dashboards and export reports',
     ],
   },
 ];
@@ -149,28 +169,35 @@ function UserManagement() {
     }
   };
 
+  const getRoleBadgeClass = (role: string) => {
+    switch (role) {
+      case 'SuperAdmin': return 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200';
+      case 'Admin': return 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200';
+      case 'Editor': return 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200';
+      default: return 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200';
+    }
+  };
+
   const userColumns: ColumnDef<User, unknown>[] = [
     {
       accessorKey: 'name',
       header: 'Name',
+      cell: ({ row }) => (
+        <span className="font-medium text-foreground">{row.original.name}</span>
+      ),
     },
     {
       accessorKey: 'email',
       header: 'Email',
+      cell: ({ row }) => (
+        <span className="text-muted-foreground">{row.original.email}</span>
+      ),
     },
     {
       accessorKey: 'role',
       header: 'Role',
       cell: ({ row }) => (
-        <span
-          className={`px-2 py-1 rounded-full text-xs font-medium ${
-            row.original.role === 'Admin'
-              ? 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'
-              : row.original.role === 'Editor'
-              ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200'
-              : 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200'
-          }`}
-        >
+        <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${getRoleBadgeClass(row.original.role)}`}>
           {row.original.role}
         </span>
       ),
@@ -178,56 +205,42 @@ function UserManagement() {
   ];
 
   if (isLoading) {
-    return <div className="text-muted-foreground">Loading users...</div>;
+    return <div className="text-muted-foreground py-8 text-center">Loading users...</div>;
   }
 
   return (
     <div className="space-y-6">
       {/* Role Descriptions Help Section */}
-      <div className="bg-card border border-border rounded-lg overflow-hidden">
+      <div className="border border-border rounded-lg overflow-hidden">
         <button
           onClick={() => setShowRoleHelp(!showRoleHelp)}
           className="w-full px-4 py-3 flex items-center justify-between text-left hover:bg-muted/50 transition-colors"
         >
           <div className="flex items-center gap-2">
-            <svg
-              className="w-5 h-5 text-muted-foreground"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-              />
+            <svg className="w-4 h-4 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
-            <span className="font-medium text-foreground">Role Permissions Guide</span>
+            <span className="text-sm font-medium text-foreground">Role Permissions Guide</span>
           </div>
           <svg
-            className={`w-5 h-5 text-muted-foreground transition-transform ${showRoleHelp ? 'rotate-180' : ''}`}
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
+            className={`w-4 h-4 text-muted-foreground transition-transform ${showRoleHelp ? 'rotate-180' : ''}`}
+            fill="none" stroke="currentColor" viewBox="0 0 24 24"
           >
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
           </svg>
         </button>
         {showRoleHelp && (
           <div className="px-4 pb-4 border-t border-border">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 mt-4">
               {ROLE_DESCRIPTIONS.map((roleInfo) => (
-                <div key={roleInfo.role} className="bg-muted/30 rounded-lg p-4">
-                  <div className="flex items-center gap-2 mb-3">
-                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${roleInfo.color}`}>
-                      {roleInfo.role}
-                    </span>
-                  </div>
-                  <ul className="space-y-1.5">
+                <div key={roleInfo.role} className="bg-muted/30 rounded-lg p-3">
+                  <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium mb-2 ${roleInfo.color}`}>
+                    {roleInfo.role}
+                  </span>
+                  <ul className="space-y-1">
                     {roleInfo.permissions.map((permission, idx) => (
-                      <li key={idx} className="text-sm text-muted-foreground flex items-start gap-2">
-                        <span className="text-primary mt-1">•</span>
+                      <li key={idx} className="text-xs text-muted-foreground flex items-start gap-1.5">
+                        <span className="text-primary mt-0.5 text-[10px]">●</span>
                         <span>{permission}</span>
                       </li>
                     ))}
@@ -247,7 +260,7 @@ function UserManagement() {
       </div>
 
       {showForm && (
-        <div className="bg-card border border-border rounded-lg p-6">
+        <div className="border border-border rounded-lg p-6 bg-muted/20">
           <h3 className="text-md font-medium text-foreground mb-4">Create New User</h3>
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -265,6 +278,7 @@ function UserManagement() {
                   {...register('role')}
                   error={!!errors.role}
                   options={[
+                    { value: 'SuperAdmin', label: 'Super Admin' },
                     { value: 'Admin', label: 'Admin' },
                     { value: 'Editor', label: 'Editor' },
                     { value: 'Viewer', label: 'Viewer' },
@@ -303,10 +317,9 @@ function AircraftManagement() {
     register,
     handleSubmit,
     reset,
-    setValue,
     formState: { errors },
   } = useForm<AircraftFormData>({
-    resolver: zodResolver(aircraftSchema),
+    resolver: zodResolver(aircraftSchema) as never,
     defaultValues: {
       enginesCount: 2,
     },
@@ -314,16 +327,18 @@ function AircraftManagement() {
 
   const openEditForm = (aircraft: Aircraft) => {
     setEditingAircraft(aircraft);
-    setValue('registration', aircraft.registration);
-    setValue('fleetGroup', aircraft.fleetGroup);
-    setValue('aircraftType', aircraft.aircraftType || '');
-    setValue('msn', aircraft.msn || '');
-    setValue('owner', aircraft.owner);
-    setValue('manufactureDate', aircraft.manufactureDate ? aircraft.manufactureDate.split('T')[0] : '');
-    setValue('certificationDate', aircraft.certificationDate ? aircraft.certificationDate.split('T')[0] : '');
-    setValue('inServiceDate', aircraft.inServiceDate ? aircraft.inServiceDate.split('T')[0] : '');
-    setValue('enginesCount', aircraft.enginesCount);
-    setValue('status', aircraft.status);
+    reset({
+      registration: aircraft.registration,
+      fleetGroup: aircraft.fleetGroup,
+      aircraftType: aircraft.aircraftType || '',
+      msn: aircraft.msn || '',
+      owner: aircraft.owner,
+      manufactureDate: aircraft.manufactureDate ? aircraft.manufactureDate.split('T')[0] : '',
+      certificationDate: aircraft.certificationDate ? aircraft.certificationDate.split('T')[0] : '',
+      inServiceDate: aircraft.inServiceDate ? aircraft.inServiceDate.split('T')[0] : '',
+      enginesCount: aircraft.enginesCount,
+      status: aircraft.status,
+    });
     setShowForm(true);
   };
 
@@ -335,7 +350,6 @@ function AircraftManagement() {
 
   const onSubmit = async (data: AircraftFormData) => {
     try {
-      // Convert empty date strings to undefined so they don't overwrite existing values
       const payload = {
         ...data,
         manufactureDate: data.manufactureDate || undefined,
@@ -345,7 +359,6 @@ function AircraftManagement() {
 
       if (editingAircraft) {
         const aircraftId = editingAircraft.id || editingAircraft._id;
-        // Don't send registration on update — it's immutable via this form
         const { registration: _reg, ...updatePayload } = payload;
         await updateAircraft.mutateAsync({ id: aircraftId, ...updatePayload });
       } else {
@@ -375,50 +388,26 @@ function AircraftManagement() {
         <span className="font-medium text-primary">{row.original.registration}</span>
       ),
     },
-    {
-      accessorKey: 'fleetGroup',
-      header: 'Fleet Group',
-    },
-    {
-      accessorKey: 'aircraftType',
-      header: 'Type',
-    },
-    {
-      accessorKey: 'msn',
-      header: 'MSN',
-    },
-    {
-      accessorKey: 'owner',
-      header: 'Owner',
-    },
+    { accessorKey: 'fleetGroup', header: 'Fleet Group' },
+    { accessorKey: 'aircraftType', header: 'Type' },
+    { accessorKey: 'msn', header: 'MSN' },
+    { accessorKey: 'owner', header: 'Owner' },
     {
       accessorKey: 'manufactureDate',
       header: 'Manufacture Date',
-      cell: ({ row }) => {
-        if (!row.original.manufactureDate) return '-';
-        return new Date(row.original.manufactureDate).toLocaleDateString();
-      },
+      cell: ({ row }) => row.original.manufactureDate ? new Date(row.original.manufactureDate).toLocaleDateString() : '-',
     },
     {
       accessorKey: 'certificationDate',
       header: 'Certification Date',
-      cell: ({ row }) => {
-        if (!row.original.certificationDate) return '-';
-        return new Date(row.original.certificationDate).toLocaleDateString();
-      },
+      cell: ({ row }) => row.original.certificationDate ? new Date(row.original.certificationDate).toLocaleDateString() : '-',
     },
     {
       accessorKey: 'inServiceDate',
       header: 'In Service Date',
-      cell: ({ row }) => {
-        if (!row.original.inServiceDate) return '-';
-        return new Date(row.original.inServiceDate).toLocaleDateString();
-      },
+      cell: ({ row }) => row.original.inServiceDate ? new Date(row.original.inServiceDate).toLocaleDateString() : '-',
     },
-    {
-      accessorKey: 'enginesCount',
-      header: 'Engines',
-    },
+    { accessorKey: 'enginesCount', header: 'Engines' },
     {
       accessorKey: 'status',
       header: 'Status',
@@ -459,39 +448,33 @@ function AircraftManagement() {
   ];
 
   if (isLoading) {
-    return <div className="text-muted-foreground">Loading aircraft...</div>;
+    return <div className="text-muted-foreground py-8 text-center">Loading aircraft...</div>;
   }
 
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
-        <h2 className="text-lg font-semibold text-foreground">Aircraft</h2>
+        <div>
+          <h2 className="text-lg font-semibold text-foreground">Aircraft Fleet</h2>
+          <p className="text-sm text-muted-foreground">{aircraftData?.data?.length || 0} aircraft registered</p>
+        </div>
         <div className="flex items-center gap-2">
-          <ExportButton
-            exportType="aircraft"
-            filename="aircraft-master.xlsx"
-            label="Export"
-          />
+          <ExportButton exportType="aircraft" filename="aircraft-master.xlsx" label="Export" />
           <Button onClick={() => { setEditingAircraft(null); reset(); setShowForm(!showForm); }}>
-            {showForm ? 'Cancel' : 'Add Aircraft'}
+            {showForm && !editingAircraft ? 'Cancel' : 'Add Aircraft'}
           </Button>
         </div>
       </div>
 
       {showForm && (
-        <div className="bg-card border border-border rounded-lg p-6">
+        <div className="border border-border rounded-lg p-6 bg-muted/20">
           <h3 className="text-md font-medium text-foreground mb-4">
-            {editingAircraft ? 'Edit Aircraft' : 'Create New Aircraft'}
+            {editingAircraft ? `Edit ${editingAircraft.registration}` : 'Register New Aircraft'}
           </h3>
-          <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+          <form onSubmit={handleSubmit(onSubmit as never)} className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               <FormField label="Registration" error={errors.registration} required>
-                <Input
-                  {...register('registration')}
-                  error={!!errors.registration}
-                  placeholder="HZ-A42"
-                  disabled={!!editingAircraft}
-                />
+                <Input {...register('registration')} error={!!errors.registration} placeholder="HZ-A42" disabled={!!editingAircraft} />
               </FormField>
               <FormField label="Fleet Group" error={errors.fleetGroup} required>
                 <Input {...register('fleetGroup')} error={!!errors.fleetGroup} placeholder="A330" />
@@ -530,11 +513,9 @@ function AircraftManagement() {
               </FormField>
             </div>
             <div className="flex justify-end gap-2">
-              <Button type="button" variant="outline" onClick={closeForm}>
-                Cancel
-              </Button>
+              <Button type="button" variant="outline" onClick={closeForm}>Cancel</Button>
               <Button type="submit" isLoading={createAircraft.isPending || updateAircraft.isPending}>
-                {editingAircraft ? 'Update Aircraft' : 'Create Aircraft'}
+                {editingAircraft ? 'Update Aircraft' : 'Register Aircraft'}
               </Button>
             </div>
           </form>

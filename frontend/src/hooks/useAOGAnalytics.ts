@@ -64,3 +64,33 @@ export function useAOGTimeBreakdown(filter?: AnalyticsFilter) {
     },
   });
 }
+
+export interface CostBreakdownDepartmentItem {
+  department: string;
+  internalCost: number;
+  externalCost: number;
+  totalCost: number;
+  entryCount: number;
+}
+
+export interface CostBreakdownResponse {
+  departments: CostBreakdownDepartmentItem[];
+  totals: {
+    internalCost: number;
+    externalCost: number;
+    totalCost: number;
+  };
+}
+
+export function useAOGCostBreakdown(filter?: AnalyticsFilter) {
+  return useQuery({
+    queryKey: ['aog-analytics', 'cost-breakdown', filter],
+    queryFn: async () => {
+      const { data } = await api.get<CostBreakdownResponse>(
+        '/aog-events/analytics/cost-breakdown',
+        { params: filter },
+      );
+      return data;
+    },
+  });
+}

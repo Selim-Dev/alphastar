@@ -19,11 +19,17 @@ import {
   useAOGAnalyticsSummary,
   useAOGCategoryBreakdown,
   useAOGTimeBreakdown,
+  useAOGCostBreakdown,
 } from '@/hooks/useAOGAnalytics';
+import { AnalyticsPDFExport } from '@/components/ui/AnalyticsPDFExport';
 
 // --- Constants ---
 
-const FLEET_GROUPS = ['A330', 'A340', 'G650ER', 'Cessna', 'Hawker', 'A320', 'A319', 'A318'];
+const FLEET_GROUPS = [
+  'AIRBUS 330', 'AIRBUS 340', 'AIRBUS A320 FAMILY',
+  'GULFSTREAM', 'HAWKER 900XP', 'CESSNA',
+  'ATR', 'CITATION LATITUDE', 'KING AIR',
+];
 
 const CATEGORY_COLORS: Record<string, string> = {
   aog: '#ef4444',
@@ -299,6 +305,182 @@ function TimeBreakdownSection({ filter }: { filter?: Record<string, string> }) {
   );
 }
 
+// --- Cost Breakdown Chart ---
+
+// Hex colors only — no oklch — for html2canvas PDF compatibility
+const COST_DEPT_COLORS: Record<string, string> = {
+  QC: '#f59e0b',
+  Engineering: '#3b82f6',
+  'Project Management': '#8b5cf6',
+  Procurement: '#14b8a6',
+  Technical: '#64748b',
+  Others: '#22c55e',
+};
+const COST_DEPT_COLOR_DEFAULT = '#94a3b8';
+
+function formatUSD(value: number): string {
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: 'USD',
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
+  }).format(value);
+}
+
+function CostBreakdownSection({ filter }: { filter?: Record<string, string> }) {
+  const { data, isLoading } = useAOGCostBreakdown(filter);
+
+  if (isLoading) return <SkeletonChart height={300} />;
+
+  const isEmpty = !data || data.departments.length === 0;
+
+  if (isEmpty) {
+    return (
+      <div className="bg-card border border-border rounded-lg p-6">
+        <h3 className="text-lg font-semibold mb-4">Cost Breakdown</h3>
+        <p className="text-muted-foreground text-center py-8">
+          No cost data available for the selected filters.
+        </p>
+      </div>
+    );
+  }
+
+  const { departments, totals } = data;
+
+  // Bar chart data — grouped internal vs external per department
+  const barData = departments.map((d) => ({
+    name: d.department,
+    Internal: d.internalCost,
+    External: d.externalCost,
+    fill: COST_DEPT_COLORS[d.department] || COST_DEPT_COLOR_DEFAULT,
+  }));
+
+  // Pie chart data — total cost per department
+  const pieData = departments.map((d) => ({
+    name: d.department,
+    value: d.totalCost,
+    color: COST_DEPT_COLORS[d.department] || COST_DEPT_COLOR_DEFAULT,
+  }));
+
+  return (
+    <div className="bg-card border border-border rounded-lg p-6">
+      <h3 className="text-lg font-semibold mb-4">Cost Breakdown</h3>
+
+      {/* Summary cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+        {[
+          { label: 'Total Internal Cost', value: totals.internalCost, accent: 'border-l-blue-500' },
+          { label: 'Total External Cost', value: totals.externalCost, accent: 'border-l-amber-500' },
+          { label: 'Grand Total', value: totals.totalCost, accent: 'border-l-green-500' },
+        ].map((card) => (
+          <div
+            key={card.label}
+            className={`bg-muted/40 border border-border rounded-lg p-4 border-l-4 ${card.accent}`}
+          >
+            <p className="text-sm text-muted-foreground">{card.label}</p>
+            <p className="text-xl font-bold mt-1">{formatUSD(card.value)}</p>
+          </div>
+        ))}
+      </div>
+
+      {/* Charts */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Grouped bar chart — internal vs external per department */}
+        <div>
+          <p className="text-sm text-muted-foreground mb-2">Internal vs External Cost by Department</p>
+          <ResponsiveContainer width="100%" height={280}>
+            <BarChart data={barData} margin={{ top: 5, right: 20, left: 10, bottom: 5 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+              <XAxis dataKey="name" tick={{ fontSize: 11 }} />
+              <YAxis tick={{ fontSize: 11 }} tickFormatter={(v: number) => `$${(v / 1000).toFixed(0)}k`} />
+              <Tooltip
+                contentStyle={{
+                  backgroundColor: '#ffffff',
+                  border: '1px solid #e2e8f0',
+                  borderRadius: '8px',
+                }}
+                formatter={(value: number | undefined) => formatUSD(value ?? 0)}
+              />
+              <Legend />
+              <Bar dataKey="Internal" fill="#3b82f6" radius={[4, 4, 0, 0]} />
+              <Bar dataKey="External" fill="#f59e0b" radius={[4, 4, 0, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+
+        {/* Donut pie chart — cost distribution by department */}
+        <div>
+          <p className="text-sm text-muted-foreground mb-2">Cost Distribution by Department</p>
+          <ResponsiveContainer width="100%" height={280}>
+            <PieChart>
+              <Pie
+                data={pieData}
+                cx="50%"
+                cy="50%"
+                innerRadius={60}
+                outerRadius={100}
+                dataKey="value"
+                nameKey="name"
+                label={(props: { name?: string; percent?: number }) =>
+                  `${props.name ?? ''} ${((props.percent || 0) * 100).toFixed(0)}%`
+                }
+              >
+                {pieData.map((entry, idx) => (
+                  <Cell key={idx} fill={entry.color} />
+                ))}
+              </Pie>
+              <Tooltip
+                contentStyle={{
+                  backgroundColor: '#ffffff',
+                  border: '1px solid #e2e8f0',
+                  borderRadius: '8px',
+                }}
+                formatter={(value: number | undefined) => formatUSD(value ?? 0)}
+              />
+            </PieChart>
+          </ResponsiveContainer>
+        </div>
+      </div>
+
+      {/* Department table */}
+      <div className="mt-6 overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="border-b border-border text-left">
+              <th className="pb-2 text-muted-foreground font-medium">Department</th>
+              <th className="pb-2 text-muted-foreground font-medium text-right">Internal</th>
+              <th className="pb-2 text-muted-foreground font-medium text-right">External</th>
+              <th className="pb-2 text-muted-foreground font-medium text-right">Total</th>
+              <th className="pb-2 text-muted-foreground font-medium text-right">Entries</th>
+            </tr>
+          </thead>
+          <tbody>
+            {departments.map((d) => (
+              <tr key={d.department} className="border-b border-border/50 last:border-0">
+                <td className="py-2">
+                  <span
+                    className="inline-flex items-center gap-1.5 text-xs font-medium"
+                  >
+                    <span
+                      className="w-2.5 h-2.5 rounded-sm inline-block"
+                      style={{ backgroundColor: COST_DEPT_COLORS[d.department] || COST_DEPT_COLOR_DEFAULT }}
+                    />
+                    {d.department}
+                  </span>
+                </td>
+                <td className="py-2 text-right">{formatUSD(d.internalCost)}</td>
+                <td className="py-2 text-right">{formatUSD(d.externalCost)}</td>
+                <td className="py-2 text-right font-semibold">{formatUSD(d.totalCost)}</td>
+                <td className="py-2 text-right text-muted-foreground">{d.entryCount}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
 // --- Filter Bar ---
 
 function FilterBar({
@@ -314,7 +496,7 @@ function FilterBar({
   const aircraftList = aircraftData?.data || [];
 
   const aircraftOptions = useMemo(
-    () => aircraftList.map((a) => ({ value: a._id, label: a.registration })),
+    () => aircraftList.map((a) => ({ value: a.id || a._id, label: a.registration })),
     [aircraftList],
   );
 
@@ -401,19 +583,33 @@ export function AOGAnalyticsPage() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-bold">AOG Analytics</h1>
+      <div className="flex items-center justify-between">
+        <h1 className="text-2xl font-bold">AOG Analytics</h1>
+        <AnalyticsPDFExport
+          containerId="aog-analytics-content"
+          filename={`aog-analytics-${new Date().toISOString().split('T')[0]}.pdf`}
+          label="Export PDF"
+          variant="outline"
+          size="sm"
+        />
+      </div>
 
-      {/* 14.4 — Filter Bar */}
-      <FilterBar filters={filters} onChange={handleFilterChange} onClear={handleClearFilters} />
+      <div id="aog-analytics-content" className="space-y-6">
+        {/* 14.4 — Filter Bar */}
+        <FilterBar filters={filters} onChange={handleFilterChange} onClear={handleClearFilters} />
 
-      {/* 14.1 — Summary Cards */}
-      <SummaryCards filter={filterParams} />
+        {/* 14.1 — Summary Cards */}
+        <SummaryCards filter={filterParams} />
 
-      {/* 14.2 — Category Breakdown */}
-      <CategoryBreakdownSection filter={filterParams} />
+        {/* 14.2 — Category Breakdown */}
+        <CategoryBreakdownSection filter={filterParams} />
 
-      {/* 14.3 — Time Breakdown */}
-      <TimeBreakdownSection filter={filterParams} />
+        {/* 14.3 — Time Breakdown */}
+        <TimeBreakdownSection filter={filterParams} />
+
+        {/* Cost Breakdown */}
+        <CostBreakdownSection filter={filterParams} />
+      </div>
     </div>
   );
 }

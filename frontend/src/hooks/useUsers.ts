@@ -6,7 +6,7 @@ interface CreateUserData {
   email: string;
   password: string;
   name: string;
-  role: 'Admin' | 'Editor' | 'Viewer';
+  role: 'SuperAdmin' | 'Admin' | 'Editor' | 'Viewer';
 }
 
 export function useUsers() {

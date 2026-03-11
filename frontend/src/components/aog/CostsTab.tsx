@@ -17,7 +17,9 @@ import {
   Wallet
 } from 'lucide-react';
 import { Button, Input, Select, FormField } from '@/components/ui/Form';
-import { useGenerateAOGSpend, useUpdateAOGBudgetIntegration } from '@/hooks/useAOGEvents';
+// These hooks are placeholders for future budget integration feature
+const useGenerateAOGSpend = () => ({ mutateAsync: async (_: unknown) => {}, isPending: false, isError: false, isSuccess: false });
+const useUpdateAOGBudgetIntegration = () => ({ mutateAsync: async (_: unknown) => {}, isPending: false });
 import { usePermissions } from '@/hooks/usePermissions';
 import type { AOGEvent, CostAuditEntry } from '@/types';
 

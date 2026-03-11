@@ -1,4 +1,5 @@
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from 'recharts';
+import type { PieLabelRenderProps } from 'recharts';
 import type { DistributionData } from '@/types/budget-projects';
 
 interface SpendDistributionChartProps {
@@ -28,15 +29,16 @@ export function SpendDistributionChart({ data, currency }: SpendDistributionChar
   }
 
   // Custom label to show percentage
-  const renderLabel = (entry: DistributionData) => {
-    return `${entry.percentage.toFixed(1)}%`;
+  const renderLabel = (props: PieLabelRenderProps) => {
+    const pct = (props.payload as { percentage?: number })?.percentage ?? 0;
+    return `${pct.toFixed(1)}%`;
   };
 
   return (
     <ResponsiveContainer width="100%" height={320}>
       <PieChart>
         <Pie
-          data={data}
+          data={data as unknown as Record<string, unknown>[]}
           cx="50%"
           cy="50%"
           labelLine={false}
@@ -47,12 +49,12 @@ export function SpendDistributionChart({ data, currency }: SpendDistributionChar
           dataKey="amount"
           nameKey="category"
         >
-          {data.map((entry, index) => (
+          {data.map((_entry, index) => (
             <Cell key={`cell-${index}`} fill={colors[index % colors.length]} />
           ))}
         </Pie>
         <Tooltip
-          formatter={(value: number) => `${currency} ${value.toLocaleString()}`}
+          formatter={(value: string | number | undefined) => `${currency} ${Number(value).toLocaleString()}`}
           contentStyle={{
             backgroundColor: 'hsl(var(--background))',
             border: '1px solid hsl(var(--border))',
@@ -61,7 +63,7 @@ export function SpendDistributionChart({ data, currency }: SpendDistributionChar
         />
         <Legend
           wrapperStyle={{ fontSize: '12px' }}
-          formatter={(value, entry: any) => {
+          formatter={(value) => {
             const item = data.find((d) => d.category === value);
             return `${value} (${item?.percentage.toFixed(1)}%)`;
           }}

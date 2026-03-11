@@ -9,6 +9,7 @@ import {
   AOGEventFilter,
 } from '../repositories/aog-event.repository';
 import { AOGSubEventRepository } from '../repositories/aog-sub-event.repository';
+import { AOGCostEntryRepository } from '../repositories/aog-cost-entry.repository';
 import { CreateAOGEventDto } from '../dto/create-aog-event.dto';
 import { UpdateAOGEventDto } from '../dto/update-aog-event.dto';
 import { FilterAOGEventDto } from '../dto/filter-aog-event.dto';
@@ -57,6 +58,23 @@ export interface CategoryBreakdownItem {
   subEventCount: number;
   totalDowntimeHours: number;
   percentage: number;
+}
+
+export interface CostBreakdownDepartmentItem {
+  department: string;
+  internalCost: number;
+  externalCost: number;
+  totalCost: number;
+  entryCount: number;
+}
+
+export interface CostBreakdownResponse {
+  departments: CostBreakdownDepartmentItem[];
+  totals: {
+    internalCost: number;
+    externalCost: number;
+    totalCost: number;
+  };
 }
 
 export interface TimeBreakdown {
@@ -127,6 +145,7 @@ export class AOGEventsService {
   constructor(
     private readonly aogEventRepository: AOGEventRepository,
     private readonly subEventRepository: AOGSubEventRepository,
+    private readonly costEntryRepository: AOGCostEntryRepository,
   ) {}
 
   async create(
@@ -254,6 +273,7 @@ export class AOGEventsService {
     }
 
     await this.subEventRepository.deleteByParentId(id);
+    await this.costEntryRepository.deleteByParentId(id);
     await this.aogEventRepository.delete(id);
   }
 
@@ -377,5 +397,59 @@ export class AOGEventsService {
       departmentTotals,
       grandTotalHours,
     };
+  }
+
+  async getCostBreakdown(filter: FilterAOGEventDto): Promise<CostBreakdownResponse> {
+    const parents = await this.aogEventRepository.findAll(buildFilter(filter));
+
+    if (parents.length === 0) {
+      return { departments: [], totals: { internalCost: 0, externalCost: 0, totalCost: 0 } };
+    }
+
+    const parentIds = parents.map((p) => p._id.toString());
+
+    // Fetch all cost entries for matching parent events
+    const allEntries: { department: string; internalCost: number; externalCost: number }[] = [];
+    for (const parentId of parentIds) {
+      const entries = await this.costEntryRepository.findByParentId(parentId);
+      for (const e of entries) {
+        allEntries.push({
+          department: e.department,
+          internalCost: e.internalCost,
+          externalCost: e.externalCost,
+        });
+      }
+    }
+
+    // Group by department
+    const deptMap = new Map<string, { internalCost: number; externalCost: number; entryCount: number }>();
+    for (const entry of allEntries) {
+      const existing = deptMap.get(entry.department) || { internalCost: 0, externalCost: 0, entryCount: 0 };
+      existing.internalCost += entry.internalCost;
+      existing.externalCost += entry.externalCost;
+      existing.entryCount += 1;
+      deptMap.set(entry.department, existing);
+    }
+
+    const departments: CostBreakdownDepartmentItem[] = Array.from(deptMap.entries())
+      .map(([department, data]) => ({
+        department,
+        internalCost: data.internalCost,
+        externalCost: data.externalCost,
+        totalCost: data.internalCost + data.externalCost,
+        entryCount: data.entryCount,
+      }))
+      .sort((a, b) => b.totalCost - a.totalCost);
+
+    const totals = departments.reduce(
+      (acc, d) => ({
+        internalCost: acc.internalCost + d.internalCost,
+        externalCost: acc.externalCost + d.externalCost,
+        totalCost: acc.totalCost + d.totalCost,
+      }),
+      { internalCost: 0, externalCost: 0, totalCost: 0 },
+    );
+
+    return { departments, totals };
   }
 }

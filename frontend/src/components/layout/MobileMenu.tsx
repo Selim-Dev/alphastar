@@ -9,7 +9,6 @@ import {
   AlertTriangle,
   ClipboardList,
   Search,
-  DollarSign,
   Calculator,
   Upload,
   Settings,
@@ -146,9 +145,9 @@ export function MobileMenu() {
       {/* Navigation */}
       <div className="py-4 overflow-y-auto">
         {navigationGroups.map((group) => {
-          // Filter out admin-only items if user is not admin
+          // Filter out admin-only items if user is not admin/superadmin
           const visibleItems = group.items.filter(
-            (item) => !item.adminOnly || user?.role === 'Admin'
+            (item) => !item.adminOnly || user?.role === 'SuperAdmin' || user?.role === 'Admin'
           );
 
           // Don't render empty groups

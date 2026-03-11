@@ -13,7 +13,9 @@ import { CategoryBadge } from '@/components/aog/CategoryBadge';
 import { useAOGEventById, useUpdateAOGEvent, useDeleteAOGEvent } from '@/hooks/useAOGEvents';
 import { useDeleteSubEvent } from '@/hooks/useAOGSubEvents';
 import { SubEventFormDialog } from '@/components/aog/SubEventFormDialog';
-import { useAuth } from '@/contexts/AuthContext';
+import { CostBreakdownCards } from '@/components/aog/CostBreakdownCards';
+import { CostEntryFormDialog } from '@/components/aog/CostEntryFormDialog';
+import { usePermissions } from '@/hooks/usePermissions';
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -375,8 +377,7 @@ function SubEventCard({
 export function AOGDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { user } = useAuth();
-  const isAdmin = user?.role === 'Admin';
+  const { canWrite, isSuperAdmin } = usePermissions();
 
   const { data: event, isLoading, isError } = useAOGEventById(id || null);
   const updateMutation = useUpdateAOGEvent();
@@ -391,6 +392,9 @@ export function AOGDetailPage() {
   // Sub-event form state
   const [showSubEventForm, setShowSubEventForm] = useState(false);
   const [editingSubEvent, setEditingSubEvent] = useState<SubEventResponse | null>(null);
+
+  // Cost entry form state
+  const [showCostEntryForm, setShowCostEntryForm] = useState(false);
 
   // Delete confirmation
   const [confirmDeleteEvent, setConfirmDeleteEvent] = useState(false);
@@ -493,7 +497,7 @@ export function AOGDetailPage() {
         <button onClick={() => navigate('/aog/list')} className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors">
           <ArrowLeft className="w-4 h-4" /> Back to Events
         </button>
-        {isAdmin && (
+        {isSuperAdmin && (
           <Button variant="outline" size="sm" className="text-destructive hover:bg-destructive/10" onClick={() => setConfirmDeleteEvent(true)}>
             <Trash2 className="w-3.5 h-3.5" /> Delete Event
           </Button>
@@ -619,9 +623,16 @@ export function AOGDetailPage() {
           <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
             Sub-Events ({subEvents.length})
           </h3>
-          <Button size="sm" onClick={() => { setEditingSubEvent(null); setShowSubEventForm(true); }}>
-            <Plus className="w-3.5 h-3.5" /> Add Sub-Event
-          </Button>
+          <div className="flex items-center gap-2">
+            {canWrite && (
+              <Button size="sm" variant="outline" onClick={() => setShowCostEntryForm(true)}>
+                <Plus className="w-3.5 h-3.5" /> Add Cost Breakdown
+              </Button>
+            )}
+            <Button size="sm" onClick={() => { setEditingSubEvent(null); setShowSubEventForm(true); }}>
+              <Plus className="w-3.5 h-3.5" /> Add Sub-Event
+            </Button>
+          </div>
         </div>
 
         {subEvents.length === 0 ? (
@@ -645,12 +656,29 @@ export function AOGDetailPage() {
         )}
       </div>
 
+      {/* ── Cost Breakdown Section ───────────────────────────────────────────── */}
+      <div className="space-y-3">
+        <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
+          Cost Breakdown
+        </h3>
+        <CostBreakdownCards parentId={event._id} showToast={showToast} />
+      </div>
+
       {/* ── Sub-Event Form Dialog (Task 13) ──────────────────────────────────── */}
       <SubEventFormDialog
         open={showSubEventForm}
         onClose={() => { setShowSubEventForm(false); setEditingSubEvent(null); }}
         parentId={event._id}
         editingSubEvent={editingSubEvent}
+        onSuccess={(msg) => showToast(msg, 'success')}
+        onError={(msg) => showToast(msg, 'error')}
+      />
+
+      {/* ── Cost Entry Form Dialog ───────────────────────────────────────────── */}
+      <CostEntryFormDialog
+        open={showCostEntryForm}
+        onClose={() => setShowCostEntryForm(false)}
+        parentId={event._id}
         onSuccess={(msg) => showToast(msg, 'success')}
         onError={(msg) => showToast(msg, 'error')}
       />

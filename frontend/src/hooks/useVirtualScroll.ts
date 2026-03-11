@@ -29,10 +29,10 @@ export function useVirtualScroll({
   overscan = 3,
 }: UseVirtualScrollOptions): VirtualScrollResult {
   const [scrollTop, setScrollTop] = useState(0);
-  const containerRef = useRef<HTMLDivElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null) as React.RefObject<HTMLDivElement>;
 
   // Calculate visible range
-  const { startIndex, endIndex, virtualItems } = useMemo(() => {
+  const { startIndex: _startIndex, endIndex: _endIndex, virtualItems } = useMemo(() => {
     const visibleStart = Math.floor(scrollTop / itemHeight);
     const visibleEnd = Math.ceil((scrollTop + containerHeight) / itemHeight);
 

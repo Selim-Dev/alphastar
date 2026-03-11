@@ -56,7 +56,7 @@ function App() {
         <Route path="/maintenance" element={<RedirectWithParams to="/maintenance/tasks" />} />
         <Route path="/maintenance/tasks" element={<MaintenanceTasksListPage />} />
         <Route path="/maintenance/tasks/log" element={
-          <ProtectedRoute allowedRoles={['Admin', 'Editor']}>
+          <ProtectedRoute allowedRoles={['SuperAdmin', 'Admin', 'Editor']}>
             <MaintenanceTasksLogPage />
           </ProtectedRoute>
         } />
@@ -76,12 +76,12 @@ function App() {
         <Route path="/work-orders/summary" element={<WorkOrderSummaryPage />} />
         <Route path="/work-orders/historical" element={<WorkOrdersListPage />} />
         <Route path="/work-orders/new" element={
-          <ProtectedRoute allowedRoles={['Admin', 'Editor']}>
+          <ProtectedRoute allowedRoles={['SuperAdmin', 'Admin', 'Editor']}>
             <WorkOrdersNewPage />
           </ProtectedRoute>
         } />
         <Route path="/work-orders/:id/edit" element={
-          <ProtectedRoute allowedRoles={['Admin', 'Editor']}>
+          <ProtectedRoute allowedRoles={['SuperAdmin', 'Admin', 'Editor']}>
             <WorkOrdersNewPage />
           </ProtectedRoute>
         } />
@@ -90,12 +90,12 @@ function App() {
         {/* Discrepancies Routes - separate pages instead of tabs */}
         <Route path="/discrepancies" element={<DiscrepanciesListPage />} />
         <Route path="/discrepancies/new" element={
-          <ProtectedRoute allowedRoles={['Admin', 'Editor']}>
+          <ProtectedRoute allowedRoles={['SuperAdmin', 'Admin', 'Editor']}>
             <DiscrepanciesNewPage />
           </ProtectedRoute>
         } />
         <Route path="/discrepancies/:id/edit" element={
-          <ProtectedRoute allowedRoles={['Admin', 'Editor']}>
+          <ProtectedRoute allowedRoles={['SuperAdmin', 'Admin', 'Editor']}>
             <DiscrepanciesNewPage />
           </ProtectedRoute>
         } />
@@ -113,7 +113,7 @@ function App() {
         <Route
           path="/import"
           element={
-            <ProtectedRoute allowedRoles={['Admin']}>
+            <ProtectedRoute allowedRoles={['SuperAdmin', 'Admin']}>
               <ImportPage />
             </ProtectedRoute>
           }
@@ -121,7 +121,7 @@ function App() {
         <Route
           path="/admin"
           element={
-            <ProtectedRoute allowedRoles={['Admin']}>
+            <ProtectedRoute allowedRoles={['SuperAdmin', 'Admin']}>
               <AdminPage />
             </ProtectedRoute>
           }

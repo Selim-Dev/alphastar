@@ -43,7 +43,7 @@ export class AuthController {
   }
 
   @Post('register')
-  @Roles(UserRole.Admin)
+  @Roles(UserRole.SuperAdmin, UserRole.Admin)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Create a new user (Admin only)' })
   @ApiResponse({ status: 201, description: 'User created successfully' })
@@ -69,7 +69,7 @@ export class AuthController {
   }
 
   @Get('users')
-  @Roles(UserRole.Admin)
+  @Roles(UserRole.SuperAdmin, UserRole.Admin)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Get all users (Admin only)' })
   @ApiResponse({ status: 200, description: 'Returns list of all users' })

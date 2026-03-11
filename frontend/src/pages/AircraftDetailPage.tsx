@@ -15,7 +15,7 @@ import { useWorkOrders } from '@/hooks/useWorkOrders';
 import { useDiscrepancies } from '@/hooks/useDiscrepancies';
 import { useMaintenanceTasks, useMaintenanceSummary } from '@/hooks/useMaintenance';
 import { useExportData, downloadBlob } from '@/hooks/useImportExport';
-import type { AOGEvent, WorkOrder, Discrepancy, MaintenanceTask } from '@/types';
+import type { WorkOrder, Discrepancy, MaintenanceTask } from '@/types';
 
 // Icons
 const BackIcon = () => (
@@ -129,7 +129,7 @@ export function AircraftDetailPage() {
   const { data: availabilityData } = useAvailability({ aircraftId: id, ...dateRange, groupBy: 'day' });
 
   // Fetch AOG events
-  const { data: aogEvents } = useAOGEvents({ aircraftId: id, ...dateRange, limit: 10 });
+  const { data: aogEvents } = useAOGEvents({ aircraftId: id, ...dateRange });
 
   // Fetch work orders
   const { data: workOrders } = useWorkOrders({ aircraftId: id, limit: 10 });
@@ -187,12 +187,12 @@ export function AircraftDetailPage() {
   };
 
   // Table columns for AOG events
-  const aogColumns: ColumnDef<AOGEvent, unknown>[] = useMemo(() => [
+  type AOGListItem = { _id: string; detectedAt: string; clearedAt: string | null; status: string; totalDowntimeHours: number; subEventCount: number };
+  const aogColumns: ColumnDef<AOGListItem, unknown>[] = useMemo(() => [
     { accessorKey: 'detectedAt', header: 'Detected', cell: ({ row }) => format(new Date(row.original.detectedAt), 'MMM dd, yyyy HH:mm') },
-    { accessorKey: 'category', header: 'Category', cell: ({ row }) => <StatusBadge status={row.original.category} /> },
-    { accessorKey: 'responsibleParty', header: 'Responsible' },
-    { accessorKey: 'reasonCode', header: 'Reason' },
-    { accessorKey: 'manHours', header: 'Man Hours' },
+    { accessorKey: 'status', header: 'Status', cell: ({ row }) => <StatusBadge status={row.original.status} /> },
+    { accessorKey: 'totalDowntimeHours', header: 'Downtime (hrs)', cell: ({ row }) => row.original.totalDowntimeHours?.toFixed(1) ?? '-' },
+    { accessorKey: 'subEventCount', header: 'Sub-Events' },
     { accessorKey: 'clearedAt', header: 'Cleared', cell: ({ row }) => row.original.clearedAt ? format(new Date(row.original.clearedAt), 'MMM dd, yyyy HH:mm') : 'Active' },
   ], []);
 
@@ -431,7 +431,7 @@ export function AircraftDetailPage() {
         </div>
         <div className="p-4">
           {activeTab === 'events' && (
-            <DataTable data={aogEvents || []} columns={aogColumns} searchPlaceholder="Search events..." searchColumn="reasonCode" pageSize={5} />
+            <DataTable data={(aogEvents || []) as AOGListItem[]} columns={aogColumns} searchPlaceholder="Search events..." searchColumn="status" pageSize={5} />
           )}
           {activeTab === 'workorders' && (
             <DataTable data={workOrders || []} columns={workOrderColumns} searchPlaceholder="Search work orders..." searchColumn="woNumber" pageSize={5} />

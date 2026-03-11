@@ -25,7 +25,7 @@ export function BudgetProjectsListPage() {
   });
 
   // Check if user can create projects (Editor or Admin)
-  const canCreateProject = user?.role === 'Editor' || user?.role === 'Admin';
+  const canCreateProject = user?.role === 'Editor' || user?.role === 'Admin' || user?.role === 'SuperAdmin';
 
   // Generate year options (current year ± 2 years)
   const yearOptions = useMemo(() => {

@@ -14,6 +14,7 @@ import {
 } from '@nestjs/common';
 import { AOGEventsService } from './services/aog-events.service';
 import { AOGSubEventsService } from './services/aog-sub-events.service';
+import { AOGCostEntriesService } from './services/aog-cost-entries.service';
 import { CreateAOGEventDto } from './dto/create-aog-event.dto';
 import { UpdateAOGEventDto } from './dto/update-aog-event.dto';
 import { FilterAOGEventDto } from './dto/filter-aog-event.dto';
@@ -21,6 +22,8 @@ import { CreateSubEventDto } from './dto/create-sub-event.dto';
 import { UpdateSubEventDto } from './dto/update-sub-event.dto';
 import { CreateHandoffDto } from './dto/create-handoff.dto';
 import { UpdateHandoffDto } from './dto/update-handoff.dto';
+import { CreateCostEntryDto } from './dto/create-cost-entry.dto';
+import { UpdateCostEntryDto } from './dto/update-cost-entry.dto';
 import { JwtAuthGuard, RolesGuard, Roles, CurrentUser } from '../auth';
 import { UserRole } from '../auth/schemas/user.schema';
 import type { AuthenticatedUser } from '../auth/strategies/jwt.strategy';
@@ -31,6 +34,7 @@ export class AOGEventsController {
   constructor(
     private readonly aogEventsService: AOGEventsService,
     private readonly aogSubEventsService: AOGSubEventsService,
+    private readonly aogCostEntriesService: AOGCostEntriesService,
   ) {}
 
   // ─── Parent Event Routes ───────────────────────────────────────────
@@ -75,6 +79,11 @@ export class AOGEventsController {
     return this.aogEventsService.getTimeBreakdown(filter);
   }
 
+  @Get('analytics/cost-breakdown')
+  async getCostBreakdown(@Query() filter: FilterAOGEventDto) {
+    return this.aogEventsService.getCostBreakdown(filter);
+  }
+
   @Get(':id')
   async findById(@Param('id') id: string) {
     const event = await this.aogEventsService.findById(id);
@@ -95,7 +104,7 @@ export class AOGEventsController {
   }
 
   @Delete(':id')
-  @Roles(UserRole.Admin)
+  @Roles(UserRole.SuperAdmin)
   @HttpCode(HttpStatus.NO_CONTENT)
   async delete(@Param('id') id: string) {
     await this.aogEventsService.delete(id);
@@ -199,5 +208,43 @@ export class AOGEventsController {
       handoffId,
       user.id,
     );
+  }
+
+  // ─── Cost Entry Routes ────────────────────────────────────────────
+
+  @Post(':parentId/cost-entries')
+  @Roles(UserRole.Admin, UserRole.Editor)
+  async createCostEntry(
+    @Param('parentId') parentId: string,
+    @Body() dto: CreateCostEntryDto,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.aogCostEntriesService.create(parentId, dto, user.id);
+  }
+
+  @Get(':parentId/cost-entries')
+  async listCostEntries(@Param('parentId') parentId: string) {
+    return this.aogCostEntriesService.findByParentId(parentId);
+  }
+
+  @Put(':parentId/cost-entries/:entryId')
+  @Roles(UserRole.Admin, UserRole.Editor)
+  async updateCostEntry(
+    @Param('parentId') parentId: string,
+    @Param('entryId') entryId: string,
+    @Body() dto: UpdateCostEntryDto,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.aogCostEntriesService.update(parentId, entryId, dto, user.id);
+  }
+
+  @Delete(':parentId/cost-entries/:entryId')
+  @Roles(UserRole.Admin, UserRole.Editor)
+  @HttpCode(HttpStatus.NO_CONTENT)
+  async deleteCostEntry(
+    @Param('parentId') parentId: string,
+    @Param('entryId') entryId: string,
+  ) {
+    await this.aogCostEntriesService.delete(parentId, entryId);
   }
 }

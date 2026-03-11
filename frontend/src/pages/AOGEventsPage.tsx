@@ -16,8 +16,8 @@ import { GlossaryTerm } from '@/components/ui/GlossaryTooltip';
 import {
   useAOGEvents,
   useAOGEventById,
-  useAOGAnalytics,
   useCreateAOGEvent,
+  useAOGAnalytics,
 } from '@/hooks/useAOGEvents';
 import { useAircraft } from '@/hooks/useAircraft';
 import { usePermissions } from '@/hooks/usePermissions';
@@ -864,7 +864,7 @@ export function AOGEventsPage() {
   const { data: singleEventData } = useAOGEventById(selectedEventId);
 
   const aircraft = aircraftData?.data || [];
-  const events = (eventsData || []) as (AOGEvent & { downtimeHours?: number })[];
+  const events = (eventsData || []) as unknown as (AOGEvent & { downtimeHours?: number })[];
 
   // Create aircraft map for lookups (handle both _id and id fields)
   const aircraftMap = useMemo(() => {
@@ -1163,7 +1163,7 @@ export function AOGEventsPage() {
       {selectedEventId && (() => {
         // Try to find event in current list first, fallback to single event fetch
         const selectedEvent = events.find((e) => e._id === selectedEventId) || 
-          (singleEventData as (AOGEvent & { downtimeHours?: number }) | null);
+          (singleEventData as unknown as (AOGEvent & { downtimeHours?: number }) | null);
         if (!selectedEvent) return null;
         const eventAircraft = aircraftMap.get(String(selectedEvent.aircraftId));
         return (

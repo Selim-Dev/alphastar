@@ -3,7 +3,7 @@ export interface User {
   _id: string;
   email: string;
   name: string;
-  role: 'Admin' | 'Editor' | 'Viewer';
+  role: 'SuperAdmin' | 'Admin' | 'Editor' | 'Viewer';
 }
 
 export interface AuthResponse {

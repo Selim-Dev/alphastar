@@ -89,7 +89,7 @@ export function BudgetPage() {
   const [cloneSuccess, setCloneSuccess] = useState<string>('');
 
   const { user } = useAuth();
-  const canEdit = user?.role === 'Admin' || user?.role === 'Editor';
+  const canEdit = user?.role === 'SuperAdmin' || user?.role === 'Admin' || user?.role === 'Editor';
 
   // Fetch data
   const { data: aircraftGroups } = useDistinctAircraftGroups(fiscalYear);

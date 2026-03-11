@@ -73,7 +73,7 @@ import { VACATION_TEAM_LABELS } from '@/types';
 
 export function VacationPlanPage() {
   const { user } = useAuth();
-  const isEditable = user?.role === 'Admin' || user?.role === 'Editor';
+  const isEditable = user?.role === 'SuperAdmin' || user?.role === 'Admin' || user?.role === 'Editor';
   
   // State
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());

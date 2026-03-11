@@ -196,7 +196,7 @@ function ConfirmDialog({
 
 export function DemoModeTab() {
   const { user } = useAuth();
-  const isAdmin = user?.role === 'Admin';
+  const isAdmin = user?.role === 'SuperAdmin' || user?.role === 'Admin';
 
   const { data: demoStatus, isLoading: statusLoading } = useDemoStatus();
   const seedMutation = useDemoSeed();

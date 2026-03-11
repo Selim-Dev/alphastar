@@ -40,7 +40,7 @@ export class CreateUserDto {
     example: UserRole.Editor,
     description: 'User role for access control',
   })
-  @IsEnum(UserRole, { message: 'Role must be Admin, Editor, or Viewer' })
+  @IsEnum(UserRole, { message: 'Role must be SuperAdmin, Admin, Editor, or Viewer' })
   @IsNotEmpty({ message: 'Role is required' })
   role: UserRole;
 }

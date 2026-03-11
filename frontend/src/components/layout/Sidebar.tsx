@@ -9,7 +9,6 @@ import {
   AlertTriangle,
   ClipboardList,
   Search,
-  DollarSign,
   Calculator,
   Upload,
   Settings,
@@ -294,7 +293,7 @@ function NavItem({ path, label, icon: Icon, collapsed, end, subItems }: NavItemP
 
   // Filter sub-items based on user role
   const visibleSubItems = subItems?.filter(
-    (item) => !item.editorOnly || user?.role === 'Admin' || user?.role === 'Editor'
+    (item) => !item.editorOnly || user?.role === 'SuperAdmin' || user?.role === 'Admin' || user?.role === 'Editor'
   );
 
   // Build tooltip content for collapsed state with sub-items
@@ -546,11 +545,11 @@ export function Sidebar() {
       {/* Navigation */}
       <div className="flex-1 py-4 overflow-y-auto overflow-x-hidden">
         {navigationGroups.map((group) => {
-          // Filter out admin-only items if user is not admin
+          // Filter out admin-only items if user is not admin/superadmin
           const visibleItems = group.items.filter(
-            (item) => !item.adminOnly || user?.role === 'Admin'
+            (item) => !item.adminOnly || user?.role === 'SuperAdmin' || user?.role === 'Admin'
           ).filter(
-            (item) => !item.editorOnly || user?.role === 'Admin' || user?.role === 'Editor'
+            (item) => !item.editorOnly || user?.role === 'SuperAdmin' || user?.role === 'Admin' || user?.role === 'Editor'
           );
 
           // Don't render empty groups

@@ -7,6 +7,7 @@ import { useAuth } from '@/contexts/AuthContext';
  * - Viewer: Read only
  * - Editor: Read + Create/Update
  * - Admin: Read + Create/Update + Delete + User Management
+ * - SuperAdmin: All Admin permissions + Delete AOG Events
  */
 export function usePermissions() {
   const { user } = useAuth();
@@ -17,22 +18,26 @@ export function usePermissions() {
     // Can view data (all roles)
     canRead: !!role,
     
-    // Can create and update data (Editor, Admin)
-    canWrite: role === 'Editor' || role === 'Admin',
+    // Can create and update data (Editor, Admin, SuperAdmin)
+    canWrite: role === 'Editor' || role === 'Admin' || role === 'SuperAdmin',
     
-    // Can delete data (Admin only)
-    canDelete: role === 'Admin',
+    // Can delete data (Admin, SuperAdmin)
+    canDelete: role === 'Admin' || role === 'SuperAdmin',
     
-    // Can manage users (Admin only)
-    canManageUsers: role === 'Admin',
+    // Can delete AOG events (SuperAdmin only)
+    canDeleteAOG: role === 'SuperAdmin',
     
-    // Can import data (Admin only)
-    canImport: role === 'Admin',
+    // Can manage users (Admin, SuperAdmin)
+    canManageUsers: role === 'Admin' || role === 'SuperAdmin',
+    
+    // Can import data (Admin, SuperAdmin)
+    canImport: role === 'Admin' || role === 'SuperAdmin',
     
     // Check if user is a specific role
     isViewer: role === 'Viewer',
     isEditor: role === 'Editor',
     isAdmin: role === 'Admin',
+    isSuperAdmin: role === 'SuperAdmin',
     
     // Current role
     role,

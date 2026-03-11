@@ -70,7 +70,7 @@ export function BudgetAnalyticsPage() {
   // Extract aircraft types from project scope
   const aircraftTypes = useMemo(() => {
     if (!project) return [];
-    if (project.aircraftScope.type === 'type' && project.aircraftScope.aircraftTypes) {
+    if (project.aircraftScope?.type === 'type' && project.aircraftScope?.aircraftTypes) {
       return project.aircraftScope.aircraftTypes;
     }
     return [];
@@ -177,7 +177,7 @@ export function BudgetAnalyticsPage() {
                 value={filters.aircraftType}
                 onValueChange={(value) => handleFilterChange('aircraftType', value)}
               >
-                <SelectTrigger id="aircraftType" className="w-full">
+                <SelectTrigger className="w-full">
                   <SelectValue placeholder="All Types" />
                 </SelectTrigger>
                 <SelectContent>

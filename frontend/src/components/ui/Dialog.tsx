@@ -1,7 +1,6 @@
 import { ReactNode, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
-import { Button } from './Form';
 
 interface DialogProps {
   open: boolean;

@@ -45,7 +45,7 @@ export function CumulativeSpendChart({ data, currency }: CumulativeSpendChartPro
           tickFormatter={(value) => `${currency} ${(value / 1000).toFixed(0)}K`}
         />
         <Tooltip
-          formatter={(value: number) => `${currency} ${value.toLocaleString()}`}
+          formatter={(value: string | number | undefined) => `${currency} ${Number(value).toLocaleString()}`}
           contentStyle={{
             backgroundColor: 'hsl(var(--background))',
             border: '1px solid hsl(var(--border))',

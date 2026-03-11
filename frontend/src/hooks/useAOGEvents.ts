@@ -7,6 +7,7 @@ interface AOGEventFilter {
   status?: 'active' | 'completed';
   startDate?: string;
   endDate?: string;
+  responsibleParty?: string;
 }
 
 interface ParentEventListItem {
@@ -128,6 +129,19 @@ export function useDeleteAOGEvent() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['aog-events'] });
+    },
+  });
+}
+
+export function useAOGAnalytics(filters?: AOGEventFilter) {
+  return useQuery({
+    queryKey: ['aog-analytics', 'responsibility', filters],
+    queryFn: async () => {
+      const { data } = await api.get<{ responsibleParty: string; totalDowntimeHours: number; eventCount: number }[]>(
+        '/aog-events/analytics',
+        { params: filters }
+      );
+      return data;
     },
   });
 }

@@ -5,6 +5,7 @@ import { baseSchemaOptions } from '../../database/base.schema';
 export type UserDocument = User & Document;
 
 export enum UserRole {
+  SuperAdmin = 'SuperAdmin',
   Admin = 'Admin',
   Editor = 'Editor',
   Viewer = 'Viewer',

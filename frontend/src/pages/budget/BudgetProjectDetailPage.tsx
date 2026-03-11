@@ -50,8 +50,7 @@ export function BudgetProjectDetailPage() {
   const { data: kpis, isLoading: kpisLoading } = useKPIs();
 
   // Check user permissions
-  const canEdit = user?.role === 'Editor' || user?.role === 'Admin';
-  const canDelete = user?.role === 'Admin';
+  const canDelete = user?.role === 'Admin' || user?.role === 'SuperAdmin';
   const isViewer = user?.role === 'Viewer';
 
   // Handle delete project

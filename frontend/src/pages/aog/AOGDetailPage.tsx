@@ -41,7 +41,7 @@ interface SubEventResponse {
 
 interface DepartmentHandoffResponse {
   _id: string;
-  department: 'QC' | 'Engineering' | 'Project Management' | 'Procurement' | 'Others';
+  department: 'QC' | 'Engineering' | 'Project Management' | 'Procurement' | 'Technical' | 'MCC' | 'Others';
   sentAt: string;
   returnedAt: string | null;
   notes: string | null;
@@ -124,6 +124,8 @@ const DEPT_COLORS: Record<string, { bg: string; text: string; bar: string }> = {
   Engineering: { bg: 'bg-blue-500/15', text: 'text-blue-600', bar: 'bg-blue-500' },
   'Project Management': { bg: 'bg-purple-500/15', text: 'text-purple-600', bar: 'bg-purple-500' },
   Procurement: { bg: 'bg-teal-500/15', text: 'text-teal-600', bar: 'bg-teal-500' },
+  Technical: { bg: 'bg-orange-500/15', text: 'text-orange-600', bar: 'bg-orange-500' },
+  MCC: { bg: 'bg-cyan-500/15', text: 'text-cyan-600', bar: 'bg-cyan-500' },
   Others: { bg: 'bg-green-500/15', text: 'text-green-600', bar: 'bg-green-500' },
 };
 
@@ -388,6 +390,8 @@ export function AOGDetailPage() {
   const [locationValue, setLocationValue] = useState('');
   const [editingNotes, setEditingNotes] = useState(false);
   const [notesValue, setNotesValue] = useState('');
+  const [editingClearedAt, setEditingClearedAt] = useState(false);
+  const [clearedAtValue, setClearedAtValue] = useState('');
 
   // Sub-event form state
   const [showSubEventForm, setShowSubEventForm] = useState(false);
@@ -427,6 +431,7 @@ export function AOGDetailPage() {
     } catch {
       showToast('Failed to update cleared date', 'error');
     }
+    setEditingClearedAt(false);
   };
 
   const saveNotes = async (value: string) => {
@@ -566,12 +571,41 @@ export function AOGDetailPage() {
             <span className="text-xs text-muted-foreground flex items-center gap-1 mb-1">
               <CheckCircle2 className="w-3 h-3" /> Cleared
             </span>
-            <Input
-              type="datetime-local"
-              value={clearedAtInputValue}
-              onChange={(e) => saveClearedAt(e.target.value)}
-              className="h-8 text-sm"
-            />
+            {editingClearedAt ? (
+              <div className="flex items-center gap-1.5">
+                <Input
+                  autoFocus
+                  type="datetime-local"
+                  value={clearedAtValue}
+                  onChange={(e) => setClearedAtValue(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') saveClearedAt(clearedAtValue);
+                    if (e.key === 'Escape') setEditingClearedAt(false);
+                  }}
+                  className="h-8 text-sm"
+                />
+                <Button size="sm" className="h-8 px-2 shrink-0" onClick={() => saveClearedAt(clearedAtValue)}>
+                  Save
+                </Button>
+                <Button size="sm" variant="ghost" className="h-8 px-2 shrink-0" onClick={() => setEditingClearedAt(false)}>
+                  <X className="w-3.5 h-3.5" />
+                </Button>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => {
+                  setClearedAtValue(event.clearedAt ? format(new Date(event.clearedAt), "yyyy-MM-dd'T'HH:mm") : '');
+                  setEditingClearedAt(true);
+                }}
+                className="text-sm text-foreground hover:text-primary transition-colors text-left"
+                title="Click to edit"
+              >
+                {event.clearedAt
+                  ? format(new Date(event.clearedAt), 'dd MMM yyyy HH:mm')
+                  : <span className="text-muted-foreground italic">Click to set</span>}
+              </button>
+            )}
           </div>
 
           {/* Total downtime */}

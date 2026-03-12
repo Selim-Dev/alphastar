@@ -134,9 +134,28 @@ export class AOGSubEventsService {
 
   /**
    * Find all sub-events for a given parent event.
+   * Returns plain objects with string _id fields to avoid toJSON transform issues.
    */
-  async findByParentId(parentId: string): Promise<AOGSubEventDocument[]> {
-    return this.subEventRepository.findByParentId(parentId);
+  async findByParentId(parentId: string): Promise<Record<string, unknown>[]> {
+    const docs = await this.subEventRepository.findByParentId(parentId);
+    return docs.map((se) => {
+      const obj = se.toObject({
+        virtuals: false,
+        transform: false,
+      }) as Record<string, unknown>;
+      return {
+        ...obj,
+        _id: ((obj._id as Types.ObjectId) ?? se._id).toString(),
+        parentEventId: se.parentEventId.toString(),
+        departmentHandoffs: (se.departmentHandoffs || []).map((h) => ({
+          _id: h._id.toString(),
+          department: h.department,
+          sentAt: h.sentAt,
+          returnedAt: h.returnedAt ?? null,
+          notes: h.notes ?? null,
+        })),
+      };
+    });
   }
 
   /**

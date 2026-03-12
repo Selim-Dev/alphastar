@@ -42,7 +42,8 @@ export interface ParentEventListItem {
 }
 
 export interface ParentEventDetailResponse extends ParentEventListItem {
-  subEvents: AOGSubEventDocument[];
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  subEvents: any[];
 }
 
 export interface AnalyticsSummary {
@@ -195,7 +196,21 @@ export class AOGEventsService {
 
     return {
       ...toListItem(event, subEvents.length, categories, totalTechnicalTime, totalDepartmentTime),
-      subEvents,
+      subEvents: subEvents.map((se) => {
+        const obj = se.toObject({ virtuals: false, transform: false });
+        return {
+          ...obj,
+          _id: (obj._id ?? se._id).toString(),
+          parentEventId: se.parentEventId.toString(),
+          departmentHandoffs: (se.departmentHandoffs || []).map((h) => ({
+            _id: h._id.toString(),
+            department: h.department,
+            sentAt: h.sentAt,
+            returnedAt: h.returnedAt ?? null,
+            notes: h.notes ?? null,
+          })),
+        };
+      }),
     };
   }
 

@@ -12,7 +12,7 @@ import { useCreateSubEvent, useUpdateSubEvent, useAddHandoff, useUpdateHandoff, 
 
 interface DepartmentHandoffResponse {
   _id: string;
-  department: 'QC' | 'Engineering' | 'Project Management' | 'Procurement' | 'Others';
+  department: 'QC' | 'Engineering' | 'Project Management' | 'Procurement' | 'Technical' | 'MCC' | 'Others';
   sentAt: string;
   returnedAt: string | null;
   notes: string | null;
@@ -60,13 +60,15 @@ const DEPARTMENT_OPTIONS = [
   { value: 'Engineering', label: 'Engineering' },
   { value: 'Project Management', label: 'Project Management' },
   { value: 'Procurement', label: 'Procurement' },
+  { value: 'Technical', label: 'Technical' },
+  { value: 'MCC', label: 'MCC' },
   { value: 'Others', label: 'Others' },
 ];
 
 // ── Zod Schema ─────────────────────────────────────────────────────────────────
 
 const handoffSchema = z.object({
-  department: z.enum(['QC', 'Engineering', 'Project Management', 'Procurement', 'Others'], {
+  department: z.enum(['QC', 'Engineering', 'Project Management', 'Procurement', 'Technical', 'MCC', 'Others'], {
     error: 'Department is required',
   }),
   sentAt: z.string().min(1, 'Sent date is required'),
@@ -426,23 +428,22 @@ export function SubEventFormDialog({
                       </FormField>
                     </div>
 
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                      <FormField label="Returned At" error={handoffErrors?.returnedAt}>
-                        <Input
-                          type="datetime-local"
-                          error={!!handoffErrors?.returnedAt}
-                          {...register(`departmentHandoffs.${index}.returnedAt`)}
-                        />
-                      </FormField>
+                    <FormField label="Returned At" error={handoffErrors?.returnedAt}>
+                      <Input
+                        type="datetime-local"
+                        error={!!handoffErrors?.returnedAt}
+                        {...register(`departmentHandoffs.${index}.returnedAt`)}
+                      />
+                    </FormField>
 
-                      <FormField label="Notes" error={handoffErrors?.notes}>
-                        <Input
-                          placeholder="Optional notes"
-                          error={!!handoffErrors?.notes}
-                          {...register(`departmentHandoffs.${index}.notes`)}
-                        />
-                      </FormField>
-                    </div>
+                    <FormField label="Reason / Notes" error={handoffErrors?.notes}>
+                      <Textarea
+                        placeholder="e.g. Aircraft handed over to Engineering to carry out temporary repair on hydraulic leak"
+                        rows={2}
+                        error={!!handoffErrors?.notes}
+                        {...register(`departmentHandoffs.${index}.notes`)}
+                      />
+                    </FormField>
                   </div>
                 );
               })}

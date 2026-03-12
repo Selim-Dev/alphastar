@@ -11,7 +11,7 @@ export class DepartmentHandoff {
 
   @Prop({
     required: true,
-    enum: ['QC', 'Engineering', 'Project Management', 'Procurement', 'Others'],
+    enum: ['QC', 'Engineering', 'Project Management', 'Procurement', 'Technical', 'MCC', 'Others'],
   })
   department: string;
 

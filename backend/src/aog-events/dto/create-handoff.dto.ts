@@ -7,7 +7,7 @@ import {
 } from 'class-validator';
 
 export class CreateHandoffDto {
-  @IsEnum(['QC', 'Engineering', 'Project Management', 'Procurement', 'Others'])
+  @IsEnum(['QC', 'Engineering', 'Project Management', 'Procurement', 'Technical', 'MCC', 'Others'])
   @IsNotEmpty()
   department: string;
 

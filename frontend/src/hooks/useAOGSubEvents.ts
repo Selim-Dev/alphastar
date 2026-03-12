@@ -23,7 +23,7 @@ interface SubEventResponse {
 
 interface DepartmentHandoffResponse {
   _id: string;
-  department: 'QC' | 'Engineering' | 'Project Management' | 'Procurement' | 'Others';
+  department: 'QC' | 'Engineering' | 'Project Management' | 'Procurement' | 'Technical' | 'MCC' | 'Others';
   sentAt: string;
   returnedAt: string | null;
   notes: string | null;
@@ -53,14 +53,14 @@ interface UpdateSubEventDto {
 }
 
 interface CreateHandoffDto {
-  department: 'QC' | 'Engineering' | 'Project Management' | 'Procurement' | 'Others';
+  department: 'QC' | 'Engineering' | 'Project Management' | 'Procurement' | 'Technical' | 'MCC' | 'Others';
   sentAt: string;
   returnedAt?: string;
   notes?: string;
 }
 
 interface UpdateHandoffDto {
-  department?: 'QC' | 'Engineering' | 'Project Management' | 'Procurement' | 'Others';
+  department?: 'QC' | 'Engineering' | 'Project Management' | 'Procurement' | 'Technical' | 'MCC' | 'Others';
   sentAt?: string;
   returnedAt?: string;
   notes?: string;

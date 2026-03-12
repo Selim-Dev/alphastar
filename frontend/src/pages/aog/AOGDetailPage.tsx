@@ -426,12 +426,22 @@ export function AOGDetailPage() {
   const saveClearedAt = async (value: string) => {
     if (!id) return;
     try {
-      await updateMutation.mutateAsync({ id, clearedAt: value ? new Date(value).toISOString() : undefined });
-      showToast('Cleared date updated', 'success');
+      await updateMutation.mutateAsync({ id, clearedAt: value ? new Date(value).toISOString() : null });
+      showToast(value ? 'Event marked as cleared' : 'Event reopened as active', 'success');
     } catch {
       showToast('Failed to update cleared date', 'error');
     }
     setEditingClearedAt(false);
+  };
+
+  const handleUnclear = async () => {
+    if (!id) return;
+    try {
+      await updateMutation.mutateAsync({ id, clearedAt: null });
+      showToast('Event reopened as active', 'success');
+    } catch {
+      showToast('Failed to reopen event', 'error');
+    }
   };
 
   const saveNotes = async (value: string) => {
@@ -586,20 +596,43 @@ export function AOGDetailPage() {
                   <X className="w-3.5 h-3.5" />
                 </Button>
               </div>
+            ) : event.clearedAt ? (
+              <div className="space-y-1">
+                <p className="text-sm text-foreground">{format(new Date(event.clearedAt), 'dd MMM yyyy HH:mm')}</p>
+                {canWrite && (
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => { setClearedAtValue(format(new Date(event.clearedAt!), "yyyy-MM-dd'T'HH:mm")); setEditingClearedAt(true); }}
+                      className="text-xs text-muted-foreground hover:text-primary transition-colors flex items-center gap-1"
+                    >
+                      <Pencil className="w-3 h-3" /> Edit
+                    </button>
+                    <span className="text-muted-foreground/40">·</span>
+                    <button
+                      type="button"
+                      onClick={handleUnclear}
+                      disabled={updateMutation.isPending}
+                      className="text-xs text-amber-600 hover:text-amber-700 dark:text-amber-400 dark:hover:text-amber-300 transition-colors flex items-center gap-1 disabled:opacity-50"
+                    >
+                      <X className="w-3 h-3" /> Reopen
+                    </button>
+                  </div>
+                )}
+              </div>
             ) : (
-              <button
-                type="button"
-                onClick={() => {
-                  setClearedAtValue(event.clearedAt ? format(new Date(event.clearedAt), "yyyy-MM-dd'T'HH:mm") : '');
-                  setEditingClearedAt(true);
-                }}
-                className="text-sm text-foreground hover:text-primary transition-colors text-left"
-                title="Click to edit"
-              >
-                {event.clearedAt
-                  ? format(new Date(event.clearedAt), 'dd MMM yyyy HH:mm')
-                  : <span className="text-muted-foreground italic">Click to set</span>}
-              </button>
+              <div className="space-y-1">
+                <p className="text-sm text-muted-foreground italic">Still active</p>
+                {canWrite && (
+                  <button
+                    type="button"
+                    onClick={() => { setClearedAtValue(format(new Date(), "yyyy-MM-dd'T'HH:mm")); setEditingClearedAt(true); }}
+                    className="text-xs text-green-600 hover:text-green-700 dark:text-green-400 dark:hover:text-green-300 transition-colors flex items-center gap-1 font-medium"
+                  >
+                    <CheckCircle2 className="w-3 h-3" /> Mark as Cleared
+                  </button>
+                )}
+              </div>
             )}
           </div>
 

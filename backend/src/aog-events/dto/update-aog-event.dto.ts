@@ -1,9 +1,10 @@
-import { IsString, IsOptional, IsDateString } from 'class-validator';
+import { IsString, IsOptional, IsDateString, Allow } from 'class-validator';
 
 export class UpdateAOGEventDto {
-  @IsDateString()
   @IsOptional()
-  clearedAt?: string;
+  @IsDateString()
+  @Allow(null)
+  clearedAt?: string | null;
 
   @IsString()
   @IsOptional()

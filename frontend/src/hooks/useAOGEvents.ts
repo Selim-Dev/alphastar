@@ -69,7 +69,7 @@ interface CreateAOGEventDto {
 }
 
 interface UpdateAOGEventDto {
-  clearedAt?: string;
+  clearedAt?: string | null;
   location?: string;
   notes?: string;
 }

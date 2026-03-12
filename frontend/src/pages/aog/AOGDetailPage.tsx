@@ -490,11 +490,6 @@ export function AOGDetailPage() {
 
   const subEvents: SubEventResponse[] = event.subEvents || [];
 
-  // Format clearedAt for datetime-local input
-  const clearedAtInputValue = event.clearedAt
-    ? format(new Date(event.clearedAt), "yyyy-MM-dd'T'HH:mm")
-    : '';
-
   return (
     <div className="space-y-6">
       {/* ── Back button + Title ──────────────────────────────────────────────── */}
